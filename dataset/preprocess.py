@@ -11,11 +11,10 @@ from multiprocessing import Pool
 from datetime import datetime
 from face_alignment import FaceAlignment, LandmarksType
 
-from configs import Options
-from dataset import plot_landmarks
+from configs import DatasetOptions
 
 class Preprocess():
-    def __init__(self, options: Options):
+    def __init__(self, options: DatasetOptions):
         self.options = options
 
         logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -25,34 +24,34 @@ class Preprocess():
     def _preprocess_dataset(self):
         logging.info('===== DATASET PRE-PROCESSING =====')
         logging.info(f'Running on {self.options.device.upper()}.')
-        logging.info(f'Saving K+1 random frames from each video (K = {self.options.args.frames + 1}).')
+        logging.info(f'Saving K+1 random frames from each video (K = {self.options.frames + 1}).')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
         
-        self._create_csv(self.options.args.csv)
+        self._create_csv(self.options.csv)
         # Prune videos to large to fit into RAM
-        self._prune_videos(self.options.args.source)
+        self._prune_videos(self.options.source)
 
         video_list = self._get_video_list(
-            self.options.args.source,
-            self.options.args.size,
-            self.options.args.output,
-            overwrite=self.options.args.overwrite
+            self.options.source,
+            self.options.size,
+            self.options.output,
+            overwrite=self.options.overwrite
         )
 
         logging.info(f'Processing {len(video_list)} videos...')
         # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
         # pool.map(self._process_video_folder, video_list)
 
-        self._init_pool(fa, self.options.args.output)
+        self._init_pool(fa, self.options.output)
         counter = 1
         for v in video_list:
             start_time = datetime.now()
-            self._process_video_folder(v, self.options.args.csv)
+            self._process_video_folder(v, self.options.csv)
             logging.info(f'{counter}/{len(video_list)}\t{datetime.now()-start_time}')
             counter += 1
 
         logging.info(f'All {len(video_list)} videos processed.')
-        logging.info(f'CSV {self.options.args.csv} created.')
+        logging.info(f'CSV {self.options.csv} created.')
 
     
     def _create_csv(self, path):
@@ -60,7 +59,7 @@ class Preprocess():
             logging.info(f'Creating CSV file {path}).')
 
             header = []
-            for i in range(self.options.args.frames + 1):
+            for i in range(self.options.frames + 1):
                 header.append(f'landmark{i+1}')
                 header.append(f'image{i+1}')
             
@@ -235,7 +234,7 @@ class Preprocess():
         :return: List of selected frames.
         """
         S = []
-        while len(S) <= self.options.args.frames:
+        while len(S) <= self.options.frames:
             s = random.randint(0, len(frames)-1)
             if s not in S:
                 S.append(s)
