@@ -1,11 +1,8 @@
-import argparse
-import torch
+from configs import config, Options
 
-from configs import config
-
-class DatasetOptions():
-    def __init__(self):
-        self.parser = argparse.ArgumentParser(description="Facial Reenactment Dataset")
+class DatasetOptions(Options):
+    def __init__(self, description):
+        super(DatasetOptions, self).__init__(description)
         self._init_parser()
         self.args = self._parse_args()
 
@@ -28,13 +25,3 @@ class DatasetOptions():
                                             "is to ignore videos that have already been pre-processed.")
         self.parser.add_argument("--log_dir", type=str, default=config.LOG_DIR,
                                             help="Path where logs will be saved.")
-
-
-    def _parse_args(self):
-        args = self.parser.parse_args()
-        self.device = 'cuda' if (torch.cuda.is_available() and args.device == 'cuda') else 'cpu'
-
-        for k, v in vars(args).items():
-            setattr(self, k, v)
-
-        return args

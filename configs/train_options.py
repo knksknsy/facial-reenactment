@@ -1,13 +1,11 @@
-import argparse
-import torch
+from configs import config, Options
 
-from configs import config
-
-class TrainOptions():
-    def __init__(self):
-        self.parser = argparse.ArgumentParser(description="Facial Reenactment Training")
+class TrainOptions(Options):
+    def __init__(self, description):
+        super(TrainOptions, self).__init__(description)
         self._init_parser()
         self.args = self._parse_args()
+        self.losses = self._parse_losses(self.args)
 
 
     def _init_parser(self):
@@ -76,18 +74,6 @@ class TrainOptions():
                                             help="Step size for scheduler")
         self.parser.add_argument("--scheduler_gamma", default=config.SCHEDULER_GAMMA, type=float,
                                             help="Gamma for scheduler")
-
-
-    def _parse_args(self):
-        args = self.parser.parse_args()
-        self.device = 'cuda' if (torch.cuda.is_available() and args.device == 'cuda') else 'cpu'
-
-        self.losses = self._parse_losses(args)
-
-        for k, v in vars(args).items():
-            setattr(self, k, v)
-
-        return args
 
 
     def _parse_losses(self, args):
