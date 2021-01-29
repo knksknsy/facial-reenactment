@@ -3,10 +3,10 @@ import sys
 import logging
 import shutil
 import random
-import numpy as np
 import PIL
+import cv2
+import numpy as np
 
-from cv2 import cv2
 from multiprocessing import Pool
 from datetime import datetime
 from face_alignment import FaceAlignment, LandmarksType

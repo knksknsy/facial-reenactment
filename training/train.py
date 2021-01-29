@@ -1,9 +1,8 @@
 import os
 import sys
 import logging
-from cv2 import cv2
+import cv2
 
-import torch
 from torch.nn import DataParallel
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -13,7 +12,7 @@ from datetime import datetime
 from configs import TrainOptions
 from dataset import VoxCelebDataset
 from dataset import Resize, RandomHorizontalFlip, RandomRotate, ToTensor
-from network import Network
+from models import Network
 
 class Train():
     def __init__(self, options: TrainOptions):
@@ -22,14 +21,14 @@ class Train():
         logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
         self.data_loader_train, self.data_loader_test = self._get_data_loaders()
-        self.network = Network(training=True, self.options)
+        self.network = Network(self.options, training=True)
 
         self._train()
 
 
     def _get_data_loaders(self):
         dataset_train = VoxCelebDataset(
-            dataset_path=self.options.dataset_train_path,
+            dataset_path=self.options.dataset_train,
             csv_file=self.options.csv_train,
             shuffle_frames=True,
             transform=transforms.Compose([
@@ -41,7 +40,7 @@ class Train():
         )
 
         dataset_test = VoxCelebDataset(
-            dataset_path=self.options.dataset_test_path,
+            dataset_path=self.options.dataset_test,
             csv_file=self.options.csv_test,
             shuffle_frames=True,
             transform=transforms.Compose([
@@ -77,8 +76,8 @@ class Train():
             self._train_epoch(epoch)
 
             # SAVE MODEL (EPOCH)
-            # self.network.save_model(G, self.options, self.run_start)
-            # self.network.save_model(D, self.options, self.run_start)
+            # self.network.save_model(self.network.G, self.options.device, self.run_start)
+            # self.network.save_model(self.network.D, self.options.device, self.run_start)
             
             self.network.scheduler_D.step()
             self.network.scheduler_G.step()
@@ -92,7 +91,7 @@ class Train():
 
     def _train_epoch(self, epoch):
 
-        for batch_num, (i, batch) in enumerate(self.data_loader_train):
+        for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
 
             # TODO: load d_iters from config
@@ -123,8 +122,8 @@ class Train():
 
             # SAVE MODEL (N-ITERATIONS)
             # if (batch_num + 1) % 1000 == 0:
-            #     self.network.save_model(G, gpu, self.run_start)
-            #     self.network.save_model(D, gpu, self.run_start)
+            #     self.network.save_model(self.network.G, self.options.device, self.run_start)
+            #     self.network.save_model(self.network.D, self.options.device, self.run_start)
 
 
     def save_image(self, filename, data):

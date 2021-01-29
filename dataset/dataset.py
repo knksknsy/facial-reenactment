@@ -1,13 +1,13 @@
 import os
 import random
 import torch
+import cv2
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 from torch.utils.data import Dataset
-from cv2 import cv2
 
 class VoxCelebDataset(Dataset):
     """Dataset object for accessing and pre-processing VoxCeleb2 dataset"""

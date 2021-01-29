@@ -1,6 +1,6 @@
 import torch
+import cv2
 import numpy as np
-from cv2 import cv2
 
 class Resize(object):
     """Resize images and landmarks to given dimension."""
