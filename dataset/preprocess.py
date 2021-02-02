@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 import shutil
-import random
 import PIL
 import cv2
 import numpy as np
@@ -235,7 +234,7 @@ class Preprocess():
         """
         S = []
         while len(S) <= self.options.frames:
-            s = random.randint(0, len(frames)-1)
+            s = np.random.randint(0, len(frames)-1)
             if s not in S:
                 S.append(s)
 

@@ -1,32 +1,36 @@
-import os
-import sys
 import logging
-import cv2
+import torch
+import numpy as np
 
-from torch.nn import DataParallel
 from torchvision import transforms
 from torch.utils.data import DataLoader
-
 from datetime import datetime
 
 from configs import TrainOptions
+from testing import Test
 from dataset import VoxCelebDataset
 from dataset import Resize, RandomHorizontalFlip, RandomRotate, ToTensor
-from models import Network
+from models import Network, save_image
 
 class Train():
     def __init__(self, options: TrainOptions):
         self.options = options
+        self.training = True
 
-        logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+        # Set seeds
+        torch.backends.cudnn.benchmark = True
+        torch.manual_seed(57)
+        torch.cuda.manual_seed(57)
+        np.random.seed(57)
 
-        self.data_loader_train, self.data_loader_test = self._get_data_loaders()
-        self.network = Network(self.options, training=True)
+        self.data_loader_train = self._get_data_loader()
+        self.network = Network(self.options, self.training)
 
-        self._train()
+        # Start training
+        self()
 
 
-    def _get_data_loaders(self):
+    def _get_data_loader(self):
         dataset_train = VoxCelebDataset(
             dataset_path=self.options.dataset_train,
             csv_file=self.options.csv_train,
@@ -35,107 +39,95 @@ class Train():
                         Resize(size=self.options.image_size),
                         RandomHorizontalFlip(),
                         RandomRotate(angle=self.options.angle),
-                        ToTensor(device=self.options.device)
-            ])
+                        ToTensor(device=self.options.device),
+                        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
+            ]),
+            training=self.training
         )
 
-        dataset_test = VoxCelebDataset(
-            dataset_path=self.options.dataset_test,
-            csv_file=self.options.csv_test,
-            shuffle_frames=True,
-            transform=transforms.Compose([
-                        Resize(size=self.options.image_size),
-                        ToTensor(device=self.options.device)
-            ])
+        data_loader_train = DataLoader(dataset_train,
+                                        batch_size=self.options.batch_size,
+                                        shuffle=True,
+                                        num_workers=self.options.num_workers,
+                                        pin_memory=self.options.pin_memory
         )
 
-        # num_workers, pin_memory
-        data_loader_train = DataLoader(dataset_train, batch_size=self.options.batch_size, shuffle=True)
-        data_loader_test = DataLoader(dataset_test, batch_size=self.options.batch_size, shuffle=True)
-
-        return data_loader_train, data_loader_test
+        return data_loader_train
 
 
-    def _train(self):
-        self.run_start = datetime.now()
+    def __call__(self):
+        run_start = datetime.now()
 
         logging.info('===== TRAINING =====')
         logging.info(f'Running on {self.options.device.upper()}.')
-
-        logging.info(f'Training using dataset located in {self.options.dataset_train_path}')
-        logging.info(f'Testing using dataset located in {self.options.dataset_test_path}')
-
-        logging.info(f'Epochs: {self.options.epochs} Batches: {len(self.data_loader_train)} Batch Size: {self.options.batch_size}')
+        logging.info(f'----- OPTIONS -----')
+        logging.info(self.options)
+        logging.info(f'Epochs: {self.options.epochs} Batches/Iterations: {len(self.data_loader_train)} Batch Size: {self.options.batch_size}')
 
         for epoch in range(self.options.epochs):
-            epoch_start = datetime.now()
+            epoch_start =datetime.now()
 
-            self.network.train()
-
-            # TRAIN EPOCH
-            self._train_epoch(epoch)
-
-            # SAVE MODEL (EPOCH)
-            # self.network.save_model(self.network.G, self.options.device, self.run_start)
-            # self.network.save_model(self.network.D, self.options.device, self.run_start)
-            
-            self.network.scheduler_D.step()
-            self.network.scheduler_G.step()
+            self._train(epoch)
+            self._test(epoch)
 
             epoch_end = datetime.now()
             logging.info(f'Epoch {epoch + 1} finished in {epoch_end - epoch_start}.')
+
+        run_end = datetime.now()
+        logging.info(f'Training finished in {run_end - run_start}.')
+
+
+    def _train(self, epoch):
+        self.network.train()
+
+        # TRAIN EPOCH
+        self._train_epoch(epoch)
+
+        # SAVE MODEL (EPOCH)
+        self.network.save_model(self.network.G, self.options, self.run_start)
+        self.network.save_model(self.network.D, self.options, self.run_start)
         
-        self.run_end = datetime.now()
-        logging.info(f'Training finished in {self.run_end - self.run_start}.')
+        self.network.scheduler_D.step()
+        self.network.scheduler_G.step()
 
 
     def _train_epoch(self, epoch):
-
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
 
             # TODO: load d_iters from config
             d_iters = 5 if self.options.gan_type == 'wgan-gp' else 2
             if (batch_num + 1) % d_iters == 0:
-                self.network.forward_G(batch)
+                self.loss_G, self.image_fake = self.network.forward_G(batch)
                 self.network.optimizer_G.step()
             else:
-                self.network.forward_D(batch)
+                self.loss_D, self.real, self.fake = self.network.forward_D(batch)
                 self.network.optimizer_D.step()
 
             batch_end = datetime.now()
 
             # SHOW PROGRESS
-            # if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                # logging.info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(data_loader_train)}] | '
-                #              f'Time: {batch_end - batch_start} | '
-                #              f'Loss_G = {loss_G.item():.4f} Loss_D = {loss_D.item():.4f}')
-                # logging.debug(f'D(image) = {image.mean().item():.4f} D(image_hat) = {image_hat.mean().item():.4f}')
+            if (batch_num + 1) % 1 == 0 or batch_num == 0:
+                logging.info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
+                            f'Time: {batch_end - batch_start} | '
+                            f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f}')
+                logging.debug(f'D(real) = {self.real.mean().item():.4f} D(fake) = {self.fake.mean().item():.4f}')
 
             # LOG GENERATED IMAGES
-            # save_image(os.path.join(self.options.gen_dir, f'last_result_x.png'), image)
-            # save_image(os.path.join(self.options.gen_dir, f'last_result_x_hat.png'), image_hat)
+            save_image(self.options.gen_dir, f'last_result_real.png', batch['image2'][0])
+            save_image(self.options.gen_dir, f'last_result_fake.png', self.image_fake[0])
 
-            # if (batch_num + 1) % 1000 == 0:
-            #     save_image(os.path.join(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}_x.png'), image)
-            #     save_image(os.path.join(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}_x_hat.png'), image_hat)
+            if (batch_num + 1) % 1000 == 0:
+                save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}_real.png', epoch, batch_num, batch['image2'][0])
+                save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}_fake.png', epoch, batch_num, self.image_fake[0])
 
             # SAVE MODEL (N-ITERATIONS)
-            # if (batch_num + 1) % 1000 == 0:
-            #     self.network.save_model(self.network.G, self.options.device, self.run_start)
-            #     self.network.save_model(self.network.D, self.options.device, self.run_start)
+            if (batch_num + 1) % 1000 == 0:
+                self.network.save_model(self.network.G, self.options, self.run_start)
+                self.network.save_model(self.network.D, self.options, self.run_start)
 
 
-    def save_image(self, filename, data):
-        if not os.path.isdir(self.options.gen_dir):
-            os.makedirs(self.options.gen_dir)
-
-        data = data.clone().detach().cpu()
-        img = (data.numpy().transpose(1, 2, 0) * 255.0).clip(0, 255).astype("uint8")
-        cv2.imwrite(filename, img)
-
-
-    def imshow(self, data):
-        data = data.clone().detach().cpu()
-        img = (data.numpy().transpose(1, 2, 0) * 255.0).clip(0, 255).astype("uint8")
-        cv2.imshow('Image Preview', img)
+    def _test(self, epoch):
+        test = Test(self.options, self.network, self.training)
+        # Start testing
+        test(epoch)
