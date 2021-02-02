@@ -1,10 +1,10 @@
-from configs.options import Options
 import os
 import sys
 import logging
 from datetime import datetime
 
-from configs import Options, TrainOptions, TestOptions, DatasetOptions
+from configs.options import Options
+from configs import TrainOptions, TestOptions, DatasetOptions
 from training import Train
 from testing import Test
 from dataset import Preprocess
@@ -28,7 +28,7 @@ def main():
         elif mode == 'test':
             options = TestOptions(description=f'{description} Testing')
             setup_logger(options)
-            Test(options)
+            Test(options, training=False)
 
         else:
             print('invalid command')
