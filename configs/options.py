@@ -25,3 +25,11 @@ class Options(ABC):
                 os.makedirs(v)
 
         return args
+
+    def __str__(self):
+        output = ''
+
+        for k, v in vars(self.args).items():
+            output += f'{k:<20s}:\t{v}\n'
+
+        return output

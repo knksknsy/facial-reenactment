@@ -2,7 +2,12 @@
 LOG_DIR = r'logs'
 MODELS_DIR = r'models'
 GENERATED_DIR = r'generated_img'
+GENERATED_TEST_DIR = r'generated_test'
+TEST_DIR = r'outputs'
 # VGG_FACE = r'/home/<user>/models/vgg_face_dag.pth'
+
+# TESTING
+IMAGE_SIZE_TEST = 299
 
 # DATASET ---------------------------------------------------
 K = 8
@@ -12,8 +17,8 @@ ROTATION_ANGLE = 15
 
 # Training hyperparameters
 IMAGE_SIZE = 128  # 224
-BATCH_SIZE = 3
-EPOCHS = 75
+BATCH_SIZE = 8
+EPOCHS = 30
 
 LEARNING_RATE_G = 0.0001
 LEARNING_RATE_D = 0.0001
