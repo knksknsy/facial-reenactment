@@ -1,3 +1,11 @@
+todos.md
+
+logs/
+checkpoints/
+generated_img/
+generated_test/
+outputs/
+
 # VS Code
 .vscode/
 

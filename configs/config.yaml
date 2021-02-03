@@ -1,0 +1,53 @@
+paths:
+  log_dir: logs
+  checkpoint_dir: checkpoints
+  gen_dir: generated_img
+  gen_test_dir: generated_test
+  output_dir: outputs
+
+data_loader:
+  device: cuda
+  device_options: [cuda, cpu]
+  pin_memory: true
+  num_workers: 0
+
+preprocessing:
+  num_frames: 8
+  num_videos: 0
+  overwrite: false
+
+dataset:
+  root_dev: /media/Alpha/datasets/VoxCeleb2/Preprocessed/dev/
+  root_test: /media/Alpha/datasets/VoxCeleb2/Preprocessed/test/
+  csv_dev: ~/Repositories/facial-reenactment/dataset/dataset_dev.csv
+  csv_test: ~/Repositories/facial-reenactment/dataset/dataset_test.csv
+  continue_id: null
+  image_size: 128
+  image_size_test: 299
+  shuffle: true
+  augmentation:
+    shuffle_frames: true
+    horizontal_flip: true
+    rotation_angle: 15
+
+train:
+  epochs: 30
+  batch_size: 8
+  lr_generator: 0.0001
+  lr_discriminator: 0.0001
+  checkpoint_freq: 1000
+  gan_type: wgan-gp
+  grad_clip: 1
+  loss_weights:
+    l_adv: 0.01
+    l_rec: 1
+    l_self: 1
+    l_triple: 1
+    l_percep: 0.1
+    l_tv: 1.0e-4
+  optimizer:
+    beta1: 0.5
+    beta2: 0.9
+    weight_decay: 5.0e-4
+    scheduler_step_size: 1
+    scheduler_gamma: 0.1

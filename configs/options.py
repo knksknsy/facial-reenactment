@@ -1,6 +1,7 @@
 import argparse
 import torch
 import os
+import yaml
 
 from abc import ABC, abstractmethod
 
@@ -16,15 +17,24 @@ class Options(ABC):
 
 
     def _parse_args(self):
-        args, unknown = self.parser.parse_known_args()
-        self.device = 'cuda' if (torch.cuda.is_available() and args.device == 'cuda') else 'cpu'
+        self.args, unknown = self.parser.parse_known_args()
+        self.device = 'cuda' if (torch.cuda.is_available() and self.args.device == 'cuda') else 'cpu'
 
-        for k, v in vars(args).items():
-            setattr(self, k, v)
-            if '_dir' in k and not os.path.exists(v):
-                os.makedirs(v)
+        # Load YAML
+        with open(self.args.config) as f:
+            self.config = yaml.load(f)
+            self._set_properties(self.config)
 
-        return args
+
+    def _set_properties(self, d):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                self._set_properties(v)
+            else:
+                setattr(self, k, v)
+                if '_dir' in k and not os.path.exists(v):
+                    os.makedirs(v)
+
 
     def __str__(self):
         output = ''

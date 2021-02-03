@@ -38,28 +38,28 @@ class Network():
             # TODO: implement architectures: generator, discriminator
             self.optimizer_G = Adam(
                 params=self.G.parameters(),
-                lr=self.options.lr_g,
+                lr=self.options.lr_generator,
                 betas=(self.options.beta1, self.options.beta1),
                 weight_decay=self.options.weight_decay
             )
 
             self.optimizer_D = Adam(
                 params=self.D.parameters(),
-                lr=self.options.lr_d,
+                lr=self.options.lr_discriminator,
                 betas=(self.options.beta1, self.options.beta1),
                 weight_decay=self.options.weight_decay
             )
 
             self.scheduler_G = StepLR(
                 optimizer=self.optimizer_G,
-                step_size=self.options.step_size,
-                gamma=self.options.gamma
+                step_size=self.options.scheduler_step_size,
+                gamma=self.options.scheduler_gamma
             )
 
             self.scheduler_D = StepLR(
                 optimizer=self.optimizer_D,
-                step_size=self.options.step_size,
-                gamma=self.options.gamma
+                step_size=self.options.scheduler_step_size,
+                gamma=self.options.scheduler_gamma
             )
 
         # Testing mode
@@ -127,7 +127,7 @@ class Network():
 
     def load_model(self, model, options: Options):
             filename = f'{type(model).__name__}_{options.continue_id}.pth'
-            state_dict = torch.load(os.path.join(options.models_dir, filename))
+            state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
             model.load_state_dict(state_dict)
 
             logging.info(f'Model loaded: {filename}')
@@ -145,13 +145,13 @@ class Network():
         if options.device == 'cuda':
             m.cpu()
 
-        if not os.path.exists(options.models_dir):
-            os.makedirs(options.models_dir)
+        if not os.path.exists(options.checkpoint_dir):
+            os.makedirs(options.checkpoint_dir)
 
         filename = f'{type(m).__name__}_{time_for_name:%Y%m%d_%H%M}.pth'
         torch.save(
             m.state_dict(),
-            os.path.join(options.models_dir, filename)
+            os.path.join(options.checkpoint_dir, filename)
         )
 
         if options.device == 'cuda':

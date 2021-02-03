@@ -21,9 +21,10 @@ class Preprocess():
         self._preprocess_dataset()
     
     def _preprocess_dataset(self):
+        self.num_frames = self.options.num_frames + 1
         logging.info('===== DATASET PRE-PROCESSING =====')
         logging.info(f'Running on {self.options.device.upper()}.')
-        logging.info(f'Saving K+1 random frames from each video (K = {self.options.frames + 1}).')
+        logging.info(f'Saving K+1 random frames from each video (K = {self.num_frames + 1}).')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
         
         self._create_csv(self.options.csv)
@@ -32,7 +33,7 @@ class Preprocess():
 
         video_list = self._get_video_list(
             self.options.source,
-            self.options.size,
+            self.options.num_videos,
             self.options.output,
             overwrite=self.options.overwrite
         )
@@ -58,7 +59,7 @@ class Preprocess():
             logging.info(f'Creating CSV file {path}).')
 
             header = []
-            for i in range(self.options.frames + 1):
+            for i in range(self.num_frames):
                 header.append(f'landmark{i+1}')
                 header.append(f'image{i+1}')
             
@@ -233,7 +234,7 @@ class Preprocess():
         :return: List of selected frames.
         """
         S = []
-        while len(S) <= self.options.frames:
+        while len(S) < self.num_frames:
             s = np.random.randint(0, len(frames)-1)
             if s not in S:
                 S.append(s)

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from scipy import linalg
 
-from testing import InceptionNetwork
+from testing.inceptionv3 import InceptionNetwork
 from configs.options import Options
 
 class FrechetInceptionDistance():

@@ -31,23 +31,26 @@ class Train():
 
 
     def _get_data_loader(self):
+        transforms_list = [
+            Resize(size=self.options.image_size),
+            RandomHorizontalFlip() if self.options.horizontal_flip else None,
+            RandomRotate(angle=self.options.angle) if self.options.angle > 0 else None,
+            ToTensor(device=self.options.device),
+            transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
+        ]
+        compose = [t for t in transforms_list if t is not None]
+
         dataset_train = VoxCelebDataset(
             dataset_path=self.options.dataset_train,
             csv_file=self.options.csv_train,
-            shuffle_frames=True,
-            transform=transforms.Compose([
-                        Resize(size=self.options.image_size),
-                        RandomHorizontalFlip(),
-                        RandomRotate(angle=self.options.angle),
-                        ToTensor(device=self.options.device),
-                        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
-            ]),
+            shuffle_frames=self.options.shuffle_frames,
+            transform=transforms.Compose(compose),
             training=self.training
         )
 
         data_loader_train = DataLoader(dataset_train,
                                         batch_size=self.options.batch_size,
-                                        shuffle=True,
+                                        shuffle=self.options.shuffle,
                                         num_workers=self.options.num_workers,
                                         pin_memory=self.options.pin_memory
         )
@@ -117,12 +120,12 @@ class Train():
             save_image(self.options.gen_dir, f'last_result_real.png', batch['image2'][0])
             save_image(self.options.gen_dir, f'last_result_fake.png', self.image_fake[0])
 
-            if (batch_num + 1) % 1000 == 0:
+            if (batch_num + 1) % self.options.checkpoint_freq == 0:
                 save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}_real.png', epoch, batch_num, batch['image2'][0])
                 save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}_fake.png', epoch, batch_num, self.image_fake[0])
 
-            # SAVE MODEL (N-ITERATIONS)
-            if (batch_num + 1) % 1000 == 0:
+            # SAVE MODEL
+            if (batch_num + 1) % self.options.checkpoint_freq == 0:
                 self.network.save_model(self.network.G, self.options, self.run_start)
                 self.network.save_model(self.network.D, self.options, self.run_start)
 

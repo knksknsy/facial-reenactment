@@ -11,8 +11,7 @@ from pytorch_msssim import ssim
 from datetime import datetime
 
 from configs.options import Options
-from configs import config
-from testing import FrechetInceptionDistance
+from testing.fid import FrechetInceptionDistance
 from dataset import VoxCelebDataset
 from dataset import Resize, ToTensor
 from dataset import plot_landmarks
@@ -34,9 +33,9 @@ class Test():
         dataset_test = VoxCelebDataset(
             dataset_path=self.options.dataset_test,
             csv_file=self.options.csv_test,
-            shuffle_frames=False,
+            shuffle_frames=self.options.shuffle_frames,
             transform=transforms.Compose([
-                        Resize(size=config.IMAGE_SIZE_TEST),
+                        Resize(size=self.options.image_size_test),
                         ToTensor(device=self.options.device)
             ]),
             training=self.training
@@ -44,7 +43,7 @@ class Test():
 
         data_loader_test = DataLoader(dataset_test,
                                         batch_size=self.options.batch_size,
-                                        shuffle=True,
+                                        shuffle=self.options.shuffle,
                                         num_workers=self.options.num_workers,
                                         pin_memory=self.options.pin_memory
         )
