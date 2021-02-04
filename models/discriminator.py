@@ -4,19 +4,31 @@ from torch.nn import functional as F
 
 from configs import Options
 from models.utils import init_weights
+from models.components import ConvBlock
 
-# TODO: Archtitecture
 class Discriminator(nn.Module):
     def __init__(self, options: Options):
         super(Discriminator, self).__init__()
         self.options = options
-        
-        init_weights(self)
+
+        layers = []
+        layers.append(ConvBlock(3, 64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))        # B x   64 x 64 x 64
+        layers.append(ConvBlock(64, 128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))      # B x  128 x 32 x 32
+        layers.append(ConvBlock(128, 256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))     # B x  256 x 16 x 16
+        layers.append(ConvBlock(256, 512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))     # B x  512 x  8 x  8
+        layers.append(ConvBlock(512, 1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))    # B x 1024 x  4 x  4
+        layers.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))   # B x 2048 x  2 x  2
+        self.layers = nn.Sequential(*layers)
+
+        self.conv1 = ConvBlock(2048, 1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None)               # B x    1 x  2 x  2
+
+        self.apply(init_weights)
         self.to(self.options.device)
 
 
-    def forward(self):
-        return 0
+    def forward(self, x):
+        # Input: B x 3 x 128 x 128
+        return self.conv1(self.layers(x))
 
 
 class LossD(nn.Module):
@@ -26,19 +38,19 @@ class LossD(nn.Module):
         self.to(self.options.device)
 
 
-    def loss_adv_real(self, real_AB):
-        return -torch.mean(real_AB)
+    def loss_adv_real(self, d_real):
+        return -torch.mean(d_real)
 
 
-    def loss_adv_fake(self, fake_AB):
-        return torch.mean(fake_AB)
+    def loss_adv_fake(self, d_fake):
+        return torch.mean(d_fake)
 
 
-    def loss_gp(self, D, real_AB, fake_AB):
-        alpha = torch.rand(real_AB.size(0),1,1,1).to(self.options.device).expand_as(real_AB)
-        interpolated = alpha * real_AB + (1 - alpha) * fake_AB
+    def loss_gp(self, discriminator, real, fake):
+        alpha = torch.rand(real.size(0),1,1,1).to(self.options.device).expand_as(real)
+        interpolated = alpha * real + (1 - alpha) * fake
         interpolated.requires_grad = True
-        prob_interpolated = D(interpolated)
+        prob_interpolated = discriminator(interpolated)
 
         grad = torch.autograd.grad(
             outputs=prob_interpolated,
@@ -55,14 +67,14 @@ class LossD(nn.Module):
         return l_gp
 
 
-    def forward(self, D, fake_AB, real_AB, AB, image2):
-        fake_AB = fake_AB.to(self.options.device)
-        real_AB = real_AB.to(self.options.device)
-        AB = AB.to(self.options.device)
-        image2 = image2.to(self.options.device)
+    def forward(self, discriminator, d_fake, d_real, fake, real):
+        d_fake = d_fake.to(self.options.device)
+        d_real = d_real.to(self.options.device)
+        fake = fake.to(self.options.device)
+        real = real.to(self.options.device)
 
-        l_adv_real = self.loss_adv_real(real_AB)
-        l_adv_fake = self.loss_adv_fake(fake_AB)
-        l_gp = 10 * self.loss_gp(image2, AB)
+        l_adv_real = self.loss_adv_real(d_real)
+        l_adv_fake = self.loss_adv_fake(d_fake)
+        l_gp = 10 * self.loss_gp(discriminator, real, fake)
 
         return l_adv_real + l_adv_fake + l_gp

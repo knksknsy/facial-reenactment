@@ -79,19 +79,19 @@ class Network():
 
         self.G.zero_grad()
 
-        AB = self.G(batch['image1'], batch['landmark2'])
-        pred_AB = self.D(AB)
-        ABA = self.G(AB, batch['landmark1'])
-        AC = self.G(batch['image1'], batch['landmark3'])
-        BC = self.G(AB, batch['landmark3'])
+        fake_12 = self.G(batch['image1'], batch['landmark2'])
+        d_fake_12 = self.D(fake_12)
+        fake_121 = self.G(fake_12, batch['landmark1'])
+        fake_13 = self.G(batch['image1'], batch['landmark3'])
+        fake_23 = self.G(fake_12, batch['landmark3'])
 
-        loss_G = self.criterion_G(batch['image1'], batch['image2'], AB, pred_AB, ABA, AC, BC)
+        loss_G = self.criterion_G(batch['image1'], batch['image2'], fake_12, d_fake_12, fake_121, fake_13, fake_23)
         loss_G.backward()
 
         if self.options.grad_clip:
             torch.nn.utils.clip_grad_norm_(self.G.parameters(), 1, norm_type=2)
         
-        return loss_G, AB
+        return loss_G, fake_12
 
 
     def forward_D(self, batch):
@@ -100,19 +100,19 @@ class Network():
 
         self.D.zero_grad()
 
-        AB = self.G(batch['image1'], batch['landmark2']).detach()
-        AB.requires_grad = True
+        fake_12 = self.G(batch['image1'], batch['landmark2']).detach()
+        fake_12.requires_grad = True
 
-        fake_AB = self.D(AB)
-        real_AB = self.D(batch['image2'])
+        d_fake_12 = self.D(fake_12)
+        d_real_12 = self.D(batch['image2'])
 
-        loss_D = self.criterion_D(self.D, fake_AB, real_AB, AB, batch['image2'])
+        loss_D = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
         loss_D.backward()
 
         if self.options.grad_clip:
             torch.nn.utils.clip_grad_norm_(self.D.parameters(), 1, norm_type=2)
 
-        return loss_D, real_AB, fake_AB
+        return loss_D, d_real_12, d_fake_12
 
 
     def train(self):
