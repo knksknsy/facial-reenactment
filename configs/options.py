@@ -9,6 +9,7 @@ class Options(ABC):
     def __init__(self, description):
         self.description = description
         self.parser = argparse.ArgumentParser(description=self.description)
+        self._load_config()
 
 
     @abstractmethod
@@ -19,11 +20,15 @@ class Options(ABC):
     def _parse_args(self):
         self.args, unknown = self.parser.parse_known_args()
         self.device = 'cuda' if (torch.cuda.is_available() and self.args.device == 'cuda') else 'cpu'
+        self._set_properties(self.config)
 
-        # Load YAML
-        with open(self.args.config) as f:
+
+    def _load_config(self):
+        self.parser.add_argument('--config', type=str, required=True,  help='Path to YAML config file.')
+        args, unknown = self.parser.parse_known_args()
+
+        with open(args.config) as f:
             self.config = yaml.load(f)
-            self._set_properties(self.config)
 
 
     def _set_properties(self, d):

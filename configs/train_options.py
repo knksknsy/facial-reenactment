@@ -10,15 +10,14 @@ class TrainOptions(Options):
 
     def _init_parser(self):
         # ARGUMENTS: OPTIONS
-        self.parser.add_argument('--config', type=str, required=True, help='Path to YAML config file.')
-        self.parser.add_argument('--device', nargs='?', default=self.config['data_loader']['device'], const=self.config['data_loader']['device'],
-                                            choices=self.config['data_loader']['device_options'],
+        self.parser.add_argument('--device', nargs='?', default=self.config['device'], const=self.config['device'],
+                                            choices=self.config['device_options'],
                                             help='Whether to run the model on GPU or CPU.')
-        self.parser.add_argument('--pin_memory', action='store_false' if self.config['data_loader']['pin_memory'] else 'store_true')
-        self.parser.add_argument('--num_workers', type=int, default=self.config['data_loader']['num_workers'])
+        self.parser.add_argument('--pin_memory', action='store_false' if self.config['pin_memory'] else 'store_true')
+        self.parser.add_argument('--num_workers', type=int, default=self.config['num_workers'])
         self.parser.add_argument('--continue_id', type=str, default=self.config['train']['continue_id'],
                                             help='Id of the models to continue training.')
-        self.parser.add_argument('--checkpoint_freq', default=self.config['train']['checkpoint_freq'], type=int,
+        self.parser.add_argument('--checkpoint_freq', type=int, default=self.config['train']['checkpoint_freq'],
                                             help='Frequency [batch count] in which model checkpoints will be saved')
 
         # ARGUMENTS: DIRECTORIES
@@ -32,13 +31,13 @@ class TrainOptions(Options):
                                             help='Path where generated test images will be saved.')
 
         # ARGUMENTS: DATASET
-        self.parser.add_argument('--dataset_train', type=str, required=True, default=self.config['dataset']['root_dev'],
+        self.parser.add_argument('--dataset_train', type=str, required=True, default=self.config['dataset']['dataset_train'],
                                             help='Path to the pre-processed dataset for training.')
-        self.parser.add_argument('--dataset_test', type=str, required=True, default=self.config['dataset']['root_test'],
+        self.parser.add_argument('--dataset_test', type=str, required=True, default=self.config['dataset']['dataset_test'],
                                             help='Path to the pre-processed dataset for testing.')
-        self.parser.add_argument('--csv_train', type=str, required=True, default=self.config['dataset']['csv_dev'],
+        self.parser.add_argument('--csv_train', type=str, required=True, default=self.config['dataset']['csv_train'],
                                             help='Path to CSV file needed for torch.utils.data.Dataset to load data for training.')
-        self.parser.add_argument('--csv_test', type=str, required=True, default=self.config['dataset']['root_test'],
+        self.parser.add_argument('--csv_test', type=str, required=True, default=self.config['dataset']['csv_test'],
                                             help='Path to CSV file needed for torch.utils.data.Dataset to load data for testing.')
         self.parser.add_argument('--image_size', default=self.config['dataset']['image_size'], type=int,
                                             help='Image size')

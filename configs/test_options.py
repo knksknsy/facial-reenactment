@@ -9,13 +9,11 @@ class TestOptions(Options):
 
     def _init_parser(self):
         # ARGUMENTS: OPTIONS
-        self.parser.add_argument('--config', type=str, required=True,
-                                            help='Path to YAML config file.')
-        self.parser.add_argument('--device', nargs='?', default=self.config['data_loader']['device'], const=self.config['data_loader']['device'],
-                                            choices=self.config['data_loader']['device_options'],
+        self.parser.add_argument('--device', nargs='?', default=self.config['device'], const=self.config['device'],
+                                            choices=self.config['device_options'],
                                             help='Whether to run the model on GPU or CPU.')
-        self.parser.add_argument('--pin_memory', action='store_false' if self.config['data_loader']['pin_memory'] else 'store_true')
-        self.parser.add_argument('--num_workers', type=int, default=self.config['data_loader']['num_workers'])
+        self.parser.add_argument('--pin_memory', action='store_false' if self.config['pin_memory'] else 'store_true')
+        self.parser.add_argument('--num_workers', type=int, default=self.config['num_workers'])
 
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'],

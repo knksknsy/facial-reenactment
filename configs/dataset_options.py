@@ -9,10 +9,8 @@ class DatasetOptions(Options):
 
     def _init_parser(self):
         # ARGUMENTS: OPTIONS
-        self.parser.add_argument('--config', type=str, required=True,
-                                            help='Path to YAML config file.')
-        self.parser.add_argument('--device', nargs='?', default=self.config['data_loader']['device'], const=self.config['data_loader']['device'],
-                                            choices=self.config['data_loader']['device_options'],
+        self.parser.add_argument('--device', nargs='?', default=self.config['device'], const=self.config['device'],
+                                            choices=self.config['device_options'],
                                             help='Whether to run the model on GPU or CPU.')
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'],
