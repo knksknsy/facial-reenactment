@@ -8,7 +8,7 @@ from datetime import datetime
 from configs import TrainOptions
 from testing import Test
 from dataset import VoxCelebDataset
-from dataset import Resize, RandomHorizontalFlip, RandomRotate, ToTensor
+from dataset import Resize, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
 from models.network import Network
 from logger import Logger
 
@@ -37,7 +37,7 @@ class Train():
             RandomHorizontalFlip() if self.options.horizontal_flip else None,
             RandomRotate(angle=self.options.rotation_angle) if self.options.rotation_angle > 0 else None,
             ToTensor(device=self.options.device),
-            transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
+            Normalize(mean=0.5, std=0.5)
         ]
         compose = [t for t in transforms_list if t is not None]
 
@@ -111,26 +111,27 @@ class Train():
 
             batch_end = datetime.now()
 
-            # SHOW PROGRESS
-            if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
-                                    f'Time: {batch_end - batch_start} | '
-                                    f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f}')
-                self.logger.log_debug(f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
-                self.logger.log_scalar('Loss_G', self.loss_G.item(), self.iterations)
-                self.logger.log_scalar('Loss_D', self.loss_D.item(), self.iterations)
-                self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
-                self.logger.log_scalar('D(fake)', self.d_fake.mean().item(), self.iterations)
+            if hasattr(self, 'loss_G') and hasattr(self, 'image_fake'):
+                # SHOW PROGRESS
+                if (batch_num + 1) % 1 == 0 or batch_num == 0:
+                    self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
+                                        f'Time: {batch_end - batch_start} | '
+                                        f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f}')
+                    self.logger.log_debug(f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
+                    self.logger.log_scalar('Loss_G', self.loss_G.item(), self.iterations)
+                    self.logger.log_scalar('Loss_D', self.loss_D.item(), self.iterations)
+                    self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
+                    self.logger.log_scalar('D(fake)', self.d_fake.mean().item(), self.iterations)
 
-            # LOG GENERATED IMAGES
-            images_real = batch['image2'].clone().detach()
-            images_fake = self.image_fake.clone().detach()
-            images = torch.cat((images_real, images_fake), dim=1)
-            self.logger.save_image(self.options.gen_dir, f'0_last_result.png', images)
+                # LOG GENERATED IMAGES
+                images_real = batch['image2'].detach().clone()
+                images_fake = self.image_fake.detach().clone()
+                images = torch.cat((images_real, images_fake), dim=0)
+                self.logger.save_image(self.options.gen_dir, f'0_last_result.png', images)
 
-            if (batch_num + 1) % self.options.log_freq == 0:
-                self.logger.save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', images, epoch, self.iterations)
-                self.logger.log_image('Train/Generated', images, self.iterations)
+                if (batch_num + 1) % self.options.log_freq == 0:
+                    self.logger.save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', images, epoch, self.iterations)
+                    self.logger.log_image('Train/Generated', images, self.iterations)
 
             # SAVE MODEL
             if (batch_num + 1) % self.options.checkpoint_freq == 0:

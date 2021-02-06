@@ -29,7 +29,9 @@ class Network():
             self.D = Discriminator(self.options)
             
             # Print model summaries
+            self.logger.log_info('Generator architecture:')
             self.logger.log_info(self.G)
+            self.logger.log_info('Discriminator architecture:')
             self.logger.log_info(self.D)
 
             # Load networks into multiple GPUs

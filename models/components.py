@@ -10,12 +10,10 @@ class ConvBlock(nn.Module):
         if padding is None:
             padding = kernel_size // 2
 
-        self.reflection_pad = nn.ReflectionPad2d(padding)
-
         if not self.deconv:
-            self.conv2d = nn.utils.spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size, stride, bias=bias))
+            self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
         else:
-            self.conv2d = nn.utils.spectral_norm(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, bias=bias))
+            self.conv2d = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
 
         if self.instance_norm:
             self.in2d = nn.InstanceNorm2d(num_features=out_channels, affine=True, track_running_stats=True)
@@ -29,8 +27,7 @@ class ConvBlock(nn.Module):
 
 
     def forward(self, x):
-        out = self.reflection_pad(x)
-        out = self.conv2d(out)
+        out = self.conv2d(x)
 
         if self.instance_norm:
             out = self.in2d(out)

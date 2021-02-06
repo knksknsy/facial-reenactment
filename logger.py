@@ -2,8 +2,10 @@ import os
 import sys
 import logging
 import cv2
+import numpy as np
 
 from datetime import datetime
+from torch.functional import norm
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 from configs.options import Options
@@ -52,28 +54,38 @@ class Logger():
         if not os.path.isdir(path):
             os.makedirs(path)
 
-        grid = self._get_grid(image, bgr=True)
+        grid = self._get_grid(image)
 
         if epoch is not None and iteration is not None:
             filename = f'e_{epoch}_b{iteration}_{filename}'
-        
+
         cv2.imwrite(os.path.join(path, filename), grid)
 
 
     def show_image(self, image):
-        grid = self._get_grid(image, bgr=True)
+        grid = self._get_grid(image)
 
         cv2.imshow('Image Preview', grid)
 
 
     def log_image(self, tag: str, image, label):
-        grid = self._get_grid(image)
+        grid = self._get_grid(image, tensor=True)
         self.writer.add_images(tag, grid, label)
         self.writer.flush()
 
 
-    def _get_grid(self, data, bgr=False, nrow=4, normalize=True, range=(-1,1)):
-        grid = make_grid(data.clone().detach(), nrow, normalize, range)
-        if bgr:
-            grid.cpu().numpy().transpose(1, 2, 0)
-        return grid
+    def _get_grid(self, data, tensor=False, nrow=4, normalize=(0.5, 0.5)):
+        if normalize is not None:
+            data = self._denormalize(data, normalize[0], normalize[1])
+
+        grid = make_grid(data, nrow)
+
+        if not tensor:
+            grid = grid.cpu().numpy().transpose(1, 2, 0)
+
+        return grid * 255.0
+
+
+    def _denormalize(self, data, mean, std):
+        data = (data * std) + mean
+        return data

@@ -59,7 +59,7 @@ class LossD(nn.Module):
     def loss_gp(self, discriminator, real, fake):
         alpha = torch.rand(real.size(0),1,1,1).to(self.options.device).expand_as(real)
         interpolated = alpha * real + (1 - alpha) * fake
-        interpolated.requires_grad = True
+        # interpolated.requires_grad = True
         prob_interpolated = discriminator(interpolated)
 
         grad = torch.autograd.grad(

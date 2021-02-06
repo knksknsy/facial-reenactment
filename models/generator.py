@@ -72,8 +72,8 @@ class LossG(nn.Module):
         self.VGG = VGG(vgg16(pretrained=True))
         if torch.cuda.device_count() > 1:
             self.VGG = DataParallel(self.VGG)
-            self.VGG.eval()
-            self.VGG.to(self.options.device)
+        self.VGG.eval()
+        self.VGG.to(self.options.device)
 
 
     def loss_adv(self, d_fake_12):

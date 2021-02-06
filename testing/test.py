@@ -149,7 +149,7 @@ class Test():
                 self.logger.log_scalar('SSIM', ssim_val.item(), iterations)
 
             # LOG GENERATED IMAGES
-            images = torch.cat((images_real.clone().detach(), images_fake.clone().detach()), dim=1)
+            images = torch.cat((images_real.detach().clone(), images_fake.detach().clone()), dim=1)
             self.logger.save_image(self.options.gen_test_dir, f'0_last_result.png', images)
 
             if (batch_num + 1) % self.options.log_freq == 0:

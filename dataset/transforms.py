@@ -32,7 +32,7 @@ class Resize(object):
             image2 = cv2.resize(image2, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
             landmark2 = cv2.resize(landmark2, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
 
-            return {'image1': image1, 'image2': image2, 'image3': None, 'landmark1': None, 'landmark2': landmark2, 'landmark3': None}
+            return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
 
 class RandomHorizontalFlip(object):
@@ -67,7 +67,7 @@ class RandomHorizontalFlip(object):
             image2 = cv2.flip(image2, flipCode=1)
             landmark2 = cv2.flip(landmark2, flipCode=1)
 
-            return {'image1': image1, 'image2': image2, 'image3': None, 'landmark1': None, 'landmark2': landmark2, 'landmark3': None}
+            return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
 
 class RandomRotate(object):
@@ -109,7 +109,7 @@ class RandomRotate(object):
                     image2 = self.affine_transform(image2, angle_tmp)
                     landmark2 = self.affine_transform(landmark2, angle_tmp)
             
-            return {'image1': image1, 'image2': image2, 'image3': None, 'landmark1': None, 'landmark2': landmark2, 'landmark3': None}
+            return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
 
     def affine_transform(self, image, angle):
@@ -142,12 +142,12 @@ class ToTensor(object):
             landmark3 = np.ascontiguousarray(landmark3.transpose(2, 0, 1).astype(np.float32))
 
             # Convert to Tensor
-            image1 = torch.FloatTensor(image1).to(self.device)
-            image2 = torch.FloatTensor(image2).to(self.device)
-            image3 = torch.FloatTensor(image3).to(self.device)
-            landmark1 = torch.FloatTensor(landmark1).to(self.device)
-            landmark2 = torch.FloatTensor(landmark2).to(self.device)
-            landmark3 = torch.FloatTensor(landmark3).to(self.device)
+            image1 = torch.from_numpy(image1 * (1.0 / 255.0)).to(self.device)
+            image2 = torch.from_numpy(image2 * (1.0 / 255.0)).to(self.device)
+            image3 = torch.from_numpy(image3 * (1.0 / 255.0)).to(self.device)
+            landmark1 = torch.from_numpy(landmark1).to(self.device)
+            landmark2 = torch.from_numpy(landmark2).to(self.device)
+            landmark3 = torch.from_numpy(landmark3).to(self.device)
 
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -164,4 +164,38 @@ class ToTensor(object):
             image2 = torch.FloatTensor(image2).to(self.device)
             landmark2 = torch.FloatTensor(landmark2).to(self.device)
 
-            return {'image1': image1, 'image2': image2, 'image3': None, 'landmark1': None, 'landmark2': landmark2, 'landmark3': None}
+            return {'image1': image1, 'image2': image2, 'landmark2': landmark2, }
+
+
+class Normalize(object):
+    def __init__(self, mean: float, std: float, training=True):
+        self.mean = mean
+        self.std = std
+        self.training = training
+
+
+    def __call__(self, sample):
+        if self.training:
+            image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
+            landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
+
+            image1, image2, image3 = self._normalize(image1, self.mean, self.std), self._normalize(image2, self.mean, self.std), self._normalize(image3, self.mean, self.std)
+            landmark1, landmark2, landmark3 = self._normalize(landmark1, self.mean, self.std), self._normalize(landmark2, self.mean, self.std), self._normalize(landmark3, self.mean, self.std)
+
+            return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
+        
+        else:
+            image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
+            image1, image2, landmark2 = self._normalize(image1, self.mean, self.std), self._normalize(image2, self.mean, self.std), self._normalize(landmark2, self.mean, self.std)
+
+            return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
+
+
+    def _normalize(self, data, mean, std):
+        data = (data - mean) / std
+        return data
+
+
+    def _denormalize(self, data, mean, std):
+        data = (data * std) + mean
+        return data
