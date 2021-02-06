@@ -3,9 +3,13 @@ import torch.nn as nn
 from torch.nn import DataParallel
 from torch.nn import functional as F
 from torchvision.models.vgg import vgg16
+from torchsummary import summary
+
+import sys
+from io import StringIO
 
 from configs import Options
-from models.utils import init_weights
+from models.network import init_weights
 from models.vgg import VGG
 from models.components import ConvBlock, DownSamplingBlock, UpSamplingBlock, ResidualBlock
 
@@ -43,6 +47,14 @@ class Generator(nn.Module):
         return self.layers(torch.cat((images, landmarks), dim=1))
 
 
+    def __str__(self):
+        old_stdout = sys.stdout
+        sys.stdout = new_stdout = StringIO()
+        summary(self.layers, input_size=(6, 128, 128), batch_size=self.options.batch_size, device=self.options.device)
+        sys.stdout = old_stdout
+        return new_stdout.getvalue()
+
+
 class LossG(nn.Module):
     def __init__(self, options: Options):
         super(LossG, self).__init__()
@@ -65,7 +77,7 @@ class LossG(nn.Module):
 
 
     def loss_adv(self, d_fake_12):
-        return -d_fake_12 * self.w_adv
+        return torch.mean(-d_fake_12) * self.w_adv
 
 
     def loss_rec(self, fake_12, real_2):
@@ -82,11 +94,11 @@ class LossG(nn.Module):
 
     def loss_percep(self, fake_12, real_2):
         vgg_fake = self.VGG(fake_12)
-        vgg_target = self.VGG(real_2)
+        vgg_real = self.VGG(real_2)
         l_percep = 0
 
         for idx in range(len(self.VGG.layer_name_mapping)):
-            l_percep += F.mse_loss(vgg_fake[idx], vgg_target[idx].detach())
+            l_percep += F.mse_loss(vgg_fake[idx], vgg_real[idx].detach())
         
         return l_percep
 
@@ -111,7 +123,7 @@ class LossG(nn.Module):
         fake_13 = fake_13.to(self.options.device)
         fake_23 = fake_23.to(self.options.device)
 
-        l_adv = self.loss_adv(d_fake_12) * self.w_adv
+        l_adv = self.loss_adv(d_fake_12)
         l_rec = self.w_rec * self.loss_rec(fake_12, real_2)
         l_self = self.w_self * self.loss_self(fake_121, real_1)
         l_triple = self.w_triple * self.loss_triple(fake_13, fake_23)

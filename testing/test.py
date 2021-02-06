@@ -1,5 +1,4 @@
 import os
-import logging
 import cv2
 import torch
 import numpy as np
@@ -15,18 +14,20 @@ from testing.fid import FrechetInceptionDistance
 from dataset import VoxCelebDataset
 from dataset import Resize, ToTensor
 from dataset import plot_landmarks
-from models import Network, save_image
+from models import Network
+from logger import Logger
 
 class Test():
-    def __init__(self, options: Options, network: Network=None, training=False):
+    def __init__(self, logger: Logger, options: Options, network: Network=None, training=False):
+        self.logger = logger
         self.options = options
         self.training = training
 
         if self.training:
             self.network = network
-            self.data_loader_train = self._get_data_loader()
+            self.data_loader_test = self._get_data_loader()
         else:
-            self.network = Network(self.options, self.training)
+            self.network = Network(self.logger, self.options, self.training)
 
 
     def _get_data_loader(self):
@@ -55,8 +56,8 @@ class Test():
         self.network.eval()
         run_start = datetime.now()
 
-        logging.info('===== TESTING =====')
-        logging.info(f'Running on {self.options.device.upper()}.')
+        self.logger.log_info('===== TESTING =====')
+        self.logger.log_info(f'Running on {self.options.device.upper()}.')
 
         if self.training and epoch is not None:
             self._test(epoch)
@@ -65,12 +66,12 @@ class Test():
             self._test_single()
 
         run_end = datetime.now()
-        logging.info(f'Testing finished in {run_end - run_start}.')
+        self.logger.log_info(f'Testing finished in {run_end - run_start}.')
 
 
     def _test_single(self):
-        logging.info(f'Source image: {self.options.source}')
-        logging.info(f'Target image: {self.options.target}')
+        self.logger.log_info(f'Source image: {self.options.source}')
+        self.logger.log_info(f'Target image: {self.options.target}')
 
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
 
@@ -80,7 +81,7 @@ class Test():
         source = self._crop_and_resize(source, bbox_s, padding=20)
         target = self._crop_and_resize(target, bbox_t, padding=20)
 
-        logging.info('Extracting facial landmarks from target image.')
+        self.logger.log_info('Extracting facial landmarks from target image.')
         target_landmarks = fa.get_landmarks_from_image(target)[0]
         target_landmarks = plot_landmarks(target, target_landmarks)
 
@@ -91,11 +92,11 @@ class Test():
         target_landmarks = normalize(target_landmarks)
 
         output =  self.network(source, target_landmarks)
-        save_image(self.options.output, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', output)
+        self.logger.save_image(self.options.output, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', output)
 
 
     def _get_image_and_bbox(self, path, face_alignment):
-        logging.info('Extracting bounding boxes from source and target images.')
+        self.logger.log_info('Extracting bounding boxes from source and target images.')
 
         image = cv2.imread(path, cv2.IMREAD_COLOR)
         bboxes = face_alignment.face_detector.detect_from_image(image)
@@ -105,7 +106,7 @@ class Test():
 
 
     def _crop_and_resize(self, image, bbox, padding):
-        logging.info('Cropping faces and resizing source and target images.')
+        self.logger.log_info('Cropping faces and resizing source and target images.')
         height, width, _ = image.shape
         bbox_x1, bbox_x2 = bbox[0], bbox[2]
         bbox_y1, bbox_y2 = bbox[1], bbox[3]
@@ -119,32 +120,44 @@ class Test():
         return image
 
 
-    def _test(self, epoch=None):
-        logging.info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size}')
+    def _test(self, epoch):
+        self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size}')
 
-        fid = FrechetInceptionDistance(self.options, len(self.data_loader_train))
+        fid = FrechetInceptionDistance(self.options, len(self.data_loader_test))
 
-        # Path for generated test images
-        root = os.path.join(os.path.split(self.options.dataset_test)[0], self.options.gen_test_dir)
-        if not os.path.isdir(root):
-            os.makedirs(root)
+        iterations = epoch * len(self.data_loader_test)
 
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
 
-            images = batch['image2'].to(self.options.device)
-            gen_images = self.network(batch['image1'], batch['landmark2']).to(self.options.device)
-
-            # Save generated images
-            for idx in range(len(batch)):
-                self.save_image(os.path.join(root, batch['id'][idx], batch['id_video']), 'fake.png', gen_images[idx], epoch, batch_num)
+            images_real = batch['image2'].to(self.options.device)
+            images_fake = self.network(batch['image1'], batch['landmark2']).to(self.options.device)
 
             # Calculate FID
-            fid.calculate_activations(images, gen_images, batch_num)
+            fid.calculate_activations(images_real, images_fake, batch_num)
 
             # Calculate SSIM
-            ssim_val = ssim(gen_images, batch['image2'], data_range=255, size_average=False)
+            ssim_val = ssim(images_fake, batch['image2'], data_range=255, size_average=False)
 
             batch_end = datetime.now()
+
+            # SHOW PROGRESS
+            if (batch_num + 1) % 1 == 0 or batch_num == 0:
+                self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_test)}] | '
+                                    f'Time: {batch_end - batch_start} | ')
+                self.logger.log_debug(f'SSIM = {ssim_val.item():.4f}')
+                self.logger.log_scalar('SSIM', ssim_val.item(), iterations)
+
+            # LOG GENERATED IMAGES
+            images = torch.cat((images_real.clone().detach(), images_fake.clone().detach()), dim=1)
+            self.logger.save_image(self.options.gen_test_dir, f'0_last_result.png', images)
+
+            if (batch_num + 1) % self.options.log_freq == 0:
+                self.logger.save_image(self.options.gen_test_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', images, epoch, iterations)
+                self.logger.log_image('Test/Generated', images, iterations)
+            
+            iterations += 1
         
-        fid_score = fid.calculate_fid()
+        fid_val = fid.calculate_fid()
+        self.logger.log_debug(f'FID = {fid_val:.4f}')
+        self.logger.log_scalar('FID', fid_val, epoch)

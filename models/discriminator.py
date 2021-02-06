@@ -1,9 +1,12 @@
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
+from torchsummary import summary
+
+import sys
+from io import StringIO
 
 from configs import Options
-from models.utils import init_weights
+from models.network import init_weights
 from models.components import ConvBlock
 
 class Discriminator(nn.Module):
@@ -18,9 +21,8 @@ class Discriminator(nn.Module):
         layers.append(ConvBlock(256, 512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))     # B x  512 x  8 x  8
         layers.append(ConvBlock(512, 1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))    # B x 1024 x  4 x  4
         layers.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))   # B x 2048 x  2 x  2
+        layers.append(ConvBlock(2048, 1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None))             # B x    1 x  2 x  2
         self.layers = nn.Sequential(*layers)
-
-        self.conv1 = ConvBlock(2048, 1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None)               # B x    1 x  2 x  2
 
         self.apply(init_weights)
         self.to(self.options.device)
@@ -28,7 +30,15 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         # Input: B x 3 x 128 x 128
-        return self.conv1(self.layers(x))
+        return self.layers(x)
+
+
+    def __str__(self):
+        old_stdout = sys.stdout
+        sys.stdout = new_stdout = StringIO()
+        summary(self.layers, input_size=(3, 128, 128), batch_size=self.options.batch_size, device=self.options.device)
+        sys.stdout = old_stdout
+        return new_stdout.getvalue()
 
 
 class LossD(nn.Module):

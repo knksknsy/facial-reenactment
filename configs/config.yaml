@@ -6,7 +6,7 @@ num_workers: 0
 paths:
   log_dir: logs
   checkpoint_dir: checkpoints
-  gen_dir: generated_img
+  gen_dir: generated_train
   gen_test_dir: generated_test
   output_dir: outputs
 
@@ -34,7 +34,8 @@ train:
   batch_size: 8
   lr_generator: 0.0001
   lr_discriminator: 0.0001
-  checkpoint_freq: 1000
+  checkpoint_freq: 5000
+  log_freq: 1000
   gan_type: wgan-gp
   grad_clip: 1
   loss_weights:

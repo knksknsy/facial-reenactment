@@ -1,6 +1,4 @@
 import os
-import sys
-import logging
 import shutil
 import PIL
 import cv2
@@ -11,20 +9,20 @@ from datetime import datetime
 from face_alignment import FaceAlignment, LandmarksType
 
 from configs import DatasetOptions
+from logger import Logger
 
 class Preprocess():
-    def __init__(self, options: DatasetOptions):
+    def __init__(self, logger: Logger, options: DatasetOptions):
+        self.logger = logger
         self.options = options
-
-        logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
         self._preprocess_dataset()
     
     def _preprocess_dataset(self):
         self.num_frames = self.options.num_frames + 1
-        logging.info('===== DATASET PRE-PROCESSING =====')
-        logging.info(f'Running on {self.options.device.upper()}.')
-        logging.info(f'Saving K+1 random frames from each video (K = {self.num_frames + 1}).')
+        self.logger.log_info('===== DATASET PRE-PROCESSING =====')
+        self.logger.log_info(f'Running on {self.options.device.upper()}.')
+        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_frames + 1}).')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
         
         self._create_csv(self.options.csv)
@@ -38,7 +36,7 @@ class Preprocess():
             overwrite=self.options.overwrite
         )
 
-        logging.info(f'Processing {len(video_list)} videos...')
+        self.logger.log_info(f'Processing {len(video_list)} videos...')
         # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
         # pool.map(self._process_video_folder, video_list)
 
@@ -47,16 +45,16 @@ class Preprocess():
         for v in video_list:
             start_time = datetime.now()
             self._process_video_folder(v, self.options.csv)
-            logging.info(f'{counter}/{len(video_list)}\t{datetime.now()-start_time}')
+            self.logger.log_info(f'{counter}/{len(video_list)}\t{datetime.now()-start_time}')
             counter += 1
 
-        logging.info(f'All {len(video_list)} videos processed.')
-        logging.info(f'CSV {self.options.csv} created.')
+        self.logger.log_info(f'All {len(video_list)} videos processed.')
+        self.logger.log_info(f'CSV {self.options.csv} created.')
 
     
     def _create_csv(self, path):
         if not os.path.isfile(path):
-            logging.info(f'Creating CSV file {path}).')
+            self.logger.log_info(f'Creating CSV file {path}).')
 
             header = []
             for i in range(self.num_frames):
@@ -69,11 +67,11 @@ class Preprocess():
             with open(path, 'a') as csv_file:
                 csv_file.write(','.join(header))
         else:
-            logging.info(f'CSV file {path} loaded.')
+            self.logger.log_info(f'CSV file {path} loaded.')
 
 
     def _prune_videos(self, source):
-        logging.info('Pruning videos...')
+        self.logger.log_info('Pruning videos...')
         pruned = False
 
         # Split large videos into chunks (files length)
@@ -97,9 +95,9 @@ class Preprocess():
                     self._split_large_video(root, files, len(files)//3)
 
         if pruned:
-            logging.info('Videos pruned.')
+            self.logger.log_info('Videos pruned.')
         else:
-            logging.info('No videos to be pruned.')
+            self.logger.log_info('No videos to be pruned.')
 
 
     def _split_large_video(self, source, files, chunk_size):
@@ -143,7 +141,7 @@ class Preprocess():
         ignored and instead, different files will be loaded.
         :return: List of paths to videos.
         """
-        logging.info(f'Analyze already processed videos...')
+        self.logger.log_info(f'Analyze already processed videos...')
 
         already_processed = []
         if not overwrite:
@@ -151,9 +149,9 @@ class Preprocess():
                 if len(files) > 0 and len(dirs) <= 0:
                     already_processed.append(os.path.sep.join(root.split(os.path.sep)[-2:]))
         
-        logging.info(f'{len(already_processed)} videos already processed.')
+        self.logger.log_info(f'{len(already_processed)} videos already processed.')
 
-        logging.info(f'Analyze videos to be processed... (May take a while)')
+        self.logger.log_info(f'Analyze videos to be processed... (May take a while)')
         video_list = []
         counter = 0
         for root, dirs, files in os.walk(source):
@@ -198,7 +196,7 @@ class Preprocess():
                 face_alignment=_FA
             )
         except Exception as e:
-            logging.error(f'Video {os.path.basename(os.path.normpath(folder))} could not be processed:\n{e}')
+            self.logger.log_error(f'Video {os.path.basename(os.path.normpath(folder))} could not be processed:\n{e}')
     
 
     def _extract_frames(self, video):
@@ -283,4 +281,4 @@ class Preprocess():
         with open(csv, 'a') as csv_file:
             csv_file.write(','.join(csv_line))
 
-        logging.info(f'Saved files: {path}')
+        self.logger.log_info(f'Saved files: {path}')

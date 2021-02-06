@@ -1,41 +1,69 @@
 import os
-import sys
-import logging
+from typing import Tuple
 from datetime import datetime
 
 import torch
+import torch.nn as nn
 from torch.nn import DataParallel
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
+from torch.nn.modules.module import Module
+from torch.optim.optimizer import Optimizer
 
 from configs import Options
 from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
+from logger import Logger
+
+def init_weights(m, init_type='normal', gain=0.02):
+    classname = m.__class__.__name__
+    if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+        if init_type == 'normal':
+            nn.init.normal_(m.weight.data, 0.0, gain)
+        elif init_type == 'xavier':
+            nn.init.xavier_normal_(m.weight.data, gain=gain)
+        elif init_type == 'kaiming':
+            nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+        elif init_type == 'orthogonal':
+            nn.init.orthogonal_(m.weight.data, gain=gain)
+        else:
+            raise NotImplementedError(f'initialization method {init_type} is not implemented')
+        if hasattr(m, 'bias') and m.bias is not None:
+            nn.init.constant_(m.bias.data, 0.0)
+    elif classname.find('BatchNorm2d') != -1:
+        nn.init.normal_(m.weight.data, 1.0, gain)
+        nn.init.constant_(m.bias.data, 0.0)
+    elif classname.find('InstanceNorm2d') != -1:
+        nn.init.normal_(m.weight.data, 1.0, gain)
+        nn.init.constant_(m.bias.data, 0.0)
+
 
 class Network():
-    def __init__(self, options: Options, training=False):
+    def __init__(self, logger: Logger, options: Options, training=False):
+        self.logger = logger
         self.training = training
         self.options = options
 
-        self.G = Generator(self.options)
+        self.continue_epoch = 0
+        self.continue_iteration = 0
 
         # Training mode
         if self.training:
+            self.G = Generator(self.options)
             self.D = Discriminator(self.options)
+            
+            # Print model summaries
+            self.logger.log_info(self.G)
+            self.logger.log_info(self.D)
 
             # Load networks into multiple GPUs
             if torch.cuda.device_count() > 1:
                 self.G = DataParallel(self.G)
                 self.D = DataParallel(self.D)
 
-            if self.options.continue_id:
-                self.G = self.load_model(self.G, self.options)
-                self.D = self.load_model(self.D, self.options)
-
             self.criterion_G = LossG(self.options)
             self.criterion_D = LossD(self.options)
 
-            # TODO: implement architectures: generator, discriminator
             self.optimizer_G = Adam(
                 params=self.G.parameters(),
                 lr=self.options.lr_generator,
@@ -62,10 +90,15 @@ class Network():
                 gamma=self.options.scheduler_gamma
             )
 
+            if self.options.continue_id is not None:
+                self.G, self.optimizer_G, self.scheduler_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.scheduler_G, self.options)
+                self.D, self.optimizer_D, self.scheduler_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.scheduler_D, self.options)
+
         # Testing mode
         else:
+            self.G = Generator(self.options)
             state_dict = torch.load(self.options.model)
-            self.G.load_state_dict(state_dict)
+            self.G.load_state_dict(state_dict['model'])
 
 
     def __call__(self, images, landmarks):
@@ -125,21 +158,27 @@ class Network():
         self.D.eval()
 
 
-    def load_model(self, model, options: Options):
-            filename = f'{type(model).__name__}_{options.continue_id}.pth'
+    def load_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR,  options: Options) -> Tuple[Module, Optimizer, StepLR, str, str]:
+            filename = f'{type(model).__name__}_{options.continue_id}'
             state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
-            model.load_state_dict(state_dict)
+            model.load_state_dict(state_dict['model'])
+            optimizer.load_state_dict(state_dict['optimizer'])
+            scheduler.load_state_dict(state_dict['scheduler'])
+            epoch = state_dict['epoch']
+            iteration = state_dict['iteration']
 
-            logging.info(f'Model loaded: {filename}')
+            self.logger.log_info(f'Model loaded: {filename}')
             
-            return model
+            return model, optimizer, scheduler, epoch, iteration
 
 
-    def save_model(self, model, options: Options, time_for_name=None):
+    def save_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, epoch: str, iteration: str, options: Options, time_for_name=None):
         if time_for_name is None:
             time_for_name = datetime.now()
 
         m = model.module if isinstance(model, DataParallel) else model
+        # o = optimizer.module if isinstance(optimizer, DataParallel) else optimizer
+        # s = scheduler.module if isinstance(scheduler, DataParallel) else scheduler
 
         m.eval()
         if options.device == 'cuda':
@@ -148,9 +187,14 @@ class Network():
         if not os.path.exists(options.checkpoint_dir):
             os.makedirs(options.checkpoint_dir)
 
-        filename = f'{type(m).__name__}_{time_for_name:%Y%m%d_%H%M}.pth'
-        torch.save(
-            m.state_dict(),
+        filename = f'{type(m).__name__}_e{epoch.zfill(3)}_i{iteration.zfill(9)}_{time_for_name:%Y%m%d_%H%M}.pth'
+        torch.save({
+                'model': m.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict(),
+                'epoch': epoch,
+                'iteration': iteration
+            },
             os.path.join(options.checkpoint_dir, filename)
         )
 
@@ -158,4 +202,4 @@ class Network():
             m.to(options.device)
         m.train()
 
-        logging.info(f'Model saved: {filename}')
+        self.logger.log_info(f'Model saved: {filename}')

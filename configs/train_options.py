@@ -18,7 +18,9 @@ class TrainOptions(Options):
         self.parser.add_argument('--continue_id', type=str, default=self.config['train']['continue_id'],
                                             help='Id of the models to continue training.')
         self.parser.add_argument('--checkpoint_freq', type=int, default=self.config['train']['checkpoint_freq'],
-                                            help='Frequency [batch count] in which model checkpoints will be saved')
+                                            help='Frequency in which model checkpoints will be saved')
+        self.parser.add_argument('--log_freq', type=int, default=self.config['train']['log_freq'],
+                                            help='Frequency in which logs will be saved')
 
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'],
