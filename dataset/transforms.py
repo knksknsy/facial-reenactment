@@ -5,14 +5,14 @@ import numpy as np
 class Resize(object):
     """Resize images and landmarks to given dimension."""
 
-    def __init__(self, size):
+    def __init__(self, size, training=True):
         self.size = size
+        self.training = training
 
 
     def __call__(self, sample):
-        training = sample['training'][0]
 
-        if training:
+        if self.training:
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
             
@@ -38,14 +38,16 @@ class Resize(object):
 class RandomHorizontalFlip(object):
     """Flip images and landmarks randomly."""
 
-    def __call__(self, sample):
-        training = sample['training'][0]
+    def __init__(self, training=True):
+        self.training = training
 
+
+    def __call__(self, sample):
         flip = np.random.rand(1)[0] > 0.5
         if not flip:
             return sample
 
-        if training:
+        if self.training:
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
                 
@@ -71,14 +73,13 @@ class RandomHorizontalFlip(object):
 class RandomRotate(object):
     """Rotate images and landmarks randomly."""
 
-    def __init__(self, angle):
+    def __init__(self, angle, training=True):
         self.angle = angle
+        self.training = training
 
 
     def __call__(self, sample):
-        training = sample['training'][0]
-
-        if training:
+        if self.training:
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 
@@ -113,7 +114,7 @@ class RandomRotate(object):
 
     def affine_transform(self, image, angle):
         image_center = tuple(np.array(image.shape[1::-1]) / 2)
-        rot_mat = cv2.getRotationMatrix2D(image_center, angle, scale=1.0)
+        rot_mat = cv2.getRotationMatrix2D(image_center, angle.item(), scale=1.0)
         image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
 
         return image
@@ -122,14 +123,13 @@ class RandomRotate(object):
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
-    def __init__(self, device):
+    def __init__(self, device, training=True):
         self.device = device
+        self.training = training
 
 
     def __call__(self, sample):
-        training = sample['training'][0]
-
-        if training:
+        if self.training:
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 

@@ -28,7 +28,7 @@ class Options(ABC):
         args, unknown = self.parser.parse_known_args()
 
         with open(args.config) as f:
-            self.config = yaml.load(f)
+            self.config = yaml.load(f, Loader=yaml.FullLoader)
 
 
     def _set_properties(self, d):

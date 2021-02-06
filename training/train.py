@@ -9,7 +9,7 @@ from configs import TrainOptions
 from testing import Test
 from dataset import VoxCelebDataset
 from dataset import Resize, RandomHorizontalFlip, RandomRotate, ToTensor
-from models import Network, save_image
+from models.network import Network
 from logger import Logger
 
 class Train():

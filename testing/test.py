@@ -36,8 +36,8 @@ class Test():
             csv_file=self.options.csv_test,
             shuffle_frames=self.options.shuffle_frames,
             transform=transforms.Compose([
-                        Resize(size=self.options.image_size_test),
-                        ToTensor(device=self.options.device)
+                        Resize(size=self.options.image_size_test, training=False),
+                        ToTensor(device=self.options.device, training=False)
             ]),
             training=self.training
         )

@@ -9,7 +9,7 @@ import sys
 from io import StringIO
 
 from configs import Options
-from models.network import init_weights
+from models.utils import init_weights
 from models.vgg import VGG
 from models.components import ConvBlock, DownSamplingBlock, UpSamplingBlock, ResidualBlock
 

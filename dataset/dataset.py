@@ -82,7 +82,7 @@ class VoxCelebDataset(Dataset):
             landmark2 = plot_landmarks(image2, np.load(landmark2_path))
             landmark3 = plot_landmarks(image3, np.load(landmark3_path))
 
-            sample = {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3, 'training': self.training}
+            sample = {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
         # Testing
         else:
@@ -102,7 +102,7 @@ class VoxCelebDataset(Dataset):
             image2 = cv2.imread(image2_path, cv2.IMREAD_COLOR)
             landmark2 = plot_landmarks(image2, np.load(landmark2_path))
 
-            sample = {'image1': image1, 'image2': image2, 'image3': None, 'landmark1': None, 'landmark2': landmark2, 'landmark3': None, 'training': self.training}
+            sample = {'image1': image1, 'image2': image2, 'image3': None, 'landmark1': None, 'landmark2': landmark2, 'landmark3': None}
 
         if self.transform:
             sample = self.transform(sample)
@@ -154,6 +154,8 @@ def plot_landmarks(frame, landmarks):
     ax.plot(landmarks[60:68, 0], landmarks[60:68, 1], linestyle='-', color='purple', lw=2)
 
     fig.canvas.draw()
-    data = cv2.imdecode(np.frombuffer(fig.canvas.tostring_rgb(), np.uint8), cv2.IMREAD_COLOR)
+    buffer = np.frombuffer(fig.canvas.tostring_rgb(), np.uint8)
+    canvas_shape = fig.canvas.get_width_height()
+    data = np.reshape(buffer, (canvas_shape[0], canvas_shape[1], 3))
     plt.close(fig)
     return data

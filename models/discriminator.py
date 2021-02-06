@@ -6,7 +6,7 @@ import sys
 from io import StringIO
 
 from configs import Options
-from models.network import init_weights
+from models.utils import init_weights
 from models.components import ConvBlock
 
 class Discriminator(nn.Module):
