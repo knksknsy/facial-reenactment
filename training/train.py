@@ -24,39 +24,40 @@ class Train():
         torch.cuda.manual_seed(57)
         np.random.seed(57)
 
-        self.data_loader_train = self._get_data_loader()
+        self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, self.training)
 
         # Start training
         self()
 
 
-    def _get_data_loader(self):
+    def _get_data_loader(self, train_format):
         if self.options.num_workers > 0:
             torch.multiprocessing.set_start_method('spawn')
 
         transforms_list = [
-            Resize(size=self.options.image_size),
-            RandomHorizontalFlip() if self.options.horizontal_flip else None,
-            RandomRotate(angle=self.options.rotation_angle) if self.options.rotation_angle > 0 else None,
-            ToTensor(device=self.options.device),
-            Normalize(mean=0.5, std=0.5)
+            Resize(self.options.image_size, train_format),
+            RandomHorizontalFlip(train_format) if self.options.horizontal_flip else None,
+            RandomRotate(self.options.rotation_angle, train_format) if self.options.rotation_angle > 0 else None,
+            ToTensor(self.options.device, train_format),
+            Normalize(0.5, 0.5, train_format)
         ]
         compose = [t for t in transforms_list if t is not None]
 
         dataset_train = VoxCelebDataset(
-            dataset_path=self.options.dataset_train,
-            csv_file=self.options.csv_train,
-            shuffle_frames=self.options.shuffle_frames,
-            transform=transforms.Compose(compose),
-            training=self.training
+            self.options.dataset_train,
+            self.options.csv_train,
+            self.options.shuffle_frames,
+            transforms.Compose(compose),
+            train_format
         )
 
-        data_loader_train = DataLoader(dataset_train,
-                                        batch_size=self.options.batch_size,
-                                        shuffle=self.options.shuffle,
-                                        num_workers=self.options.num_workers,
-                                        pin_memory=self.options.pin_memory
+        data_loader_train = DataLoader(
+            dataset_train,
+            self.options.batch_size,
+            self.options.shuffle,
+            num_workers=self.options.num_workers,
+            pin_memory=self.options.pin_memory
         )
 
         return data_loader_train
@@ -77,7 +78,9 @@ class Train():
             epoch_start =datetime.now()
 
             self._train(epoch)
-            self._test(epoch)
+
+            if self.options.test:
+                Test(self.logger, self.options, self.network).test(epoch)
 
             epoch_end = datetime.now()
             self.logger.log_info(f'Epoch {epoch + 1} finished in {epoch_end - epoch_start}.')
@@ -120,7 +123,7 @@ class Train():
                     self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
                                         f'Time: {batch_end - batch_start} | '
                                         f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f}')
-                    self.logger.log_debug(f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
+                    self.logger.log_info(f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
                     self.logger.log_scalar('Loss_G', self.loss_G.item(), self.iterations)
                     self.logger.log_scalar('Loss_D', self.loss_D.item(), self.iterations)
                     self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
@@ -131,10 +134,10 @@ class Train():
                 images_real = batch['image2'].detach().clone()
                 images_fake = self.image_fake.detach().clone()
                 images = torch.cat((images_real, images_fake), dim=0)
-                self.logger.save_image(self.options.gen_dir, f'0_last_result.png', images)
+                self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
 
                 if (batch_num + 1) % self.options.log_freq == 0:
-                    self.logger.save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S}.png', images, epoch, self.iterations)
+                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch, self.iterations)
                     self.logger.log_image('Train/Generated', images, self.iterations)
 
             # # SAVE MODEL
@@ -143,9 +146,3 @@ class Train():
             #     self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, self.run_start)
 
             self.iterations += 1
-
-
-    def _test(self, epoch):
-        test = Test(self.logger, self.options, self.network, self.training)
-        # Start testing
-        test(epoch)

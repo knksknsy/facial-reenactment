@@ -21,6 +21,8 @@ class TrainOptions(Options):
                                             help='Frequency in which model checkpoints will be saved')
         self.parser.add_argument('--log_freq', type=int, default=self.config['train']['log_freq'],
                                             help='Frequency in which logs will be saved')
+        self.parser.add_argument('--test', action='store_false' if self.config['train']['test'] else 'store_true',
+                                            help='Model will be tested after each epoch.')    
 
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'],
@@ -45,7 +47,7 @@ class TrainOptions(Options):
                                             help='Image size')
         self.parser.add_argument('--shuffle_frames', action='store_false' if self.config['dataset']['augmentation']['shuffle_frames'] else 'store_true')
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
-        self.parser.add_argument('--angle', type=int, default=self.config['dataset']['augmentation']['rotation_angle'],
+        self.parser.add_argument('--rotation_angle', type=int, default=self.config['dataset']['augmentation']['rotation_angle'],
                                             help='Angle for random image rotation when loading data.')
         self.parser.add_argument('--horizontal_flip', action='store_false' if self.config['dataset']['augmentation']['horizontal_flip'] else 'store_true',
                                             help='Random horizontal flip when loading data.')
@@ -69,9 +71,9 @@ class TrainOptions(Options):
                                             help='Batch size')
         self.parser.add_argument('--epochs', default=self.config['train']['epochs'], type=int,
                                             help='Epochs to train')
-        self.parser.add_argument('--lr_g', default=self.config['train']['lr_generator'], type=float,
+        self.parser.add_argument('--lr_g', default=self.config['train']['lr_g'], type=float,
                                             help='Learning rate of generator')
-        self.parser.add_argument('--lr_d', default=self.config['train']['lr_discriminator'], type=float,
+        self.parser.add_argument('--lr_d', default=self.config['train']['lr_d'], type=float,
                                             help='Learning rate of discriminator')
         self.parser.add_argument('--grad_clip', default=self.config['train']['grad_clip'], type=float,
                                             help='Use gradient clipping')

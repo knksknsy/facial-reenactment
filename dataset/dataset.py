@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 class VoxCelebDataset(Dataset):
     """Dataset object for accessing and pre-processing VoxCeleb2 dataset"""
 
-    def __init__(self, dataset_path, csv_file, shuffle_frames=False, transform=None, training=False):
+    def __init__(self, dataset_path, csv_file, shuffle_frames=False, transform=None, train_format=False):
         """
         Instantiate the Dataset.
 
@@ -24,7 +24,7 @@ class VoxCelebDataset(Dataset):
         self.data_frame = pd.read_csv(csv_file)
         self.shuffle_frames = shuffle_frames
         self.transform = transform
-        self.training = training
+        self.train_format = train_format
 
     def __len__(self):
         """Return the length of the dataset"""
@@ -51,7 +51,7 @@ class VoxCelebDataset(Dataset):
         path = os.path.join(self.dataset_path, identity, id_video)
 
         # Training
-        if self.training:
+        if self.train_format:
             if self.shuffle_frames:
                 samples_n = 3
                 image_col_samples = np.random.choice(image_cols, size=samples_n)

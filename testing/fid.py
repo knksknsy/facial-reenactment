@@ -8,7 +8,7 @@ from configs.options import Options
 class FrechetInceptionDistance():
     def __init__(self, options: Options, data_loader_length):
         self.options = options
-        self.data_loader_length = data_loader_length
+        self.data_loader_length = data_loader_length * self.options.batch_size
 
         self.inception_network = InceptionNetwork()
         self.inception_network.to(self.options.device)
@@ -29,6 +29,12 @@ class FrechetInceptionDistance():
             activations_fake = self.inception_network(images_fake)
             activations_fake = activations_fake.detach().cpu().numpy()
 
+        if end_idx - start_idx != activations_real.shape[0]:
+            end_idx = start_idx + activations_real.shape[0]
+
+        assert activations_real.shape == (images_real.shape[0], 2048), f'Expexted output shape to be: ({images_real.shape[0]}, 2048), but was: {activations_real.shape}'
+        assert activations_fake.shape == (images_fake.shape[0], 2048), f'Expexted output shape to be: ({images_fake.shape[0]}, 2048), but was: {activations_fake.shape}'
+
         self.inception_activations_real[start_idx:end_idx, :] = activations_real
         self.inception_activations_fake[start_idx:end_idx, :] = activations_fake
 
@@ -44,7 +50,7 @@ class FrechetInceptionDistance():
         
         return mu, sigma
 
-    def _calculate_frechet_distance(mu_real, sigma_real, mu_fake, sigma_fake, eps=1e-6):
+    def _calculate_frechet_distance(self, mu_real, sigma_real, mu_fake, sigma_fake, eps=1e-6):
         """Numpy implementation of the Frechet Distance.
         The Frechet distance between two multivariate Gaussians X_1 ~ N(mu_1, C_1)
         and X_2 ~ N(mu_2, C_2) is

@@ -44,14 +44,14 @@ class Network():
 
             self.optimizer_G = Adam(
                 params=self.G.parameters(),
-                lr=self.options.lr_generator,
+                lr=self.options.lr_g,
                 betas=(self.options.beta1, self.options.beta1),
                 weight_decay=self.options.weight_decay
             )
 
             self.optimizer_D = Adam(
                 params=self.D.parameters(),
-                lr=self.options.lr_discriminator,
+                lr=self.options.lr_d,
                 betas=(self.options.beta1, self.options.beta1),
                 weight_decay=self.options.weight_decay
             )
@@ -150,7 +150,7 @@ class Network():
             return model, optimizer, scheduler, epoch, iteration
 
 
-    def save_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, epoch: str, iteration: str, options: Options, time_for_name=None):
+    def save_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
         if time_for_name is None:
             time_for_name = datetime.now()
 
@@ -162,10 +162,7 @@ class Network():
         if options.device == 'cuda':
             m.cpu()
 
-        if not os.path.exists(options.checkpoint_dir):
-            os.makedirs(options.checkpoint_dir)
-
-        filename = f'{type(m).__name__}_e{str(epoch).zfill(3)}_i{str(iteration).zfill(9)}_{time_for_name:%Y%m%d_%H%M}.pth'
+        filename = f'{type(m).__name__}_t_{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(2)}_i{str(iteration).zfill(7)}{ext}'
         torch.save({
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),

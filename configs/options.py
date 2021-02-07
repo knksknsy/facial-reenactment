@@ -37,7 +37,7 @@ class Options(ABC):
                 self._set_properties(v)
             else:
                 setattr(self, k, v)
-                if '_dir' in k and not os.path.exists(v):
+                if '_dir' in k and not os.path.isdir(v):
                     os.makedirs(v)
 
 

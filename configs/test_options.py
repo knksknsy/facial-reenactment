@@ -18,13 +18,13 @@ class TestOptions(Options):
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'],
                                             help='Path where logs will be saved.')
-        self.parser.add_argument('--output', type=str, default=self.config['paths']['output_dir'],
+        self.parser.add_argument('--output_dir', type=str, default=self.config['paths']['output_dir'],
                                             help='Path where output will be saved.')
 
         # ARGUMENTS: INPUTS
-        self.parser.add_argument('--source', type=str, required=True,
+        self.parser.add_argument('--source', type=str, default=None,
                                             help='Path for source image (identity to be preserved).')
-        self.parser.add_argument('--target', type=str, required=True,
+        self.parser.add_argument('--target', type=str, default=None,
                                             help='Path for target image.')
         self.parser.add_argument('--model', type=str, required=True,
                                             help='Path to the generator model.')

@@ -4,6 +4,7 @@ from configs import TrainOptions, TestOptions, DatasetOptions
 from training import Train
 from testing import Test
 from dataset import Preprocess
+from models import Network
 from logger import Logger
 
 def main():
@@ -27,7 +28,16 @@ def main():
             options = TestOptions(description=f'{description} Testing')
             logger = Logger(options)
             logger.init_writer()
-            Test(logger, options, training=False)
+
+            # Benchmark
+            if options.source is None and options.target is None:
+                Test(logger, options, Network(logger, options)).test()
+            # Video mode
+            elif '.mp4' in options.target:
+                Test(logger, options).from_video()
+            # Image mode
+            else:
+                Test(logger, options).from_image()
 
         else:
             print('invalid command')

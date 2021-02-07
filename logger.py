@@ -3,12 +3,15 @@ import sys
 import logging
 import cv2
 import numpy as np
+import torch
 
 from datetime import datetime
 from torch.functional import norm
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
+
 from configs.options import Options
+from dataset.utils import denormalize
 
 class Logger():
     def __init__(self, options: Options):
@@ -50,44 +53,38 @@ class Logger():
         self.writer.flush()
 
 
-    def save_image(self, path, filename, image, epoch=None, iteration=None):
-        if not os.path.isdir(path):
-            os.makedirs(path)
-
-        grid = self._get_grid(image)
+    def save_image(self, path: str, filename: str, image, ext: str='.png', epoch: int=None, iteration: int=None):
+        grid = self._get_grid(image, as_tensor=False)
 
         if epoch is not None and iteration is not None:
-            filename = f'e_{epoch}_b{iteration}_{filename}'
+            filename = f'{filename}_e_{str(epoch).zfill(3)}_b{str(iteration).zfill(7)}{ext}'
+        else:
+            filename = f'{filename}{ext}'
 
         cv2.imwrite(os.path.join(path, filename), grid)
 
 
     def show_image(self, image):
-        grid = self._get_grid(image)
+        grid = self._get_grid(image, as_tensor=False)
 
         cv2.imshow('Image Preview', grid)
 
 
     def log_image(self, tag: str, image, label):
-        grid = self._get_grid(image, tensor=True)
+        grid = self._get_grid(image)
         self.writer.add_image(tag, grid, label)
         self.writer.flush()
 
 
-    def _get_grid(self, data, tensor=False, nrow=4, normalize=(0.5, 0.5)):
-        if normalize is not None:
-            data = self._denormalize(data, normalize[0], normalize[1])
+    def _get_grid(self, data, nrow=4, denorm=(0.5, 0.5), as_tensor=True):
+        if denorm is not None:
+            data = denormalize(data, denorm[0], denorm[1])
 
         grid = make_grid(data, nrow)
 
-        if not tensor:
+        if not as_tensor:
             grid = grid.cpu().numpy().transpose(1, 2, 0) * 255.0
         else:
             grid = grid[[2, 1, 0],:]
 
         return grid
-
-
-    def _denormalize(self, data, mean, std):
-        data = (data * std) + mean
-        return data

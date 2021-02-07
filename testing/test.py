@@ -1,9 +1,11 @@
-import os
+from configs.train_options import TrainOptions
+from configs.test_options import TestOptions
 import cv2
 import torch
 import numpy as np
-from face_alignment import FaceAlignment, LandmarksType
+import torch.nn.functional as F
 
+from face_alignment import FaceAlignment, LandmarksType
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from pytorch_msssim import ssim
@@ -11,68 +13,54 @@ from datetime import datetime
 
 from configs.options import Options
 from testing.fid import FrechetInceptionDistance
-from dataset import VoxCelebDataset
-from dataset import Resize, ToTensor
-from dataset import plot_landmarks
-from models import Network
+from dataset.dataset import VoxCelebDataset, plot_landmarks
+from dataset.transforms import Resize, ToTensor, Normalize
+from dataset.utils import denormalize
+from models.network import Network
 from logger import Logger
 
 class Test():
-    def __init__(self, logger: Logger, options: Options, network: Network=None, training=False):
+    # TODO: Done: test during training, inference image (training == False)
+    # TODO: Open: inference video (training == False)
+    def __init__(self, logger: Logger, options: Options, network: Network=None):
         self.logger = logger
         self.options = options
-        self.training = training
+        self.network = network
 
-        if self.training:
-            self.network = network
-            self.data_loader_test = self._get_data_loader()
+        if self.network is not None:
+            self.data_loader_test = self._get_data_loader(train_format=False)
         else:
-            self.network = Network(self.logger, self.options, self.training)
+            self.network = Network(self.logger, self.options, training=False)
+
+        self.network.eval()
 
 
-    def _get_data_loader(self):
-        if self.options.num_workers > 0:
-            torch.multiprocessing.set_start_method('spawn')
-            
+    def _get_data_loader(self, train_format):
         dataset_test = VoxCelebDataset(
-            dataset_path=self.options.dataset_test,
-            csv_file=self.options.csv_test,
-            shuffle_frames=self.options.shuffle_frames,
-            transform=transforms.Compose([
-                        Resize(size=self.options.image_size_test, training=False),
-                        ToTensor(device=self.options.device, training=False)
+            self.options.dataset_test,
+            self.options.csv_test,
+            self.options.shuffle_frames,
+            transforms.Compose([
+                Resize(self.options.image_size_test, train_format),
+                ToTensor(self.options.device, train_format),
+                Normalize(0.5, 0.5, train_format)
             ]),
-            training=self.training
+            train_format
         )
 
-        data_loader_test = DataLoader(dataset_test,
-                                        batch_size=self.options.batch_size,
-                                        shuffle=self.options.shuffle,
-                                        num_workers=self.options.num_workers,
-                                        pin_memory=self.options.pin_memory
+        data_loader_test = DataLoader(
+            dataset_test,
+            self.options.batch_size,
+            self.options.shuffle,
+            num_workers=self.options.num_workers,
+            pin_memory=self.options.pin_memory
         )
 
         return data_loader_test
 
 
-    def __call__(self, epoch=None):
-        self.network.eval()
-        run_start = datetime.now()
-
-        self.logger.log_info('===== TESTING =====')
-        self.logger.log_info(f'Running on {self.options.device.upper()}.')
-
-        if self.training and epoch is not None:
-            self._test(epoch)
-
-        elif not self.training and epoch is None:
-            self._test_single()
-
-        run_end = datetime.now()
-        self.logger.log_info(f'Testing finished in {run_end - run_start}.')
-
-
-    def _test_single(self):
+    # TODO: outsource face-alignment code
+    def from_image(self):
         self.logger.log_info(f'Source image: {self.options.source}')
         self.logger.log_info(f'Target image: {self.options.target}')
 
@@ -95,7 +83,11 @@ class Test():
         target_landmarks = normalize(target_landmarks)
 
         output =  self.network(source, target_landmarks)
-        self.logger.save_image(self.options.output, f'{datetime.now():%Y%m%d_%H%M%S}.png', output)
+        self.logger.save_image(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', output)
+
+
+    def from_video(self):
+        pass
 
 
     def _get_image_and_bbox(self, path, face_alignment):
@@ -123,44 +115,59 @@ class Test():
         return image
 
 
-    def _test(self, epoch):
+    def test(self, epoch=None):
+        run_start = datetime.now()
+
+        while_train = epoch is not None #isinstance(self.options, TrainOptions)
+
+        self.logger.log_info('===== TESTING =====')
+        self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size}')
 
         fid = FrechetInceptionDistance(self.options, len(self.data_loader_test))
-
-        iterations = epoch * len(self.data_loader_test)
+        iterations = epoch * len(self.data_loader_test) if while_train else 0
 
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
 
             images_real = batch['image2'].to(self.options.device)
             images_fake = self.network(batch['image1'], batch['landmark2']).to(self.options.device)
+            images_fake = F.interpolate(images_fake, size=self.options.image_size_test)
 
             # Calculate FID
             fid.calculate_activations(images_real, images_fake, batch_num)
 
             # Calculate SSIM
-            ssim_val = ssim(images_fake, batch['image2'], data_range=255, size_average=False)
+            ssim_val = ssim(
+                denormalize(images_fake.detach().clone(), mean=0.5, std=0.5),
+                denormalize(images_real.detach().clone(), mean=0.5, std=0.5),
+                data_range=1.0, size_average=False
+            )
 
             batch_end = datetime.now()
 
             # SHOW PROGRESS
             if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_test)}] | '
-                                    f'Time: {batch_end - batch_start} | ')
-                self.logger.log_debug(f'SSIM = {ssim_val.item():.4f}')
-                self.logger.log_scalar('SSIM', ssim_val.item(), iterations)
+                message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start}'
+                if while_train:
+                    message = f'Epoch {epoch + 1}: {message}'
+                self.logger.log_info(message)
+                self.logger.log_info(f'SSIM = {ssim_val.mean().item():.4f}')
+                self.logger.log_scalar('SSIM', ssim_val.mean().item(), iterations)
 
             # LOG GENERATED IMAGES
-            images = torch.cat((images_real.detach().clone(), images_fake.detach().clone()), dim=1)
-            self.logger.save_image(self.options.gen_test_dir, f'0_last_result.png', images)
+            images = torch.cat((images_real.detach().clone(), images_fake.detach().clone()), dim=0)
+            self.logger.save_image(self.options.gen_test_dir, f'0_last_result', images)
 
-            if (batch_num + 1) % self.options.log_freq == 0:
-                self.logger.save_image(self.options.gen_test_dir, f'{datetime.now():%Y%m%d_%H%M%S}.png', images, epoch, iterations)
+            if not while_train or (batch_num + 1) % (self.options.log_freq // 10) == 0:
+                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations)
                 self.logger.log_image('Test/Generated', images, iterations)
             
             iterations += 1
         
         fid_val = fid.calculate_fid()
-        self.logger.log_debug(f'FID = {fid_val:.4f}')
+        self.logger.log_info(f'FID = {fid_val:.4f}')
         self.logger.log_scalar('FID', fid_val, epoch)
+
+        run_end = datetime.now()
+        self.logger.log_info(f'Testing finished in {run_end - run_start}.')
