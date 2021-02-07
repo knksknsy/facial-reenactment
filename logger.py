@@ -70,7 +70,7 @@ class Logger():
 
     def log_image(self, tag: str, image, label):
         grid = self._get_grid(image, tensor=True)
-        self.writer.add_images(tag, grid, label)
+        self.writer.add_image(tag, grid, label)
         self.writer.flush()
 
 
@@ -81,9 +81,11 @@ class Logger():
         grid = make_grid(data, nrow)
 
         if not tensor:
-            grid = grid.cpu().numpy().transpose(1, 2, 0)
+            grid = grid.cpu().numpy().transpose(1, 2, 0) * 255.0
+        else:
+            grid = grid[[2, 1, 0],:]
 
-        return grid * 255.0
+        return grid
 
 
     def _denormalize(self, data, mean, std):

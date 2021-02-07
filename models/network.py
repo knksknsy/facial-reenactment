@@ -165,7 +165,7 @@ class Network():
         if not os.path.exists(options.checkpoint_dir):
             os.makedirs(options.checkpoint_dir)
 
-        filename = f'{type(m).__name__}_e{epoch.zfill(3)}_i{iteration.zfill(9)}_{time_for_name:%Y%m%d_%H%M}.pth'
+        filename = f'{type(m).__name__}_e{str(epoch).zfill(3)}_i{str(iteration).zfill(9)}_{time_for_name:%Y%m%d_%H%M}.pth'
         torch.save({
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),

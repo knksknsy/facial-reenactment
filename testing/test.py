@@ -31,6 +31,9 @@ class Test():
 
 
     def _get_data_loader(self):
+        if self.options.num_workers > 0:
+            torch.multiprocessing.set_start_method('spawn')
+            
         dataset_test = VoxCelebDataset(
             dataset_path=self.options.dataset_test,
             csv_file=self.options.csv_test,
@@ -92,7 +95,7 @@ class Test():
         target_landmarks = normalize(target_landmarks)
 
         output =  self.network(source, target_landmarks)
-        self.logger.save_image(self.options.output, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', output)
+        self.logger.save_image(self.options.output, f'{datetime.now():%Y%m%d_%H%M%S}.png', output)
 
 
     def _get_image_and_bbox(self, path, face_alignment):
@@ -153,7 +156,7 @@ class Test():
             self.logger.save_image(self.options.gen_test_dir, f'0_last_result.png', images)
 
             if (batch_num + 1) % self.options.log_freq == 0:
-                self.logger.save_image(self.options.gen_test_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', images, epoch, iterations)
+                self.logger.save_image(self.options.gen_test_dir, f'{datetime.now():%Y%m%d_%H%M%S}.png', images, epoch, iterations)
                 self.logger.log_image('Test/Generated', images, iterations)
             
             iterations += 1

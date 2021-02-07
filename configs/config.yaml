@@ -1,7 +1,7 @@
 device: cuda
 device_options: [cuda, cpu]
 pin_memory: false
-num_workers: 0
+num_workers: 4
 
 paths:
   log_dir: logs

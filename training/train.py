@@ -32,6 +32,9 @@ class Train():
 
 
     def _get_data_loader(self):
+        if self.options.num_workers > 0:
+            torch.multiprocessing.set_start_method('spawn')
+
         transforms_list = [
             Resize(size=self.options.image_size),
             RandomHorizontalFlip() if self.options.horizontal_flip else None,
@@ -60,7 +63,7 @@ class Train():
 
 
     def __call__(self):
-        run_start = datetime.now()
+        self.run_start = datetime.now()
 
         self.iterations = self.network.continue_iteration
 
@@ -79,8 +82,8 @@ class Train():
             epoch_end = datetime.now()
             self.logger.log_info(f'Epoch {epoch + 1} finished in {epoch_end - epoch_start}.')
 
-        run_end = datetime.now()
-        self.logger.log_info(f'Training finished in {run_end - run_start}.')
+        self.run_end = datetime.now()
+        self.logger.log_info(f'Training finished in {self.run_end - self.run_start}.')
 
 
     def _train(self, epoch):
@@ -111,8 +114,8 @@ class Train():
 
             batch_end = datetime.now()
 
+            # SHOW PROGRESS
             if hasattr(self, 'loss_G') and hasattr(self, 'image_fake'):
-                # SHOW PROGRESS
                 if (batch_num + 1) % 1 == 0 or batch_num == 0:
                     self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
                                         f'Time: {batch_end - batch_start} | '
@@ -123,20 +126,21 @@ class Train():
                     self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
                     self.logger.log_scalar('D(fake)', self.d_fake.mean().item(), self.iterations)
 
-                # LOG GENERATED IMAGES
+            # LOG GENERATED IMAGES
+            if (batch_num + 1) % d_iters == 0:
                 images_real = batch['image2'].detach().clone()
                 images_fake = self.image_fake.detach().clone()
                 images = torch.cat((images_real, images_fake), dim=0)
                 self.logger.save_image(self.options.gen_dir, f'0_last_result.png', images)
 
                 if (batch_num + 1) % self.options.log_freq == 0:
-                    self.logger.save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S%f}.png', images, epoch, self.iterations)
+                    self.logger.save_image(self.options.gen_dir, f'{datetime.now():%Y%m%d_%H%M%S}.png', images, epoch, self.iterations)
                     self.logger.log_image('Train/Generated', images, self.iterations)
 
-            # SAVE MODEL
-            if (batch_num + 1) % self.options.checkpoint_freq == 0:
-                self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, self.run_start)
-                self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, self.run_start)
+            # # SAVE MODEL
+            # if (batch_num + 1) % self.options.checkpoint_freq == 0:
+            #     self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, self.run_start)
+            #     self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, self.run_start)
 
             self.iterations += 1
 
