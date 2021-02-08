@@ -1,14 +1,15 @@
 import sys
 
-from configs import TrainOptions, TestOptions, DatasetOptions
+from configs import TrainOptions, TestOptions, DatasetOptions, LogsOptions
 from training import Train
 from testing import Test
 from dataset import Preprocess
 from models import Network
-from logger import Logger
+from loggings.logger import Logger
+from loggings.extract import LogsExtractor
 
 def main():
-    # mode: 'dataset', 'train', or 'test'
+    # mode: 'dataset', 'train', 'test', or 'logs'
     mode = sys.argv[1]
     description = 'Facial Reenactment'
 
@@ -16,6 +17,7 @@ def main():
         if mode == 'dataset':
             options = DatasetOptions(description=f'{description} Dataset')
             logger = Logger(options)
+            logger.init_writer()
             Preprocess(logger, options)
 
         elif mode == 'train':
@@ -38,6 +40,12 @@ def main():
             # Image mode
             else:
                 Test(logger, options).from_image()
+
+        elif mode == 'logs':
+            options = LogsOptions(description=f'{description} Logs-Extracting')
+            logger = Logger(options)
+            logger.init_writer()
+            LogsExtractor(logger, options)
 
         else:
             print('invalid command')

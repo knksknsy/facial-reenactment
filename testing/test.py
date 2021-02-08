@@ -17,7 +17,7 @@ from dataset.dataset import VoxCelebDataset, plot_landmarks
 from dataset.transforms import Resize, ToTensor, Normalize
 from dataset.utils import denormalize
 from models.network import Network
-from logger import Logger
+from loggings.logger import Logger
 
 class Test():
     # TODO: Done: test during training, inference image (training == False)
@@ -118,7 +118,7 @@ class Test():
     def test(self, epoch=None):
         run_start = datetime.now()
 
-        while_train = epoch is not None #isinstance(self.options, TrainOptions)
+        while_train = epoch is not None
 
         self.logger.log_info('===== TESTING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')

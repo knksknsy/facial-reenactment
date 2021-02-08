@@ -19,8 +19,12 @@ class Options(ABC):
 
     def _parse_args(self):
         self.args, unknown = self.parser.parse_known_args()
-        self.device = 'cuda' if (torch.cuda.is_available() and self.args.device == 'cuda') else 'cpu'
+        if hasattr(self.args, 'device'):
+            self.device = 'cuda' if (torch.cuda.is_available() and self.args.device == 'cuda') else 'cpu'
+        # Set default values from config file
         self._set_properties(self.config)
+        # Override default values
+        self._set_properties(vars(self.args))
 
 
     def _load_config(self):

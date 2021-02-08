@@ -6,11 +6,11 @@ pin_memory: false                 # if true: 'device' must be set to 'cpu'
 num_workers: 4                    # >0: faster data loading, increased GPU usage
 
 paths:
-  log_dir: logs/experiment_test
-  checkpoint_dir: checkpoints
-  gen_dir: generated_train
-  gen_test_dir: generated_test
-  output_dir: outputs
+  log_dir: /media/Alpha/facial-reenactment/logs
+  checkpoint_dir: /media/Alpha/facial-reenactment/checkpoints
+  gen_dir: /media/Alpha/facial-reenactment/generated_train
+  gen_test_dir: /media/Alpha/facial-reenactment/generated_test
+  output_dir: ./outputs
 
 preprocessing:
   num_frames: 8                   # number of frames +1 to extract from a video
@@ -18,10 +18,10 @@ preprocessing:
   overwrite: false
 
 dataset:
-  dataset_train: /media/Alpha/datasets/VoxCeleb2/Preprocessed/dev/
-  dataset_test: /media/Alpha/datasets/VoxCeleb2/Preprocessed/test/
-  csv_train: ~/Repositories/facial-reenactment/dataset/dataset_dev.csv
-  csv_test: ~/Repositories/facial-reenactment/dataset/dataset_test.csv
+  dataset_train: /home/kaan/datasets/VoxCeleb2/Preprocessed/dev/
+  dataset_test: /home/kaan/datasets/VoxCeleb2/Preprocessed/test/
+  csv_train: ./dataset/dataset_dev.csv
+  csv_test: ./dataset/dataset_test.csv
   image_size: 128
   image_size_test: 299 
   shuffle: true                   # DataLoader: shuffle data

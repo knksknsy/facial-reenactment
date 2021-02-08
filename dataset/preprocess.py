@@ -9,7 +9,7 @@ from datetime import datetime
 from face_alignment import FaceAlignment, LandmarksType
 
 from configs import DatasetOptions
-from logger import Logger
+from loggings.logger import Logger
 
 class Preprocess():
     def __init__(self, logger: Logger, options: DatasetOptions):

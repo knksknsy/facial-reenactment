@@ -2,11 +2,8 @@ import os
 import sys
 import logging
 import cv2
-import numpy as np
-import torch
 
 from datetime import datetime
-from torch.functional import norm
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 

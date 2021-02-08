@@ -12,7 +12,7 @@ from torch.optim.optimizer import Optimizer
 from configs import Options
 from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
-from logger import Logger
+from loggings.logger import Logger
 
 class Network():
     def __init__(self, logger: Logger, options: Options, training=False):
