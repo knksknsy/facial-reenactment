@@ -35,13 +35,13 @@ class TrainOptions(Options):
                                             help='Path where generated test images will be saved.')
 
         # ARGUMENTS: DATASET
-        self.parser.add_argument('--dataset_train', type=str, required=True, default=self.config['dataset']['dataset_train'],
+        self.parser.add_argument('--dataset_train', type=str, default=self.config['dataset']['dataset_train'],
                                             help='Path to the pre-processed dataset for training.')
-        self.parser.add_argument('--dataset_test', type=str, required=True, default=self.config['dataset']['dataset_test'],
+        self.parser.add_argument('--dataset_test', type=str, default=self.config['dataset']['dataset_test'],
                                             help='Path to the pre-processed dataset for testing.')
-        self.parser.add_argument('--csv_train', type=str, required=True, default=self.config['dataset']['csv_train'],
+        self.parser.add_argument('--csv_train', type=str, default=self.config['dataset']['csv_train'],
                                             help='Path to CSV file needed for torch.utils.data.Dataset to load data for training.')
-        self.parser.add_argument('--csv_test', type=str, required=True, default=self.config['dataset']['csv_test'],
+        self.parser.add_argument('--csv_test', type=str, default=self.config['dataset']['csv_test'],
                                             help='Path to CSV file needed for torch.utils.data.Dataset to load data for testing.')
         self.parser.add_argument('--image_size', default=self.config['dataset']['image_size'], type=int,
                                             help='Image size')

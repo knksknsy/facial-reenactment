@@ -135,7 +135,6 @@ class Train():
                 images_fake = self.image_fake.detach().clone()
                 images = torch.cat((images_real, images_fake), dim=0)
                 self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
-                self.logger.log_image('Train/Generated', images, self.iterations)
 
                 if (batch_num + 1) % self.options.log_freq == 0:
                     self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch, self.iterations)

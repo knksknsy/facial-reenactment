@@ -10,7 +10,7 @@ paths:
   checkpoint_dir: /media/Alpha/facial-reenactment/checkpoints
   gen_dir: /media/Alpha/facial-reenactment/generated_train
   gen_test_dir: /media/Alpha/facial-reenactment/generated_test
-  output_dir: ./outputs
+  output_dir: /media/Alpha/facial-reenactment/outputs
 
 preprocessing:
   num_frames: 8                   # number of frames +1 to extract from a video
