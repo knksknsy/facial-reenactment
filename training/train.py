@@ -99,8 +99,8 @@ class Train():
         self.network.scheduler_G.step()
 
         # SAVE MODEL (EPOCH)
-        self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, self.run_start)
-        self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, self.run_start)
+        self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, time_for_name=self.run_start)
+        self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, time_for_name=self.run_start)
 
 
     def _train_epoch(self, epoch):
@@ -137,7 +137,7 @@ class Train():
                 self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
 
                 if (batch_num + 1) % self.options.log_freq == 0:
-                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch, self.iterations)
+                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations)
                     self.logger.log_image('Train/Generated', images, self.iterations)
 
             # # SAVE MODEL

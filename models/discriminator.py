@@ -57,7 +57,7 @@ class LossD(nn.Module):
 
 
     def loss_gp(self, discriminator, real, fake):
-        alpha = torch.rand(real.size(0),1,1,1).to(self.options.device).expand_as(real)
+        alpha = torch.rand(real.size(0), 1, 1, 1).to(self.options.device).expand_as(real)
         interpolated = alpha * real + (1 - alpha) * fake
         # interpolated.requires_grad = True
         prob_interpolated = discriminator(interpolated)
@@ -65,15 +65,15 @@ class LossD(nn.Module):
         grad = torch.autograd.grad(
             outputs=prob_interpolated,
             inputs=interpolated,
-            grad_outputs=torch.ones(prob_interpolated.size()).cuda(),
+            grad_outputs=torch.ones(prob_interpolated.size()).to(self.options.device),
             retain_graph=True,
             create_graph=True,
             only_inputs=True
         )[0]
 
-        grad = grad.view(grad.size(0),-1)
+        grad = grad.view(grad.size(0), -1)
         grad_l2norm = torch.sqrt(torch.sum(grad ** 2, dim=1))
-        l_gp = torch.mean((grad_l2norm-1)**2)
+        l_gp = torch.mean((grad_l2norm - 1) ** 2)
         return l_gp
 
 

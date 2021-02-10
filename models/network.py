@@ -162,7 +162,7 @@ class Network():
         if options.device == 'cuda':
             m.cpu()
 
-        filename = f'{type(m).__name__}_t_{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(2)}_i{str(iteration).zfill(7)}{ext}'
+        filename = f'{type(m).__name__}_t{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(2)}_i{str(iteration).zfill(7)}{ext}'
         torch.save({
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),
