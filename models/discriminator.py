@@ -15,13 +15,12 @@ class Discriminator(nn.Module):
         self.options = options
 
         layers = []
-        layers.append(ConvBlock(3, 64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))        # B x   64 x 64 x 64
-        layers.append(ConvBlock(64, 128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))      # B x  128 x 32 x 32
-        layers.append(ConvBlock(128, 256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))     # B x  256 x 16 x 16
-        layers.append(ConvBlock(256, 512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))     # B x  512 x  8 x  8
-        layers.append(ConvBlock(512, 1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))    # B x 1024 x  4 x  4
-        layers.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))   # B x 2048 x  2 x  2
-        layers.append(ConvBlock(2048, 1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None))             # B x    1 x  2 x  2
+        layers.append(ConvBlock(3,    64,   kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))           # B x  64 x 64 x 64
+        layers.append(ConvBlock(64,  128,   kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))           # B x 128 x 32 x 32
+        layers.append(ConvBlock(128, 256,   kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))           # B x 256 x 16 x 16
+        layers.append(ConvBlock(256, 512,   kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))           # B x 512 x  8 x  8
+        layers.append(ConvBlock(512, 512,   kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))           # B x 512 x  4 x  4
+        layers.append(ConvBlock(512,   1,   kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None, use_bias=False))  # B x   1 x  4 x  4
         self.layers = nn.Sequential(*layers)
 
         self.apply(init_weights)
@@ -45,6 +44,8 @@ class LossD(nn.Module):
     def __init__(self, options: Options):
         super(LossD, self).__init__()
         self.options = options
+        self.w_gp = self.options.l_gp
+
         self.to(self.options.device)
 
 
@@ -56,6 +57,7 @@ class LossD(nn.Module):
         return torch.mean(d_fake)
 
 
+    # TODO: check gradient penalty implementation
     def loss_gp(self, discriminator, real, fake):
         alpha = torch.rand(real.size(0), 1, 1, 1).to(self.options.device).expand_as(real)
         interpolated = alpha * real + (1 - alpha) * fake
@@ -85,6 +87,6 @@ class LossD(nn.Module):
 
         l_adv_real = self.loss_adv_real(d_real)
         l_adv_fake = self.loss_adv_fake(d_fake)
-        l_gp = 10 * self.loss_gp(discriminator, real, fake)
+        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake)
 
         return l_adv_real + l_adv_fake + l_gp

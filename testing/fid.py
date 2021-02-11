@@ -19,8 +19,8 @@ class FrechetInceptionDistance():
 
 
     def calculate_activations(self, images_real, images_fake, batch_num):
-        start_idx = self.options.batch_size * batch_num
-        end_idx = self.options.batch_size * (batch_num + 1)
+        start_idx = self.options.batch_size * batch_num if batch_num > 1 else 0
+        end_idx = self.options.batch_size * (batch_num + 1) if batch_num > 1 else self.options.batch_size
 
         with torch.no_grad():
             activations_real = self.inception_network(images_real)
@@ -29,7 +29,7 @@ class FrechetInceptionDistance():
             activations_fake = self.inception_network(images_fake)
             activations_fake = activations_fake.detach().cpu().numpy()
 
-        if end_idx - start_idx != activations_real.shape[0]:
+        if batch_num > 1 and (end_idx - start_idx != activations_real.shape[0]):
             end_idx = start_idx + activations_real.shape[0]
 
         assert activations_real.shape == (images_real.shape[0], 2048), f'Expexted output shape to be: ({images_real.shape[0]}, 2048), but was: {activations_real.shape}'

@@ -42,12 +42,15 @@ train:
   gan_type: wgan-gp
   grad_clip: 1                    # use gradient clipping
   loss_weights:
-    l_adv: 0.01
-    l_rec: 1
-    l_self: 1
-    l_triple: 1
-    l_percep: 0.1
+    l_adv: 1
+    l_rec: 10
+    l_self: 100
+    l_triple: 100
+    l_percep: 10
     l_tv: 1.0e-4
+    l_gp: 10
+    l_mask: 1
+    l_mask_smooth: 1.0e-4
   optimizer:
     beta1: 0.5
     beta2: 0.9

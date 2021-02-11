@@ -13,30 +13,39 @@ from models.utils import init_weights
 from models.vgg import VGG
 from models.components import ConvBlock, DownSamplingBlock, UpSamplingBlock, ResidualBlock
 
+# TODO: test leakyrelu
 class Generator(nn.Module):
     def __init__(self, options: Options):
         super(Generator, self).__init__()
         self.options = options
 
-        layers = []
-        layers.append(ConvBlock(in_channels=3+3, out_channels=64, kernel_size=7, stride=1, padding=3)) # B x 64 x 128 x 128
+        down_conv_layer = []
+        down_conv_layer.append(ConvBlock(in_channels=3+3, out_channels=64, kernel_size=7, stride=1, padding=3)) # B x 64 x 128 x 128
+        down_conv_layer.append(DownSamplingBlock(64, 128))   # B x 128 x 64 x 64
+        down_conv_layer.append(DownSamplingBlock(128, 256))  # B x 256 x 32 x 32
+        self.down_conv_layer = nn.Sequential(*down_conv_layer)
 
-        layers.append(DownSamplingBlock(64, 128))   # B x 128 x 64 x 64
-        layers.append(DownSamplingBlock(128, 256))  # B x 256 x 32 x 32
+        bottleneck_layer = []
+        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        self.bottleneck_layer = nn.Sequential(*bottleneck_layer)
 
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        features_layer = []
+        features_layer.append(UpSamplingBlock(256, 128))    # B x 128 x 64 x 64
+        features_layer.append(UpSamplingBlock(128, 64))     # B x 64 x 128 x 128
+        self.features_layer = nn.Sequential(*features_layer)
 
-        layers.append(UpSamplingBlock(256, 128))    # B x 128 x 64 x 64
-        layers.append(UpSamplingBlock(128, 64))     # B x 64 x 128 x 128
+        color_layer = []
+        color_layer.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', use_bias=False))   # B x 3 x 128 x 128
+        self.color_layer = nn.Sequential(*color_layer)
 
-        layers.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh')) # B x 3 x 128 x 128
-
-        self.layers = nn.Sequential(*layers)
+        mask_layer = []
+        mask_layer.append(ConvBlock(in_channels=64, out_channels=1, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='sigmoid', use_bias=False)) # B x 1 x 128 x 128
+        self.mask_layer = nn.Sequential(*mask_layer)
 
         self.apply(init_weights)
         self.to(self.options.device)
@@ -44,7 +53,14 @@ class Generator(nn.Module):
 
     def forward(self, images, landmarks):
         # Input: B x 6 x 128 x 128
-        return self.layers(torch.cat((images, landmarks), dim=1))
+        down_conv = self.down_conv_layer(torch.cat((images, landmarks), dim=1))
+        bottleneck = self.bottleneck_layer(down_conv)
+        features = self.features_layer(bottleneck)
+        color = self.color_layer(features)
+        mask = self.mask_layer(features)
+
+        output = mask * images + (1 - mask) * color
+        return output, mask, color
 
 
     def __str__(self):
@@ -66,6 +82,8 @@ class LossG(nn.Module):
         self.w_triple = self.options.l_triple
         self.w_percep = self.options.l_percep
         self.w_tv = self.options.l_tv
+        self.w_mask = self.options.l_mask
+        self.w_mask_smooth = self.options.l_mask_smooth
 
         self.to(self.options.device)
 
@@ -114,14 +132,42 @@ class LossG(nn.Module):
         return 2 * (h_tv / count_h + w_tv / count_w) / batch_size
 
 
-    def forward(self, real_1, real_2, fake_12, d_fake_12, fake_121, fake_13, fake_23):
+    def loss_mask(self, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
+        l_m_12 = self._loss_mask(fake_mask_12)
+        l_m_121 = self._loss_mask(fake_mask_121)
+        l_m_13 = self._loss_mask(fake_mask_13)
+        l_m_23 = self._loss_mask(fake_mask_23)
+        l_ms_12 = self._loss_mask_smooth(fake_mask_12)
+        l_ms_121 = self._loss_mask_smooth(fake_mask_121)
+        l_ms_13 = self._loss_mask_smooth(fake_mask_13)
+        l_ms_23 = self._loss_mask_smooth(fake_mask_23)
+
+        return l_m_12 + l_m_121 + l_m_13 + l_m_23 + l_ms_12 + l_ms_121 + l_ms_13 + l_ms_23
+
+
+    def _loss_mask(self, mask):
+        return torch.mean(mask) * self.w_mask
+
+
+    def _loss_mask_smooth(self, mask):
+        return (
+            torch.sum(torch.abs(mask[:, :, :, :-1] - mask[:, :, :, 1:])) + torch.sum(torch.abs(mask[:, :, :-1, :] - mask[:, :, 1:, :]))
+        ) * self.w_mask_smooth
+
+
+
+    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
         real_1 = real_1.to(self.options.device)
         real_2 = real_2.to(self.options.device)
-        fake_12 = fake_12.to(self.options.device)
         d_fake_12 = d_fake_12.to(self.options.device)
+        fake_12 = fake_12.to(self.options.device)
         fake_121 = fake_121.to(self.options.device)
         fake_13 = fake_13.to(self.options.device)
         fake_23 = fake_23.to(self.options.device)
+        fake_mask_12 = fake_mask_12.to(self.options.device)
+        fake_mask_121 = fake_mask_121.to(self.options.device)
+        fake_mask_13 = fake_mask_13.to(self.options.device)
+        fake_mask_23 = fake_mask_23.to(self.options.device)
 
         l_adv = self.loss_adv(d_fake_12)
         l_rec = self.w_rec * self.loss_rec(fake_12, real_2)
@@ -129,5 +175,6 @@ class LossG(nn.Module):
         l_triple = self.w_triple * self.loss_triple(fake_13, fake_23)
         l_percep = self.w_percep * self.loss_percep(fake_12, real_2)
         l_tv = self.w_tv * self.loss_tv(fake_12)
+        l_mask = self.loss_mask(fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23)
 
-        return l_adv + l_rec + l_self + l_triple + l_percep + l_tv
+        return l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask

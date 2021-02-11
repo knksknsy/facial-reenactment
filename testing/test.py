@@ -8,20 +8,17 @@ import torch.nn.functional as F
 from face_alignment import FaceAlignment, LandmarksType
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from pytorch_msssim import ssim
 from datetime import datetime
 
 from configs.options import Options
 from testing.fid import FrechetInceptionDistance
+from testing.ssim import calculate_ssim
 from dataset.dataset import VoxCelebDataset, plot_landmarks
 from dataset.transforms import Resize, ToTensor, Normalize
-from dataset.utils import denormalize
 from models.network import Network
 from loggings.logger import Logger
 
 class Test():
-    # TODO: Done: test during training, inference image (training == False)
-    # TODO: Open: inference video (training == False)
     def __init__(self, logger: Logger, options: Options, network: Network=None):
         self.logger = logger
         self.options = options
@@ -82,7 +79,7 @@ class Test():
         source = normalize(source)
         target_landmarks = normalize(target_landmarks)
 
-        output =  self.network(source, target_landmarks)
+        output, output_mask, output_color =  self.network(source, target_landmarks)
         self.logger.save_image(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', output)
 
 
@@ -136,24 +133,19 @@ class Test():
 
             # Calculate FID
             fid.calculate_activations(images_real, images_fake, batch_num)
-
             # Calculate SSIM
-            ssim_val = ssim(
-                denormalize(images_fake.detach().clone(), mean=0.5, std=0.5),
-                denormalize(images_real.detach().clone(), mean=0.5, std=0.5),
-                data_range=1.0, size_average=False
-            )
+            ssim_val = calculate_ssim(images_fake, images_real)
 
             batch_end = datetime.now()
 
-            # SHOW PROGRESS
+            # LOG PROGRESS
             if (batch_num + 1) % 1 == 0 or batch_num == 0:
                 message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
                 self.logger.log_info(message)
-                self.logger.log_info(f'SSIM = {ssim_val.mean().item():.4f}')
-                self.logger.log_scalar('SSIM', ssim_val.mean().item(), iterations)
+                self.logger.log_info(f'SSIM Validation = {ssim_val.mean().item():.4f}')
+                self.logger.log_scalar('SSIM Validation', ssim_val.mean().item(), iterations)
 
             # LOG GENERATED IMAGES
             images = torch.cat((images_real.detach().clone(), images_fake.detach().clone()), dim=0)
@@ -166,8 +158,8 @@ class Test():
             iterations += 1
         
         fid_val = fid.calculate_fid()
-        self.logger.log_info(f'FID = {fid_val:.4f}')
-        self.logger.log_scalar('FID', fid_val, epoch)
+        self.logger.log_info(f'FID Validation = {fid_val:.4f}')
+        self.logger.log_scalar('FID Validation', fid_val, epoch)
 
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
