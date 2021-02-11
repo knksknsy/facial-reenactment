@@ -14,16 +14,16 @@ class LogsExtractor():
     def __init__(self, logger: Logger, options: LogsOptions):
         self.logger = logger
         self.options = options
-        self()
 
 
-    def __call__(self):
+    def extract(self):
         self.run_start = datetime.now()
         self.logger.log_info('===== EXTRACTING LOGS =====')
 
         event_paths = glob.glob(os.path.join(self.options.log_dir, 'event*'))
 
         all_log = pd.DataFrame()
+
         for path in event_paths:
             log = self._sum_log(path)
             if log is not None:
@@ -47,6 +47,8 @@ class LogsExtractor():
 
     def _sum_log(self, path):
         runlog = pd.DataFrame(columns=['metric', 'value', 'step'])
+        line_count = 0
+
         try:
             with open(path, 'rb') as f:
                 data = f.read()
@@ -64,11 +66,15 @@ class LogsExtractor():
                     if value.HasField('simple_value'):
                         r = {'metric': value.tag, 'value': value.simple_value, 'step': event.step}
                         runlog = runlog.append(r, ignore_index=True)
-                    if value.HasField('image'):
-                        img = value.image.encoded_image_string
-                        img_array = np.asarray(bytearray(img), dtype=np.uint8)
-                        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                        cv2.imwrite(os.path.join(self.options.output_dir, f'{event.step}.png'), img)
+                    # if value.HasField('image'):
+                    #     self.logger.log_info(f'image')
+                    #     img = value.image.encoded_image_string
+                    #     img_array = np.asarray(bytearray(img), dtype=np.uint8)
+                    #     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                    #     cv2.imwrite(os.path.join(self.options.output_dir, f'{event.step}.png'), img)
+            
+            self.logger.log_info(f'Line {line_count + 1} extracted.')
+            line_count += 1
 
         return runlog
 
