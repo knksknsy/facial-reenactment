@@ -117,7 +117,8 @@ class Network():
 
         self.D.zero_grad()
 
-        fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2']).detach()
+        fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
+        fake_12 = fake_12.detach()
         fake_12.requires_grad = True
 
         d_fake_12 = self.D(fake_12)

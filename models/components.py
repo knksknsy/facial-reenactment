@@ -14,7 +14,6 @@ class ConvBlock(nn.Module):
         if padding is None:
             padding = kernel_size // 2
 
-        # TODO: test specral_norm
         if not self.deconv:
             self.conv2d = nn.utils.spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=self.use_bias))
         else:
