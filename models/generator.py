@@ -19,33 +19,29 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.options = options
 
-        down_conv_layer = []
-        down_conv_layer.append(ConvBlock(in_channels=3+3, out_channels=64, kernel_size=7, stride=1, padding=3)) # B x 64 x 128 x 128
-        down_conv_layer.append(DownSamplingBlock(64, 128))   # B x 128 x 64 x 64
-        down_conv_layer.append(DownSamplingBlock(128, 256))  # B x 256 x 32 x 32
-        self.down_conv_layer = nn.Sequential(*down_conv_layer)
+        layers = []
+        layers.append(ConvBlock(in_channels=3+3, out_channels=64, kernel_size=7, stride=1, padding=3)) # B x 64 x 128 x 128
+        layers.append(DownSamplingBlock(64, 128))   # B x 128 x 64 x 64
+        layers.append(DownSamplingBlock(128, 256))  # B x 256 x 32 x 32
 
-        bottleneck_layer = []
-        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        bottleneck_layer.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        self.bottleneck_layer = nn.Sequential(*bottleneck_layer)
+        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
 
-        features_layer = []
-        features_layer.append(UpSamplingBlock(256, 128))    # B x 128 x 64 x 64
-        features_layer.append(UpSamplingBlock(128, 64))     # B x 64 x 128 x 128
-        self.features_layer = nn.Sequential(*features_layer)
+        layers.append(UpSamplingBlock(256, 128))    # B x 128 x 64 x 64
+        layers.append(UpSamplingBlock(128, 64))     # B x 64 x 128 x 128
+        self.layers = nn.Sequential(*layers)
 
-        color_layer = []
-        color_layer.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', use_bias=False))   # B x 3 x 128 x 128
-        self.color_layer = nn.Sequential(*color_layer)
+        color_layers = []
+        color_layers.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', use_bias=False))   # B x 3 x 128 x 128
+        self.color_layers = nn.Sequential(*color_layers)
 
-        mask_layer = []
-        mask_layer.append(ConvBlock(in_channels=64, out_channels=1, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='sigmoid', use_bias=False)) # B x 1 x 128 x 128
-        self.mask_layer = nn.Sequential(*mask_layer)
+        mask_layers = []
+        mask_layers.append(ConvBlock(in_channels=64, out_channels=1, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='sigmoid', use_bias=False)) # B x 1 x 128 x 128
+        self.mask_layers = nn.Sequential(*mask_layers)
 
         self.apply(init_weights)
         self.to(self.options.device)
@@ -53,11 +49,9 @@ class Generator(nn.Module):
 
     def forward(self, images, landmarks):
         # Input: B x 6 x 128 x 128
-        down_conv = self.down_conv_layer(torch.cat((images, landmarks), dim=1))
-        bottleneck = self.bottleneck_layer(down_conv)
-        features = self.features_layer(bottleneck)
-        color = self.color_layer(features)
-        mask = self.mask_layer(features)
+        features = self.layers(torch.cat((images, landmarks), dim=1))
+        color = self.color_layers(features)
+        mask = self.mask_layers(features)
 
         output = mask * images + (1 - mask) * color
         return output, mask, color
