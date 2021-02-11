@@ -102,9 +102,9 @@ class Train():
         self.network.scheduler_G.step()
 
         # LOG LEARNING RATES
-        self.logger.log_info(f'Update learning rates: LR_G = {self.network.scheduler_G.get_last_lr():.8f} LR D = {self.network.scheduler_D.get_last_lr():.8f}')
-        self.logger.log_scalar('LR_G', self.network.scheduler_G.get_last_lr(), epoch)
-        self.logger.log_scalar('LR_D', self.network.scheduler_D.get_last_lr(), epoch)
+        self.logger.log_info(f'Update learning rates: LR_G = {self.network.scheduler_G.get_last_lr()[0]:.8f} LR D = {self.network.scheduler_D.get_last_lr()[0]:.8f}')
+        self.logger.log_scalar('LR_G', self.network.scheduler_G.get_last_lr()[0], epoch)
+        self.logger.log_scalar('LR_D', self.network.scheduler_D.get_last_lr()[0], epoch)
 
         # SAVE MODEL (EPOCH)
         self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, time_for_name=self.run_start)

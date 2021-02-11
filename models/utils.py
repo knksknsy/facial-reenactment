@@ -21,3 +21,16 @@ def init_weights(m, init_type='normal', gain=0.02):
     elif classname.find('InstanceNorm2d') != -1:
         nn.init.normal_(m.weight.data, 1.0, gain)
         nn.init.constant_(m.bias.data, 0.0)
+
+
+def lr_linear_decrease(epoch_start, epoch_end, lr_base, lr_min):
+    def wrapper(epoch):
+        cur_step = (epoch - epoch_start)
+        if epoch > epoch_start and epoch <= epoch_end:
+            lr_decay = (lr_base - lr_min) / (epoch_end - epoch_start)
+            return (lr_base - (lr_decay * cur_step)) / lr_base
+        elif epoch <= epoch_start:
+            return 1.0
+        elif epoch > epoch_end:
+            return lr_min / lr_base
+    return wrapper

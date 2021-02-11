@@ -5,13 +5,14 @@ from datetime import datetime
 import torch
 from torch.nn import DataParallel
 from torch.optim import Adam
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import LambdaLR
 from torch.nn.modules.module import Module
 from torch.optim.optimizer import Optimizer
 
 from configs import Options
 from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
+from models.utils import lr_linear_decrease
 from loggings.logger import Logger
 
 class Network():
@@ -56,16 +57,26 @@ class Network():
                 weight_decay=self.options.weight_decay
             )
 
-            self.scheduler_G = StepLR(
+            lr_lambda_G = lr_linear_decrease(
+                epoch_start=self.options.scheduler_epoch_range[0],
+                epoch_end=self.options.scheduler_epoch_range[1],
+                lr_base=self.options.lr_g,
+                lr_min=self.options.scheduler_lr_min
+            )
+            self.scheduler_G = LambdaLR(
                 optimizer=self.optimizer_G,
-                step_size=self.options.scheduler_step_size,
-                gamma=self.options.scheduler_gamma
+                lr_lambda=lr_lambda_G
             )
 
-            self.scheduler_D = StepLR(
+            lr_lambda_D = lr_linear_decrease(
+                epoch_start=self.options.scheduler_epoch_range[0],
+                epoch_end=self.options.scheduler_epoch_range[1],
+                lr_base=self.options.lr_d,
+                lr_min=self.options.scheduler_lr_min
+            )
+            self.scheduler_D = LambdaLR(
                 optimizer=self.optimizer_D,
-                step_size=self.options.scheduler_step_size,
-                gamma=self.options.scheduler_gamma
+                lr_lambda=lr_lambda_D
             )
 
             if self.options.continue_id is not None:
@@ -120,8 +131,8 @@ class Network():
         fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
         fake_12 = fake_12.detach()
         fake_12.requires_grad = True
-
         d_fake_12 = self.D(fake_12)
+
         d_real_12 = self.D(batch['image2'])
 
         loss_D = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
@@ -145,7 +156,7 @@ class Network():
         self.D.eval()
 
 
-    def load_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR,  options: Options) -> Tuple[Module, Optimizer, StepLR, str, str]:
+    def load_model(self, model: Module, optimizer: Optimizer, scheduler: LambdaLR,  options: Options) -> Tuple[Module, Optimizer, LambdaLR, str, str]:
             filename = f'{type(model).__name__}_{options.continue_id}'
             state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
             model.load_state_dict(state_dict['model'])
@@ -159,7 +170,7 @@ class Network():
             return model, optimizer, scheduler, epoch, iteration
 
 
-    def save_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
+    def save_model(self, model: Module, optimizer: Optimizer, scheduler: LambdaLR, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
         if time_for_name is None:
             time_for_name = datetime.now()
 

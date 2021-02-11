@@ -93,10 +93,10 @@ class TrainOptions(Options):
                                             help='Beta2 of Adam optimizer')
         self.parser.add_argument('--weight_decay', default=self.config['train']['optimizer']['weight_decay'], type=float,
                                             help='Weight decay of optimizer')
-        self.parser.add_argument('--scheduler_step_size', default=self.config['train']['optimizer']['scheduler_step_size'], type=int,
-                                            help='Step size for scheduler')
-        self.parser.add_argument('--scheduler_gamma', default=self.config['train']['optimizer']['scheduler_gamma'], type=float,
-                                            help='Gamma for scheduler')
+        self.parser.add_argument('--scheduler_epoch_range', nargs='+', default=self.config['train']['optimizer']['scheduler_epoch_range'], type=int,
+                                            help='Schedule to decrease learning rate from epoch_start to epoch_end.')
+        self.parser.add_argument('--scheduler_lr_min', default=self.config['train']['optimizer']['scheduler_lr_min'], type=float,
+                                            help='Minimum learning rate. If lr_min is reached, the learning rate will no longer be decreased.')
 
 
     def _parse_losses(self, args):
