@@ -84,4 +84,6 @@ class LossD(nn.Module):
         l_adv_fake = self.loss_adv_fake(d_fake)
         l_gp = self.w_gp * self.loss_gp(discriminator, real, fake)
 
-        return l_adv_real + l_adv_fake + l_gp
+        loss_total = l_adv_real + l_adv_fake + l_gp
+
+        return loss_total, l_adv_real, l_adv_fake, l_gp

@@ -37,6 +37,14 @@ class Logger():
         logging.info(message)
 
 
+    def log_infos(self, infos: dict):
+        messages = []
+        for key, value in infos.items():
+            messages.append(f'{key} = {value:.4f}')
+        message = ' | '.join(messages)
+        logging.info(message)
+
+
     def log_debug(self, message: str):
         logging.debug(message)
 
@@ -50,11 +58,17 @@ class Logger():
         self.writer.flush()
 
 
+    def log_scalars(self, scalars: dict, x_value):
+        for key, value in scalars.items():
+            self.writer.add_scalar(tag=key, scalar_value=value, global_step=x_value)
+        self.writer.flush()
+
+
     def save_image(self, path: str, filename: str, image, ext: str='.png', epoch: int=None, iteration: int=None):
         grid = self._get_grid(image, as_tensor=False)
 
         if epoch is not None and iteration is not None:
-            filename = f'{filename}_e_{str(epoch).zfill(3)}_b{str(iteration).zfill(7)}{ext}'
+            filename = f'{filename}_e_{str(epoch).zfill(3)}_b{str(iteration).zfill(8)}{ext}'
         else:
             filename = f'{filename}{ext}'
 

@@ -125,7 +125,7 @@ class Test():
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size}')
 
-        fid = FrechetInceptionDistance(self.options, len(self.data_loader_test))
+        fid = FrechetInceptionDistance(self.options, self.options.device, len(self.data_loader_test))
         iterations = epoch * len(self.data_loader_test) if while_train else 0
 
         for batch_num, batch in enumerate(self.data_loader_test):
@@ -147,7 +147,7 @@ class Test():
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
                 self.logger.log_info(message)
-                self.logger.log_info(f'SSIM Validation = {ssim_val.mean().item():.4f}')
+                self.logger.log_info(f'SSIM = {ssim_val.mean().item():.4f}')
                 self.logger.log_scalar('SSIM Validation', ssim_val.mean().item(), iterations)
 
             # LOG GENERATED IMAGES
@@ -161,7 +161,7 @@ class Test():
             iterations += 1
         
         fid_val = fid.calculate_fid()
-        self.logger.log_info(f'FID Validation = {fid_val:.4f}')
+        self.logger.log_info(f'FID = {fid_val:.4f}')
         self.logger.log_scalar('FID Validation', fid_val, epoch)
 
         run_end = datetime.now()

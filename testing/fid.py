@@ -6,12 +6,13 @@ from testing.inceptionv3 import InceptionNetwork
 from configs.options import Options
 
 class FrechetInceptionDistance():
-    def __init__(self, options: Options, data_loader_length):
+    def __init__(self, options: Options, device: str, data_loader_length):
         self.options = options
+        self.device = device
         self.data_loader_length = data_loader_length * self.options.batch_size
 
         self.inception_network = InceptionNetwork()
-        self.inception_network.to(self.options.device)
+        self.inception_network.to(device)
         self.inception_network.eval()
 
         self.inception_activations_real = np.zeros((self.data_loader_length, 2048), dtype=np.float32)

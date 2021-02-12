@@ -95,7 +95,7 @@ class Network():
             return self.G(images, landmarks)
 
 
-    def forward_G(self, batch):
+    def forward_G(self, batch, iterations: int):
         for p in self.D.parameters():
             p.requires_grad = False
 
@@ -107,11 +107,26 @@ class Network():
         fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
         fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
 
-        loss_G = self.criterion_G(
+        loss_G, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask = self.criterion_G(
             batch['image1'], batch['image2'], d_fake_12,
             fake_12, fake_121, fake_13, fake_23,
             fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
         )
+
+        # LOG LOSSES
+        losses_G = dict({
+            'Loss_G': loss_G.item(),
+            'Loss_Adv': l_adv.item(),
+            'Loss_Rec': l_rec.item(),
+            'Loss_Self': l_self.item(),
+            'Loss_Triple': l_triple.item(),
+            'Loss_Percep': l_percep.item(),
+            'Loss_TV': l_tv.item(),
+            'Loss_Mask': l_mask.item()
+        })
+        self.logger.log_scalars(losses_G, iterations)
+        del losses_G, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
+
         loss_G.backward()
 
         if self.options.grad_clip:
@@ -121,10 +136,10 @@ class Network():
 
         del d_fake_12, fake_mask_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
         
-        return loss_G, fake_12
+        return fake_12, loss_G
 
 
-    def forward_D(self, batch):
+    def forward_D(self, batch, iterations: int):
         for p in self.D.parameters():
             p.requires_grad = True
 
@@ -137,7 +152,18 @@ class Network():
 
         d_real_12 = self.D(batch['image2'])
 
-        loss_D = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
+        loss_D, l_adv_real, l_adv_fake, l_gp = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
+
+        # LOG LOSSES
+        losses_D = dict({
+            'Loss_D': loss_D.item(),
+            'Loss_Adv_Real': l_adv_real.mean().item(),
+            'Loss_Adv_Fake': l_adv_fake.mean().item(),
+            'Loss_GP': l_gp.item()
+        })
+        self.logger.log_scalars(losses_D, iterations)
+        del losses_D, l_adv_real, l_adv_fake, l_gp
+
         loss_D.backward()
 
         if self.options.grad_clip:
@@ -187,7 +213,7 @@ class Network():
         if options.device == 'cuda':
             m.cpu()
 
-        filename = f'{type(m).__name__}_t{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(2)}_i{str(iteration).zfill(7)}{ext}'
+        filename = f'{type(m).__name__}_t{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(3)}_i{str(iteration).zfill(8)}{ext}'
         torch.save({
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),

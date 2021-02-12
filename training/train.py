@@ -29,7 +29,7 @@ class Train():
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, self.training)
-        self.fid = FrechetInceptionDistance(self.options, data_loader_length=1)
+        self.fid = FrechetInceptionDistance(self.options, device='cpu', data_loader_length=1)
 
         # Start training
         self()
@@ -118,22 +118,18 @@ class Train():
 
             d_iters = 5 if self.options.gan_type == 'wgan-gp' else 2
             if (batch_num + 1) % d_iters == 0:
-                self.loss_G, self.image_fake = self.network.forward_G(batch)
+                self.image_fake, self.loss_G = self.network.forward_G(batch, self.iterations)
             else:
-                self.loss_D, self.d_real, self.d_fake = self.network.forward_D(batch)
+                self.loss_D, self.d_real, self.d_fake = self.network.forward_D(batch, self.iterations)
 
             batch_end = datetime.now()
 
             if (batch_num + 1) % d_iters == 0:
                 # LOG PROGRESS
-                self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
+                self.logger.log_info(f'Epoch {epoch + 1}: [{str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))}/{len(self.data_loader_train)}] | '
                                     f'Time: {batch_end - batch_start} | '
                                     f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f} | '
                                     f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
-                self.logger.log_scalar('Loss_G', self.loss_G.item(), self.iterations)
-                self.logger.log_scalar('Loss_D', self.loss_D.item(), self.iterations)
-                self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
-                self.logger.log_scalar('D(fake)', self.d_fake.mean().item(), self.iterations)
 
                 # LOG GENERATED IMAGES
                 images_real = batch['image2'].detach().clone()
@@ -147,16 +143,18 @@ class Train():
                 del images_real, images_fake
 
                 # LOG EVALUATION METRICS
-                if (batch_num + 1) % self.options.log_freq == 0:
+                if (batch_num + 1) % 10 == 0:#self.options.log_freq == 0:
+                    val_time_start = datetime.now()
                     images_real = batch['image2'].detach().clone()
                     images_fake = self.image_fake.detach().clone()
-                    ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake)
-                    self.logger.log_info(f'SSIM Train = {ssim_train:.4f} FID Train = {fid_train:.4f}')
+                    ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, device=self.fid.device)
+                    val_time_end = datetime.now()
+                    self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
                     self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
                     self.logger.log_scalar('FID Train', fid_train, self.iterations)
                     del images_real, images_fake
             
-                del self.loss_G, self.loss_D, self.d_real, self.d_fake, self.image_fake
+                del self.image_fake, self.loss_G, self.loss_D, self.d_real, self.d_fake
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -166,10 +164,10 @@ class Train():
             self.iterations += 1
 
 
-    def evaluate_metrics(self, images_real, images_fake):
-        ssim_score = calculate_ssim(images_fake, images_real)
+    def evaluate_metrics(self, images_real, images_fake, device):
+        ssim_score = calculate_ssim(images_fake.to(device), images_real.to(device))
 
-        self.fid.calculate_activations(images_real, images_fake, batch_num=1)
+        self.fid.calculate_activations(images_real.to(device), images_fake.to(device), batch_num=1)
         fid_score = self.fid.calculate_fid()
 
         return ssim_score.mean().item(), fid_score

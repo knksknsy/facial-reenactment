@@ -159,4 +159,6 @@ class LossG(nn.Module):
         l_tv = self.w_tv * self.loss_tv(fake_12)
         l_mask = self.loss_mask(fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23)
 
-        return l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask
+        loss_total = l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask
+
+        return loss_total, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
