@@ -30,9 +30,9 @@ class Network():
             self.D = Discriminator(self.options)
             
             # Print model summaries
-            self.logger.log_info('Generator architecture:')
+            self.logger.log_info('===== GENERATOR ARCHITECTURE =====')
             self.logger.log_info(self.G)
-            self.logger.log_info('Discriminator architecture:')
+            self.logger.log_info('===== DISCRIMINATOR ARCHITECTURE =====')
             self.logger.log_info(self.D)
 
             # Load networks into multiple GPUs
@@ -118,6 +118,8 @@ class Network():
             torch.nn.utils.clip_grad_norm_(self.G.parameters(), 1, norm_type=2)
 
         self.optimizer_G.step()
+
+        del d_fake_12, fake_mask_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
         
         return loss_G, fake_12
 
@@ -143,6 +145,8 @@ class Network():
 
         self.optimizer_D.step()
 
+        del fake_12, fake_mask_12, _
+
         return loss_D, d_real_12, d_fake_12
 
 
@@ -153,7 +157,8 @@ class Network():
 
     def eval(self):
         self.G.eval()
-        self.D.eval()
+        if self.training:
+            self.D.eval()
 
 
     def load_model(self, model: Module, optimizer: Optimizer, scheduler: LambdaLR,  options: Options) -> Tuple[Module, Optimizer, LambdaLR, str, str]:

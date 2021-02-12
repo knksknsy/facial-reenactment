@@ -29,6 +29,7 @@ class Train():
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, self.training)
+        self.fid = FrechetInceptionDistance(self.options, data_loader_length=1)
 
         # Start training
         self()
@@ -123,34 +124,39 @@ class Train():
 
             batch_end = datetime.now()
 
-            # LOG PROGRESS
-            if hasattr(self, 'loss_G') and hasattr(self, 'image_fake'):
-                if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                    self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
-                                        f'Time: {batch_end - batch_start} | '
-                                        f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f} | '
-                                        f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
-                    self.logger.log_scalar('Loss_G', self.loss_G.item(), self.iterations)
-                    self.logger.log_scalar('Loss_D', self.loss_D.item(), self.iterations)
-                    self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
-                    self.logger.log_scalar('D(fake)', self.d_fake.mean().item(), self.iterations)
-
-            # LOG GENERATED IMAGES
             if (batch_num + 1) % d_iters == 0:
-                images = torch.cat((batch['image2'].detach().clone(), self.image_fake.detach().clone()), dim=0)
+                # LOG PROGRESS
+                self.logger.log_info(f'Epoch {epoch + 1}: [{batch_num + 1}/{len(self.data_loader_train)}] | '
+                                    f'Time: {batch_end - batch_start} | '
+                                    f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f} | '
+                                    f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
+                self.logger.log_scalar('Loss_G', self.loss_G.item(), self.iterations)
+                self.logger.log_scalar('Loss_D', self.loss_D.item(), self.iterations)
+                self.logger.log_scalar('D(real)', self.d_real.mean().item(), self.iterations)
+                self.logger.log_scalar('D(fake)', self.d_fake.mean().item(), self.iterations)
+
+                # LOG GENERATED IMAGES
+                images_real = batch['image2'].detach().clone()
+                images_fake = self.image_fake.detach().clone()
+                images = torch.cat((images_real, images_fake), dim=0)
                 self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
 
                 if (batch_num + 1) % self.options.log_freq == 0:
                     self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations)
                     self.logger.log_image('Train/Generated', images, self.iterations)
+                del images_real, images_fake
 
-            # LOG EVALUATION METRICS
-            if (batch_num + 1) % d_iters == 0:
+                # LOG EVALUATION METRICS
                 if (batch_num + 1) % self.options.log_freq == 0:
-                    ssim_train, fid_train = self.evaluate_metrics(batch['image2'].detach().clone(), self.image_fake.detach().clone(), self.options)
+                    images_real = batch['image2'].detach().clone()
+                    images_fake = self.image_fake.detach().clone()
+                    ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake)
                     self.logger.log_info(f'SSIM Train = {ssim_train:.4f} FID Train = {fid_train:.4f}')
                     self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
                     self.logger.log_scalar('FID Train', fid_train, self.iterations)
+                    del images_real, images_fake
+            
+                del self.loss_G, self.loss_D, self.d_real, self.d_fake, self.image_fake
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -160,13 +166,10 @@ class Train():
             self.iterations += 1
 
 
-    def evaluate_metrics(self, images_real, images_fake, options):
-        ssim = calculate_ssim(images_fake, images_real)
+    def evaluate_metrics(self, images_real, images_fake):
+        ssim_score = calculate_ssim(images_fake, images_real)
 
-        fid = FrechetInceptionDistance(self.options, data_loader_length=1)
-        images_real = F.interpolate(images_real, size=options.image_size_test)
-        images_fake = F.interpolate(images_fake, size=options.image_size_test)
-        fid.calculate_activations(images_real, images_fake, batch_num=1)
-        fid = fid.calculate_fid()
+        self.fid.calculate_activations(images_real, images_fake, batch_num=1)
+        fid_score = self.fid.calculate_fid()
 
-        return ssim.mean().item(), fid
+        return ssim_score.mean().item(), fid_score

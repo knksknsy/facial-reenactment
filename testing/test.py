@@ -38,7 +38,7 @@ class Test():
             self.options.csv_test,
             self.options.shuffle_frames,
             transforms.Compose([
-                Resize(self.options.image_size_test, train_format),
+                Resize(self.options.image_size, train_format),
                 ToTensor(self.options.device, train_format),
                 Normalize(0.5, 0.5, train_format)
             ]),
@@ -83,6 +83,7 @@ class Test():
         self.logger.save_image(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', output)
 
 
+    # TODO: implement video inference
     def from_video(self):
         pass
 
@@ -117,6 +118,9 @@ class Test():
 
         while_train = epoch is not None
 
+        if not while_train and self.options.num_workers > 0:
+            torch.multiprocessing.set_start_method('spawn')
+
         self.logger.log_info('===== TESTING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size}')
@@ -127,9 +131,8 @@ class Test():
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
 
-            images_real = batch['image2'].to(self.options.device)
-            images_fake = self.network(batch['image1'], batch['landmark2']).to(self.options.device)
-            images_fake = F.interpolate(images_fake, size=self.options.image_size_test)
+            images_real = batch['image2']
+            images_fake, masks, colors = self.network(batch['image1'], batch['landmark2'])
 
             # Calculate FID
             fid.calculate_activations(images_real, images_fake, batch_num)

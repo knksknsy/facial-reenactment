@@ -2,8 +2,8 @@
 
 device: cuda
 device_options: [cuda, cpu]
-pin_memory: false                 # if true: 'device' must be set to 'cpu'
-num_workers: 4                    # >0: faster data loading, increased GPU usage
+pin_memory: false                                 # if true: 'device' must be set to 'cpu'
+num_workers: 4                                    # >0: faster data loading, increased GPU usage
 
 paths:
   log_dir: /media/Alpha/facial-reenactment/logs
@@ -13,8 +13,8 @@ paths:
   output_dir: /media/Alpha/facial-reenactment/outputs
 
 preprocessing:
-  num_frames: 8                   # number of frames +1 to extract from a video
-  num_videos: 0                   # >0: number of videos to be preprocessed, =0: all videos
+  num_frames: 8                                   # number of frames +1 to extract from a video
+  num_videos: 0                                   # >0: number of videos to be preprocessed, =0: all videos
   overwrite: false
 
 dataset:
@@ -23,24 +23,23 @@ dataset:
   csv_train: ./dataset/dataset_dev.csv
   csv_test: ./dataset/dataset_test.csv
   image_size: 128
-  image_size_test: 299 
-  shuffle: true                   # DataLoader: shuffle data
+  shuffle: true                                   # DataLoader: shuffle data
   augmentation:
-    shuffle_frames: true          # if true: randomly select 3 frames out of 'num_frames' 
-    horizontal_flip: true         # if true: randomly flip data
-    rotation_angle: 15            # >0: randomly rotate data
+    shuffle_frames: true                          # if true: randomly select 3 frames out of 'num_frames' 
+    horizontal_flip: true                         # if true: randomly flip data
+    rotation_angle: 15                            # >0: randomly rotate data
 
 train:
-  test: true                      # test model after each epoch
-  continue_id: null               # continue training from checkpoint
+  test: true                                      # test model after each epoch
+  continue_id: t20210211_2119_e00_i0018261.pth    # continue training from checkpoint
   epochs: 30
   batch_size: 8
   lr_g: 1.0e-4
   lr_d: 1.0e-4
-  checkpoint_freq: 5000           # frequency [iterations] to save checkpoints
-  log_freq: 1000                  # frequency [iterations] to log generated images
+  checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
+  log_freq: 1000                                  # frequency [iterations] to log generated images
   gan_type: wgan-gp
-  grad_clip: 1                    # use gradient clipping
+  grad_clip: 1                                    # use gradient clipping
   loss_weights:
     l_adv: 1
     l_rec: 10
@@ -55,5 +54,5 @@ train:
     beta1: 0.5
     beta2: 0.9
     weight_decay: 5.0e-4
-    scheduler_epoch_range: [0, 20] # scheduler decreases lr within epoch 0 to 20
+    scheduler_epoch_range: [0, 20]                # scheduler decreases lr within epoch 0 to 20
     scheduler_lr_min: 1.0e-6

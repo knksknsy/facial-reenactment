@@ -18,11 +18,10 @@ class InceptionNetwork(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: shape (N, 3, 299, 299) dtype: torch.float32 in range 0-1
+            x: dtype: torch.float32 in range 0-1
         Returns:
             inception activations: torch.tensor, shape: (N, 2048), dtype: torch.float32
         """
-        assert x.shape[1:] == (3, 299, 299), f'Expected input shape to be: (N,3,299,299), but got {x.shape}'
 
         # Trigger output hook
         self.inception_network(x)

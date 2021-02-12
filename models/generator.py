@@ -151,18 +151,6 @@ class LossG(nn.Module):
 
 
     def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
-        real_1 = real_1.to(self.options.device)
-        real_2 = real_2.to(self.options.device)
-        d_fake_12 = d_fake_12.to(self.options.device)
-        fake_12 = fake_12.to(self.options.device)
-        fake_121 = fake_121.to(self.options.device)
-        fake_13 = fake_13.to(self.options.device)
-        fake_23 = fake_23.to(self.options.device)
-        fake_mask_12 = fake_mask_12.to(self.options.device)
-        fake_mask_121 = fake_mask_121.to(self.options.device)
-        fake_mask_13 = fake_mask_13.to(self.options.device)
-        fake_mask_23 = fake_mask_23.to(self.options.device)
-
         l_adv = self.loss_adv(d_fake_12)
         l_rec = self.w_rec * self.loss_rec(fake_12, real_2)
         l_self = self.w_self * self.loss_self(fake_121, real_1)

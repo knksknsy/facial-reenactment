@@ -23,11 +23,8 @@ class FrechetInceptionDistance():
         end_idx = self.options.batch_size * (batch_num + 1) if batch_num > 1 else self.options.batch_size
 
         with torch.no_grad():
-            activations_real = self.inception_network(images_real)
-            activations_real = activations_real.detach().cpu().numpy()
-
-            activations_fake = self.inception_network(images_fake)
-            activations_fake = activations_fake.detach().cpu().numpy()
+            activations_real = self.inception_network(images_real).detach().cpu().numpy()
+            activations_fake = self.inception_network(images_fake).detach().cpu().numpy()
 
         if batch_num > 1 and (end_idx - start_idx != activations_real.shape[0]):
             end_idx = start_idx + activations_real.shape[0]

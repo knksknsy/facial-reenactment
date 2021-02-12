@@ -80,11 +80,6 @@ class LossD(nn.Module):
 
 
     def forward(self, discriminator, d_fake, d_real, fake, real):
-        d_fake = d_fake.to(self.options.device)
-        d_real = d_real.to(self.options.device)
-        fake = fake.to(self.options.device)
-        real = real.to(self.options.device)
-
         l_adv_real = self.loss_adv_real(d_real)
         l_adv_fake = self.loss_adv_fake(d_fake)
         l_gp = self.w_gp * self.loss_gp(discriminator, real, fake)
