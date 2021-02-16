@@ -73,6 +73,7 @@ class Train():
         self.logger.log_info(f'----- OPTIONS -----')
         self.logger.log_info(self.options)
         self.logger.log_info(f'Epochs: {self.options.epochs} Batches/Iterations: {len(self.data_loader_train)} Batch Size: {self.options.batch_size}')
+        self.logger.log_info(f'Learning Rates: Generator = {self.network.optimizer_G.param_groups[0]["lr"]} Discriminator = {self.network.optimizer_D.param_groups[0]["lr"]}')
 
         for epoch in range(self.network.continue_epoch, self.options.epochs):
             epoch_start =datetime.now()

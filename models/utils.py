@@ -23,14 +23,17 @@ def init_weights(m, init_type='normal', gain=0.02):
         nn.init.constant_(m.bias.data, 0.0)
 
 
-def lr_linear_decrease(epoch_start, epoch_end, lr_base, lr_min):
+def lr_linear_schedule(epoch_start, epoch_end, lr_base, lr_end):
     def wrapper(epoch):
+        # Decrease or increase multiplicator
+        mode = -1.0 if lr_base > lr_end else 1.0
+
         cur_step = (epoch - epoch_start)
-        if epoch > epoch_start and epoch <= epoch_end:
-            lr_decay = (lr_base - lr_min) / (epoch_end - epoch_start)
-            return (lr_base - (lr_decay * cur_step)) / lr_base
-        elif epoch <= epoch_start:
+        if epoch >= epoch_start and epoch < (epoch_end + 1):
+            lr_decay = abs(lr_base - lr_end) / (epoch_end + 1 - epoch_start)
+            return (lr_base + (lr_decay * mode * cur_step)) / lr_base
+        elif epoch < epoch_start:
             return 1.0
-        elif epoch > epoch_end:
-            return lr_min / lr_base
+        elif epoch >= epoch_end + 1:
+            return lr_end / lr_base
     return wrapper

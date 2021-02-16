@@ -97,8 +97,8 @@ class TrainOptions(Options):
                                             help='Weight decay of optimizer')
         self.parser.add_argument('--scheduler_epoch_range', nargs='+', default=self.config['train']['optimizer']['scheduler_epoch_range'], type=int,
                                             help='Schedule to decrease learning rate from epoch_start to epoch_end.')
-        self.parser.add_argument('--scheduler_lr_min', default=self.config['train']['optimizer']['scheduler_lr_min'], type=float,
-                                            help='Minimum learning rate. If lr_min is reached, the learning rate will no longer be decreased.')
+        self.parser.add_argument('--scheduler_lr_end', default=self.config['train']['optimizer']['scheduler_lr_end'], type=float,
+                                            help='Last learning rate. If lr_end is reached, the learning rate will no longer be changed.')
 
 
     def _parse_losses(self, args):

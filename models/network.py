@@ -12,7 +12,7 @@ from torch.optim.optimizer import Optimizer
 from configs import Options
 from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
-from models.utils import lr_linear_decrease
+from models.utils import lr_linear_schedule
 from loggings.logger import Logger
 
 class Network():
@@ -63,22 +63,22 @@ class Network():
                 weight_decay=self.options.weight_decay
             )
 
-            lr_lambda_G = lr_linear_decrease(
+            lr_lambda_G = lr_linear_schedule(
                 epoch_start=self.options.scheduler_epoch_range[0],
                 epoch_end=self.options.scheduler_epoch_range[1],
                 lr_base=self.options.lr_g,
-                lr_min=self.options.scheduler_lr_min
+                lr_end=self.options.scheduler_lr_end
             )
             self.scheduler_G = LambdaLR(
                 optimizer=self.optimizer_G,
                 lr_lambda=lr_lambda_G
             )
 
-            lr_lambda_D = lr_linear_decrease(
+            lr_lambda_D = lr_linear_schedule(
                 epoch_start=self.options.scheduler_epoch_range[0],
                 epoch_end=self.options.scheduler_epoch_range[1],
                 lr_base=self.options.lr_d,
-                lr_min=self.options.scheduler_lr_min
+                lr_end=self.options.scheduler_lr_end
             )
             self.scheduler_D = LambdaLR(
                 optimizer=self.optimizer_D,
