@@ -30,8 +30,8 @@ dataset:
     rotation_angle: 15                            # >0: randomly rotate data
 
 train:
-  test: true                                      # test model after each epoch
-  continue_id: null                               # continue training from checkpoint
+  test: false                                     # test model after each epoch
+  continue_id: t20210215_1711_e029_i00547830.pth  # continue training from checkpoint
   epochs: 30
   batch_size: 8
   lr_g: 1.0e-4
@@ -39,6 +39,7 @@ train:
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   gan_type: wgan-gp
+  d_iters: 5                                      # discriminator update interval: e.g. 5: update discriminator 5 times then generator 1 time
   grad_clip: 1                                    # use gradient clipping
   loss_weights:
     l_adv: 1
@@ -54,5 +55,5 @@ train:
     beta1: 0.5
     beta2: 0.9
     weight_decay: 5.0e-4
-    scheduler_epoch_range: [0, 20]                # scheduler decreases lr within epoch 0 to 20
+    scheduler_epoch_range: [0, 20]                # scheduler decreases learning rate within epoch 0 to 20
     scheduler_lr_min: 1.0e-6

@@ -26,7 +26,7 @@ class TestOptions(Options):
                                             help='Path for source image (identity to be preserved).')
         self.parser.add_argument('--target', type=str, default=None,
                                             help='Path for target image.')
-        self.parser.add_argument('--model', type=str, required=True,
+        self.parser.add_argument('--model', type=str, default=None,
                                             help='Path to the generator model.')
 
         # ARGUMENTS: DATASET

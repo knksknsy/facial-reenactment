@@ -3,7 +3,6 @@ import numpy as np
 
 from torchvision import transforms
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 from datetime import datetime
 
 from configs.train_options import TrainOptions
@@ -28,7 +27,7 @@ class Train():
         np.random.seed(57)
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
-        self.network = Network(self.logger, self.options, self.training)
+        self.network = Network(self.logger, self.options, model_path=None)
         self.fid = FrechetInceptionDistance(self.options, device='cpu', data_loader_length=1)
 
         # Start training
@@ -36,9 +35,6 @@ class Train():
 
 
     def _get_data_loader(self, train_format):
-        if self.options.num_workers > 0:
-            torch.multiprocessing.set_start_method('spawn')
-
         transforms_list = [
             Resize(self.options.image_size, train_format),
             RandomHorizontalFlip(train_format) if self.options.horizontal_flip else None,
@@ -116,7 +112,7 @@ class Train():
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
 
-            d_iters = 5 if self.options.gan_type == 'wgan-gp' else 2
+            d_iters = self.options.d_iters if self.options.gan_type == 'wgan-gp' else 2
             if (batch_num + 1) % d_iters == 0:
                 self.image_fake, self.loss_G = self.network.forward_G(batch, self.iterations)
             else:
@@ -143,7 +139,7 @@ class Train():
                 del images_real, images_fake
 
                 # LOG EVALUATION METRICS
-                if (batch_num + 1) % 10 == 0:#self.options.log_freq == 0:
+                if self.options.test and (batch_num + 1) % self.options.log_freq == 0:
                     val_time_start = datetime.now()
                     images_real = batch['image2'].detach().clone()
                     images_fake = self.image_fake.detach().clone()

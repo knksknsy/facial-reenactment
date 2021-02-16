@@ -85,6 +85,8 @@ class TrainOptions(Options):
                                             help='Use gradient clipping')
         self.parser.add_argument('--gan_type', default=self.config['train']['gan_type'], type=str,
                                             help='GAN type')
+        self.parser.add_argument('--d_iters', default=self.config['train']['d_iters'], type=int,
+                                            help='Update interval of discriminator')
 
         # ARGUMENTS: OPTIMIZER
         self.parser.add_argument('--beta1', default=self.config['train']['optimizer']['beta1'], type=float,

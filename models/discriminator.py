@@ -8,6 +8,7 @@ from io import StringIO
 from configs import Options
 from models.utils import init_weights
 from models.components import ConvBlock
+from loggings.logger import Logger
 
 class Discriminator(nn.Module):
     def __init__(self, options: Options):
@@ -41,8 +42,9 @@ class Discriminator(nn.Module):
 
 
 class LossD(nn.Module):
-    def __init__(self, options: Options):
+    def __init__(self, logger: Logger, options: Options):
         super(LossD, self).__init__()
+        self.logger = logger
         self.options = options
         self.w_gp = self.options.l_gp
 
@@ -79,11 +81,21 @@ class LossD(nn.Module):
         return l_gp
 
 
-    def forward(self, discriminator, d_fake, d_real, fake, real):
+    def forward(self, discriminator, d_fake, d_real, fake, real, iterations: int):
         l_adv_real = self.loss_adv_real(d_real)
         l_adv_fake = self.loss_adv_fake(d_fake)
         l_gp = self.w_gp * self.loss_gp(discriminator, real, fake)
 
-        loss_total = l_adv_real + l_adv_fake + l_gp
+        loss_D = l_adv_real + l_adv_fake + l_gp
 
-        return loss_total, l_adv_real, l_adv_fake, l_gp
+        # LOG LOSSES
+        losses_D = dict({
+            'Loss_D': loss_D.detach().item(),
+            'Loss_Adv_Real': l_adv_real.detach().item(),
+            'Loss_Adv_Fake': l_adv_fake.detach().item(),
+            'Loss_GP': l_gp.detach().item()
+        })
+        self.logger.log_scalars(losses_D, iterations)
+        del losses_D, l_gp
+
+        return loss_D, l_adv_real, l_adv_fake

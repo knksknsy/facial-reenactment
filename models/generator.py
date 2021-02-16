@@ -12,6 +12,7 @@ from configs import Options
 from models.utils import init_weights
 from models.vgg import VGG
 from models.components import ConvBlock, DownSamplingBlock, UpSamplingBlock, ResidualBlock
+from loggings.logger import Logger
 
 # TODO: test leakyrelu
 class Generator(nn.Module):
@@ -66,9 +67,11 @@ class Generator(nn.Module):
 
 
 class LossG(nn.Module):
-    def __init__(self, options: Options):
+    def __init__(self, logger: Logger, options: Options, vgg_device='cpu'):
         super(LossG, self).__init__()
+        self.logger = logger
         self.options = options
+        self.vgg_device = vgg_device
 
         self.w_adv = self.options.l_adv
         self.w_rec = self.options.l_rec
@@ -82,14 +85,14 @@ class LossG(nn.Module):
         self.to(self.options.device)
 
         self.VGG = VGG(vgg16(pretrained=True))
-        if torch.cuda.device_count() > 1:
+        if self.vgg_device == 'cuda' and torch.cuda.device_count() > 1:
             self.VGG = DataParallel(self.VGG)
+        self.VGG.to(self.vgg_device)
         self.VGG.eval()
-        self.VGG.to(self.options.device)
 
 
     def loss_adv(self, d_fake_12):
-        return torch.mean(-d_fake_12) * self.w_adv
+        return -torch.mean(d_fake_12)
 
 
     def loss_rec(self, fake_12, real_2):
@@ -105,8 +108,8 @@ class LossG(nn.Module):
 
 
     def loss_percep(self, fake_12, real_2):
-        vgg_fake = self.VGG(fake_12)
-        vgg_real = self.VGG(real_2)
+        vgg_fake = self.VGG(fake_12.to(self.vgg_device))
+        vgg_real = self.VGG(real_2.to(self.vgg_device))
         l_percep = 0
 
         for idx in range(len(self.VGG.layer_name_mapping)):
@@ -149,9 +152,8 @@ class LossG(nn.Module):
         ) * self.w_mask_smooth
 
 
-
-    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
-        l_adv = self.loss_adv(d_fake_12)
+    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23, iterations: int):
+        l_adv = self.w_adv * self.loss_adv(d_fake_12)
         l_rec = self.w_rec * self.loss_rec(fake_12, real_2)
         l_self = self.w_self * self.loss_self(fake_121, real_1)
         l_triple = self.w_triple * self.loss_triple(fake_13, fake_23)
@@ -159,6 +161,20 @@ class LossG(nn.Module):
         l_tv = self.w_tv * self.loss_tv(fake_12)
         l_mask = self.loss_mask(fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23)
 
-        loss_total = l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask
+        loss_G = l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask
 
-        return loss_total, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
+        # LOG LOSSES
+        losses_G = dict({
+            'Loss_G': loss_G.detach().item(),
+            'Loss_Adv': l_adv.detach().item(),
+            'Loss_Rec': l_rec.detach().item(),
+            'Loss_Self': l_self.detach().item(),
+            'Loss_Triple': l_triple.detach().item(),
+            'Loss_Percep': l_percep.detach().item(),
+            'Loss_TV': l_tv.detach().item(),
+            'Loss_Mask': l_mask.detach().item()
+        })
+        self.logger.log_scalars(losses_G, iterations)
+        del losses_G, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
+
+        return loss_G

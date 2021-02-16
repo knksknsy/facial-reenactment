@@ -16,16 +16,22 @@ from models.utils import lr_linear_decrease
 from loggings.logger import Logger
 
 class Network():
-    def __init__(self, logger: Logger, options: Options, training=False):
+    def __init__(self, logger: Logger, options: Options, model_path=None):
         self.logger = logger
-        self.training = training
+        self.model_path = model_path
         self.options = options
 
         self.continue_epoch = 0
         self.continue_iteration = 0
 
+        # Testing mode
+        if self.model_path is not None:
+            self.G = Generator(self.options)
+            state_dict = torch.load(os.path.join(self.options.checkpoint_dir, self.model_path))
+            self.G.load_state_dict(state_dict['model'])
+
         # Training mode
-        if self.training:
+        else:
             self.G = Generator(self.options)
             self.D = Discriminator(self.options)
             
@@ -40,8 +46,8 @@ class Network():
                 self.G = DataParallel(self.G)
                 self.D = DataParallel(self.D)
 
-            self.criterion_G = LossG(self.options)
-            self.criterion_D = LossD(self.options)
+            self.criterion_G = LossG(self.logger, self.options, vgg_device=self.options.device)
+            self.criterion_D = LossD(self.logger, self.options)
 
             self.optimizer_G = Adam(
                 params=self.G.parameters(),
@@ -83,12 +89,6 @@ class Network():
                 self.G, self.optimizer_G, self.scheduler_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.scheduler_G, self.options)
                 self.D, self.optimizer_D, self.scheduler_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.scheduler_D, self.options)
 
-        # Testing mode
-        else:
-            self.G = Generator(self.options)
-            state_dict = torch.load(self.options.model)
-            self.G.load_state_dict(state_dict['model'])
-
 
     def __call__(self, images, landmarks):
         with torch.no_grad():
@@ -107,26 +107,11 @@ class Network():
         fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
         fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
 
-        loss_G, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask = self.criterion_G(
+        loss_G = self.criterion_G(
             batch['image1'], batch['image2'], d_fake_12,
             fake_12, fake_121, fake_13, fake_23,
-            fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
+            fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23, iterations
         )
-
-        # LOG LOSSES
-        losses_G = dict({
-            'Loss_G': loss_G.item(),
-            'Loss_Adv': l_adv.item(),
-            'Loss_Rec': l_rec.item(),
-            'Loss_Self': l_self.item(),
-            'Loss_Triple': l_triple.item(),
-            'Loss_Percep': l_percep.item(),
-            'Loss_TV': l_tv.item(),
-            'Loss_Mask': l_mask.item()
-        })
-        self.logger.log_scalars(losses_G, iterations)
-        del losses_G, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
-
         loss_G.backward()
 
         if self.options.grad_clip:
@@ -152,18 +137,7 @@ class Network():
 
         d_real_12 = self.D(batch['image2'])
 
-        loss_D, l_adv_real, l_adv_fake, l_gp = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
-
-        # LOG LOSSES
-        losses_D = dict({
-            'Loss_D': loss_D.item(),
-            'Loss_Adv_Real': l_adv_real.mean().item(),
-            'Loss_Adv_Fake': l_adv_fake.mean().item(),
-            'Loss_GP': l_gp.item()
-        })
-        self.logger.log_scalars(losses_D, iterations)
-        del losses_D, l_adv_real, l_adv_fake, l_gp
-
+        loss_D, l_adv_real, l_adv_fake = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'], iterations)
         loss_D.backward()
 
         if self.options.grad_clip:
@@ -183,7 +157,7 @@ class Network():
 
     def eval(self):
         self.G.eval()
-        if self.training:
+        if self.model_path is None:
             self.D.eval()
 
 
@@ -193,7 +167,7 @@ class Network():
             model.load_state_dict(state_dict['model'])
             optimizer.load_state_dict(state_dict['optimizer'])
             scheduler.load_state_dict(state_dict['scheduler'])
-            epoch = state_dict['epoch']
+            epoch = state_dict['epoch'] + 1
             iteration = state_dict['iteration']
 
             self.logger.log_info(f'Model loaded: {filename}')
