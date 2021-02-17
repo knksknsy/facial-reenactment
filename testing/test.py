@@ -17,7 +17,6 @@ class Test():
         self.logger = logger
         self.options = options
         self.network = network
-        self.batch_size = 1 #self.options.batch_size
         self.data_loader_test = self._get_data_loader(train_format=False)
         self.network.eval()
 
@@ -38,7 +37,7 @@ class Test():
         # TODO: evaluation batch size = 1
         data_loader_test = DataLoader(
             dataset_test,
-            self.batch_size,
+            self.options.batch_size_test,
             self.options.shuffle,
             num_workers=self.options.num_workers,
             pin_memory=self.options.pin_memory
@@ -54,7 +53,7 @@ class Test():
 
         self.logger.log_info('===== TESTING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
-        self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.batch_size}')
+        self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size_test}')
 
         fid = FrechetInceptionDistance(self.options, self.options.device, len(self.data_loader_test))
         iterations = epoch * len(self.data_loader_test) if while_train else 0

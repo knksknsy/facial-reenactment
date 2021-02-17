@@ -44,9 +44,9 @@ def main():
             # Test multiple models
             else:
                 models = sorted([f for f in os.listdir(options.checkpoint_dir) if 'Generator' in f])
-                for epoch, model in enumerate(models):
+                for model in models:
                     network = Network(logger, options, model_path=model)
-                    Test(logger, options, network).test(epoch)
+                    Test(logger, options, network).test(network.continue_epoch)
 
         elif mode == 'infer':
             options = TestOptions(description=f'{description} Testing')

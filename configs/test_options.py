@@ -31,4 +31,5 @@ class TestOptions(Options):
 
         # ARGUMENTS: DATASET
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
+        self.parser.add_argument('--batch_size_test', type=int, default=self.config['test']['batch_size_test'])
         

@@ -24,16 +24,29 @@ def init_weights(m, init_type='normal', gain=0.02):
 
 
 def lr_linear_schedule(epoch_start, epoch_end, lr_base, lr_end):
-    def wrapper(epoch):
-        # Decrease or increase multiplicator
-        mode = -1.0 if lr_base > lr_end else 1.0
+    mode = -1.0 if lr_base > lr_end else 1.0
+    if lr_base < lr_end:
+        lr_base, lr_end = lr_end, lr_base
 
+    def wrapper(epoch):
         cur_step = (epoch - epoch_start)
         if epoch >= epoch_start and epoch < (epoch_end + 1):
-            lr_decay = abs(lr_base - lr_end) / (epoch_end + 1 - epoch_start)
-            return (lr_base + (lr_decay * mode * cur_step)) / lr_base
+            lr_decay = (abs(lr_base - lr_end) / (epoch_end + 1 - epoch_start)) * mode
+            return (lr_base + (lr_decay * cur_step)) / lr_base
         elif epoch < epoch_start:
             return 1.0
         elif epoch >= epoch_end + 1:
             return lr_end / lr_base
     return wrapper
+
+def lr_linear_scheduler(current_epoch, epoch_start, epoch_end, lr_base, lr_end):
+    mode = -1.0 if lr_base > lr_end else 1.0
+
+    cur_step = (current_epoch - epoch_start)
+    if current_epoch >= epoch_start and current_epoch < epoch_end:
+        lr_decay = (abs(lr_base - lr_end) / (epoch_end - epoch_start)) * mode
+        return lr_base + (lr_decay * cur_step)
+    elif current_epoch < epoch_start:
+        return lr_base
+    elif current_epoch >= epoch_end:
+        return lr_end

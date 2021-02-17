@@ -12,7 +12,7 @@ from torch.optim.optimizer import Optimizer
 from configs import Options
 from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
-from models.utils import lr_linear_schedule
+from models.utils import lr_linear_schedule, lr_linear_scheduler
 from loggings.logger import Logger
 
 class Network():
@@ -29,6 +29,7 @@ class Network():
             self.G = Generator(self.options)
             state_dict = torch.load(os.path.join(self.options.checkpoint_dir, self.model_path))
             self.G.load_state_dict(state_dict['model'])
+            self.continue_epoch = state_dict['epoch']
 
         # Training mode
         else:
@@ -52,14 +53,14 @@ class Network():
             self.optimizer_G = Adam(
                 params=self.G.parameters(),
                 lr=self.options.lr_g,
-                betas=(self.options.beta1, self.options.beta1),
+                betas=(self.options.beta1, self.options.beta2),
                 weight_decay=self.options.weight_decay
             )
 
             self.optimizer_D = Adam(
                 params=self.D.parameters(),
                 lr=self.options.lr_d,
-                betas=(self.options.beta1, self.options.beta1),
+                betas=(self.options.beta1, self.options.beta2),
                 weight_decay=self.options.weight_decay
             )
 
@@ -67,7 +68,7 @@ class Network():
                 epoch_start=self.options.scheduler_epoch_range[0],
                 epoch_end=self.options.scheduler_epoch_range[1],
                 lr_base=self.options.lr_g,
-                lr_end=self.options.scheduler_lr_end
+                lr_end=self.options.scheduler_lr_g_end
             )
             self.scheduler_G = LambdaLR(
                 optimizer=self.optimizer_G,
@@ -78,7 +79,7 @@ class Network():
                 epoch_start=self.options.scheduler_epoch_range[0],
                 epoch_end=self.options.scheduler_epoch_range[1],
                 lr_base=self.options.lr_d,
-                lr_end=self.options.scheduler_lr_end
+                lr_end=self.options.scheduler_lr_d_end
             )
             self.scheduler_D = LambdaLR(
                 optimizer=self.optimizer_D,
@@ -169,6 +170,11 @@ class Network():
             scheduler.load_state_dict(state_dict['scheduler'])
             epoch = state_dict['epoch'] + 1
             iteration = state_dict['iteration']
+
+            if options.overwrite_optim:
+                optimizer.param_groups[0]['lr'] = options.lr_g if type(model).__name__ == 'Generator' else options.lr_d
+                optimizer.param_groups[0]['betas'] = (options.beta1, options.beta2)
+                optimizer.param_groups[0]['weight_decay'] = options.weight_decay
 
             self.logger.log_info(f'Model loaded: {filename}')
             
