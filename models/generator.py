@@ -163,7 +163,7 @@ class LossG(nn.Module):
 
         loss_G = l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask
 
-        # LOG LOSSES
+        # LOSSES DICT
         losses_G = dict({
             'Loss_G': loss_G.detach().item(),
             'Loss_Adv': l_adv.detach().item(),
@@ -174,7 +174,6 @@ class LossG(nn.Module):
             'Loss_TV': l_tv.detach().item(),
             'Loss_Mask': l_mask.detach().item()
         })
-        self.logger.log_scalars(losses_G, iterations)
-        del losses_G, l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
+        del l_rec, l_self, l_triple, l_percep, l_tv, l_mask
 
-        return loss_G
+        return loss_G, l_adv, losses_G

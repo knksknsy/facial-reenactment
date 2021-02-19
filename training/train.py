@@ -12,7 +12,7 @@ from testing.fid import FrechetInceptionDistance
 from dataset.dataset import VoxCelebDataset
 from dataset.transforms import Resize, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
 from models.network import Network
-from models.utils import lr_linear_scheduler
+from models.utils import lr_linear_schedule
 from loggings.logger import Logger
 
 class Train():
@@ -84,7 +84,7 @@ class Train():
             if self.options.test:
                 Test(self.logger, self.options, self.network).test(epoch)
 
-            # TODO: create new event file
+            # Create new tensorboard event for each epoch
             self.logger.init_writer()
 
             epoch_end = datetime.now()
@@ -101,22 +101,20 @@ class Train():
         self._train_epoch(epoch)
         
         # Schedule learning rate
-        self.network.optimizer_G.param_groups[0]['lr'] = lr_linear_scheduler(
+        self.network.optimizer_G.param_groups[0]['lr'] = lr_linear_schedule(
             epoch,
             epoch_start=self.options.scheduler_epoch_range[0],
             epoch_end=self.options.scheduler_epoch_range[1],
             lr_base=self.options.lr_g,
             lr_end=self.options.scheduler_lr_g_end
         )
-        self.network.optimizer_D.param_groups[0]['lr'] = lr_linear_scheduler(
+        self.network.optimizer_D.param_groups[0]['lr'] = lr_linear_schedule(
             epoch,
             epoch_start=self.options.scheduler_epoch_range[0],
             epoch_end=self.options.scheduler_epoch_range[1],
             lr_base=self.options.lr_d,
             lr_end=self.options.scheduler_lr_d_end
         )
-        # self.network.scheduler_D.step()
-        # self.network.scheduler_G.step()
 
         # LOG LEARNING RATES
         self.logger.log_info(f'Update learning rates: LR_G = {self.network.optimizer_G.param_groups[0]["lr"]:.8f} LR D = {self.network.optimizer_D.param_groups[0]["lr"]:.8f}')
@@ -124,89 +122,110 @@ class Train():
         self.logger.log_scalar('LR_D', self.network.optimizer_D.param_groups[0]["lr"], epoch)
 
         # SAVE MODEL (EPOCH)
-        self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, time_for_name=self.run_start)
-        self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, time_for_name=self.run_start)
+        self.network.save_model(self.network.G, self.network.optimizer_G, epoch, self.iterations, self.options, time_for_name=self.run_start)
+        self.network.save_model(self.network.D, self.network.optimizer_D, epoch, self.iterations, self.options, time_for_name=self.run_start)
 
 
     def _train_epoch(self, epoch):
-        gen_call_counter = 0
+        loss_G = None
+        loss_D = None
+        d_G_prev = None
+        d_D_prev = None
+        gen_counter = 0
 
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
-            is_gen_active = False
 
+            # Fixed update strategy
+            if not is_adaptive_strategy():
+                d_iters = self.options.d_iters if self.options.gan_type == 'wgan-gp' else 2
+                set_gen_active((batch_num + 1) % d_iters == 0, self.options.device)
+
+                if is_gen_active():
+                    images_generated, loss_G, d_G, losses_G_dict = self.network.forward_G(batch, self.iterations)
+                    gen_counter += 1
+                else:
+                    loss_D, losses_D_dict = self.network.forward_D(batch, self.iterations)
+                    d_D = loss_D
+
+                # Start adaptive strategy after 3 fixed update cycles
+                if self.options.loss_coeff > 0 and (batch_num + 1) % (d_iters * 3) == 0:
+                    set_adaptive_strategy(True, self.options.device)
 
             # Adaptive update strategy
             if self.options.loss_coeff > 0:
                 # First iteration: initialize loss change ratios r_d, r_g
                 if epoch == self.network.continue_epoch and batch_num == 0:
-                    self.r_d = self.r_g = 1
-                
-                if self.r_d > self.options.loss_coef * self.r_g:
-                    is_gen_active = False
-                    self.loss_D, self.d_real, self.d_fake = self.network.forward_D(batch, self.iterations)
-                else:
-                    is_gen_active = True
-                    gen_call_counter += 1
-                    self.image_fake, self.loss_G = self.network.forward_G(batch, self.iterations)
-                
-                # First iteration: set current losses to previous losses
-                if epoch == self.network.continue_epoch and batch_num == 0:
-                    self.loss_p_g, self.loss_p_d = self.loss_G, self.loss_D
-                
-                self.loss_c_g, self.loss_c_d = self.loss_G, self.loss_D
-                self.r_g = abs((self.loss_c_g - self.loss_p_g) / self.loss_p_g)
-                self.r_d = abs((self.loss_c_d - self.loss_p_d) / self.loss_p_d)
-                self.loss_p_g, self.loss_p_d = self.loss_G, self.loss_D
+                    r_d, r_g = 1, 1
 
+                # Initialize prev loss to current for first iteration
+                if is_gen_active() and d_G_prev is None:
+                    d_G_prev = d_G
+                elif not is_gen_active() and d_D_prev is None:
+                    d_D_prev = d_D
 
-            # Fixed update strategy
-            elif self.options.d_iters > 0:
-                d_iters = self.options.d_iters if self.options.gan_type == 'wgan-gp' else 2
-                is_gen_active = (batch_num + 1) % d_iters == 0
-                
-                if is_gen_active:
-                    self.image_fake, self.loss_G = self.network.forward_G(batch, self.iterations)
+                if r_d > self.options.loss_coeff * r_g:
+                    if is_adaptive_strategy():
+                        set_gen_active(False, self.options.device)
+                        loss_D, losses_D_dict = self.network.forward_D(batch, self.iterations)
+                        d_D = loss_D
+                        d_G = self.network.get_adv_G(batch['image1'], batch['landmark2'])
                 else:
-                    self.loss_D, self.d_real, self.d_fake = self.network.forward_D(batch, self.iterations)
+                    if is_adaptive_strategy():
+                        set_gen_active(True, self.options.device)
+                        gen_counter += 1
+                        images_generated, loss_G, d_G, losses_G_dict = self.network.forward_G(batch, self.iterations)
+                        d_D = self.network.get_adv_D(batch['image2'], images_generated)
+
+                if d_G_prev is not None and d_D_prev is not None:
+                    r_g, r_d = abs((d_G - d_G_prev) / d_G_prev), abs((d_D - d_D_prev) / d_D_prev)
+                    d_G_prev, d_D_prev = d_G, d_D
+                    # self.logger.log_info(f'{batch_num}: r_d: {r_d:.3f} | r_g: {r_g:.3f} | {"DIS" if r_d > self.options.loss_coeff * r_g else "GEN"}')
 
             batch_end = datetime.now()
 
+            # LOG UPDATE INTERVALS
+            if is_gen_active():
+                self.logger.log_scalar('Generator/Discriminator Updates', 1, self.iterations)
+            else:
+                self.logger.log_scalar('Generator/Discriminator Updates', 0, self.iterations)
 
             # LOG PROGRESS
-            if is_gen_active:
+            if loss_G is not None and loss_D is not None and (batch_num + 1) % d_iters == 0:
                 self.logger.log_info(f'Epoch {epoch + 1}: [{str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))}/{len(self.data_loader_train)}] | '
                                     f'Time: {batch_end - batch_start} | '
-                                    f'Loss_G = {self.loss_G.item():.4f} Loss_D = {self.loss_D.item():.4f} | '
-                                    f'D(real) = {self.d_real.mean().item():.4f} D(fake) = {self.d_fake.mean().item():.4f}')
+                                    f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}')
 
-                # LOG LATEST GENERATED IMAGE
-                images_real = batch['image2'].detach().clone()
-                images_fake = self.image_fake.detach().clone()
-                images = torch.cat((images_real, images_fake), dim=0)
-                self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
-                del images_real, images_fake
+                # LOG LOSSES G AND D
+                self.logger.log_scalars(losses_G_dict, self.iterations)
+                self.logger.log_scalars(losses_D_dict, self.iterations)
 
-                # LOG GENERATED IMAGES
-                if (batch_num + 1) % self.options.log_freq == 0 or gen_call_counter % self.options.log_freq == 0:
-                    gen_call_counter = 0
-                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations)
-                    self.logger.log_image('Train/Generated', images, self.iterations)
-                    del images
-                    
-                    # LOG EVALUATION METRICS
-                    if self.options.test:
-                        val_time_start = datetime.now()
-                        images_real = batch['image2'].detach().clone()
-                        images_fake = self.image_fake.detach().clone()
-                        ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, device=self.fid.device)
-                        val_time_end = datetime.now()
-                        self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
-                        self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
-                        self.logger.log_scalar('FID Train', fid_train, self.iterations)
-                        del images_real, images_fake
-            
-                del self.image_fake, self.loss_G, self.loss_D, self.d_real, self.d_fake
+                if is_gen_active():
+                    # LOG LATEST GENERATED IMAGE
+                    images_real = batch['image2'].detach().clone()
+                    images_fake = images_generated.detach().clone()
+                    images = torch.cat((images_real, images_fake), dim=0)
+                    self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
+                    del images_real, images_fake
+
+                    # LOG GENERATED IMAGES
+                    if (not is_adaptive_strategy() and (batch_num + 1) % self.options.log_freq == 0) or (is_adaptive_strategy() and (gen_counter + 1) > self.options.log_freq):
+                        gen_counter = 0
+                        self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations)
+                        self.logger.log_image('Train/Generated', images, self.iterations)
+                        del images
+                        
+                        # LOG EVALUATION METRICS
+                        if self.options.test:
+                            val_time_start = datetime.now()
+                            images_real = batch['image2'].detach().clone()
+                            images_fake = images_generated.detach().clone()
+                            ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, device=self.fid.device)
+                            val_time_end = datetime.now()
+                            self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
+                            self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
+                            self.logger.log_scalar('FID Train', fid_train, self.iterations)
+                            del images_real, images_fake
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -223,3 +242,28 @@ class Train():
         fid_score = self.fid.calculate_fid()
 
         return ssim_score.mean().item(), fid_score
+
+
+# Global Tensors with shared memory. Needed for subprocesses of DataLoader
+adaptive_strategy = torch.tensor([False])
+gen_active = torch.tensor([False])
+adaptive_strategy.share_memory_()
+gen_active.share_memory_()
+
+def is_adaptive_strategy():
+    global adaptive_strategy
+    return adaptive_strategy
+
+def set_adaptive_strategy(b: bool, device):
+    global adaptive_strategy
+    adaptive_strategy = torch.tensor([b]).to(device)
+    return adaptive_strategy
+
+def is_gen_active():
+    global gen_active
+    return gen_active
+
+def set_gen_active(b: bool, device):
+    global gen_active
+    gen_active = torch.tensor([b]).to(device)
+    return gen_active

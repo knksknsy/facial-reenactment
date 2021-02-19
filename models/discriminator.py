@@ -88,14 +88,13 @@ class LossD(nn.Module):
 
         loss_D = l_adv_real + l_adv_fake + l_gp
 
-        # LOG LOSSES
+        # LOSSES DICT
         losses_D = dict({
             'Loss_D': loss_D.detach().item(),
             'Loss_Adv_Real': l_adv_real.detach().item(),
             'Loss_Adv_Fake': l_adv_fake.detach().item(),
             'Loss_GP': l_gp.detach().item()
         })
-        self.logger.log_scalars(losses_D, iterations)
-        del losses_D, l_gp
+        del l_adv_real, l_adv_fake, l_gp
 
-        return loss_D, l_adv_real, l_adv_fake
+        return loss_D, losses_D

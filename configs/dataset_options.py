@@ -29,7 +29,7 @@ class DatasetOptions(Options):
                                             help='Number of frames + 1 to extract from a video.')
         self.parser.add_argument('--num_videos', type=int, default=self.config['preprocessing']['num_videos'],
                                             help='Number of videos from the dataset to process. Providing 0 will pre-process all videos.')
-        self.parser.add_argument('--overwrite', action='store_false' if self.config['preprocessing']['overwrite'] else 'store_true',
+        self.parser.add_argument('--overwrite_videos', action='store_false' if self.config['preprocessing']['overwrite_videos'] else 'store_true',
                                             help='Add this flag to overwrite already pre-processed files. The default functionality'
                                             'is to ignore videos that have already been pre-processed.')
 

@@ -33,7 +33,7 @@ class Preprocess():
             self.options.source,
             self.options.num_videos,
             self.options.output,
-            overwrite=self.options.overwrite
+            overwrite=self.options.overwrite_videos
         )
 
         self.logger.log_info(f'Processing {len(video_list)} videos...')

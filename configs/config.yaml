@@ -31,18 +31,18 @@ dataset:
 
 train:
   test: false                                     # test model after each epoch
-  continue_id: t20210215_1711_e029_i00547830.pth  # continue training from checkpoint
-  epochs: 40
+  continue_id: null                               # continue training from checkpoint
+  epochs: 30
   batch_size: 8
-  lr_g: 1.0e-6
-  lr_d: 4.0e-6
+  lr_g: 1.0e-4
+  lr_d: 4.0e-4
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   gan_type: wgan-gp
-  update_strategy:                                # set one value to >0 to choose between update strategies
-    d_iters: 0                                    # >0: use fixed update strategy
-    loss_coeff: 3                                 # >0: use adaptive update strategy
-  grad_clip: 1                                    # use gradient clipping
+  update_strategy:
+    d_iters: 5                                    # fixed update strategy
+    loss_coeff: 1                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
+  grad_clip: 0.01                                    # use gradient clipping
   loss_weights:
     l_adv: 1
     l_rec: 10
@@ -59,8 +59,8 @@ train:
     beta2: 0.9
     weight_decay: 5.0e-4
     scheduler_epoch_range: [0, 19]                # modify learning rate from epoch 1 to 20
-    scheduler_lr_g_end: 1.0e-4
-    scheduler_lr_d_end: 4.0e-4
+    scheduler_lr_g_end: 1.0e-6
+    scheduler_lr_d_end: 4.0e-6
 
 test:
   batch_size_test: 8

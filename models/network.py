@@ -5,14 +5,12 @@ from datetime import datetime
 import torch
 from torch.nn import DataParallel
 from torch.optim import Adam
-from torch.optim.lr_scheduler import LambdaLR
 from torch.nn.modules.module import Module
 from torch.optim.optimizer import Optimizer
 
 from configs import Options
 from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
-from models.utils import lr_linear_schedule, lr_linear_scheduler
 from loggings.logger import Logger
 
 class Network():
@@ -64,31 +62,9 @@ class Network():
                 weight_decay=self.options.weight_decay
             )
 
-            lr_lambda_G = lr_linear_schedule(
-                epoch_start=self.options.scheduler_epoch_range[0],
-                epoch_end=self.options.scheduler_epoch_range[1],
-                lr_base=self.options.lr_g,
-                lr_end=self.options.scheduler_lr_g_end
-            )
-            self.scheduler_G = LambdaLR(
-                optimizer=self.optimizer_G,
-                lr_lambda=lr_lambda_G
-            )
-
-            lr_lambda_D = lr_linear_schedule(
-                epoch_start=self.options.scheduler_epoch_range[0],
-                epoch_end=self.options.scheduler_epoch_range[1],
-                lr_base=self.options.lr_d,
-                lr_end=self.options.scheduler_lr_d_end
-            )
-            self.scheduler_D = LambdaLR(
-                optimizer=self.optimizer_D,
-                lr_lambda=lr_lambda_D
-            )
-
             if self.options.continue_id is not None:
-                self.G, self.optimizer_G, self.scheduler_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.scheduler_G, self.options)
-                self.D, self.optimizer_D, self.scheduler_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.scheduler_D, self.options)
+                self.G, self.optimizer_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.options)
+                self.D, self.optimizer_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.options)
 
 
     def __call__(self, images, landmarks):
@@ -108,7 +84,7 @@ class Network():
         fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
         fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
 
-        loss_G = self.criterion_G(
+        loss_G, l_adv, losses_dict = self.criterion_G(
             batch['image1'], batch['image2'], d_fake_12,
             fake_12, fake_121, fake_13, fake_23,
             fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23, iterations
@@ -116,13 +92,21 @@ class Network():
         loss_G.backward()
 
         if self.options.grad_clip:
-            torch.nn.utils.clip_grad_norm_(self.G.parameters(), 1, norm_type=2)
+            torch.nn.utils.clip_grad_norm_(self.G.parameters(), self.options.grad_clip, norm_type=2)
 
         self.optimizer_G.step()
 
-        del d_fake_12, fake_mask_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
-        
-        return fake_12, loss_G
+        del fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
+
+        return fake_12.detach(), loss_G.detach().item(), l_adv.detach().item(), losses_dict
+
+
+    def get_adv_G(self, images, landmarks):
+        with torch.no_grad():
+            img_g, _, _ = self.G(images, landmarks)
+            d_img_g = self.D(img_g)
+            adv_gen = self.criterion_G.loss_adv(d_img_g).detach().item()
+            return adv_gen
 
 
     def forward_D(self, batch, iterations: int):
@@ -134,21 +118,30 @@ class Network():
         fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
         fake_12 = fake_12.detach()
         fake_12.requires_grad = True
-        d_fake_12 = self.D(fake_12)
 
+        d_fake_12 = self.D(fake_12)
         d_real_12 = self.D(batch['image2'])
 
-        loss_D, l_adv_real, l_adv_fake = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'], iterations)
+        loss_D, losses_dict = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'], iterations)
         loss_D.backward()
 
         if self.options.grad_clip:
-            torch.nn.utils.clip_grad_norm_(self.D.parameters(), 1, norm_type=2)
+            torch.nn.utils.clip_grad_norm_(self.D.parameters(), self.options.grad_clip, norm_type=2)
 
         self.optimizer_D.step()
 
-        del fake_12, fake_mask_12, _
+        del fake_12, fake_mask_12, _, d_real_12, d_fake_12
 
-        return loss_D, d_real_12, d_fake_12
+        return loss_D.detach().item(), losses_dict
+
+
+    def get_adv_D(self, real, fake):
+        with torch.no_grad():
+            d_fake = self.D(fake)
+            d_real = self.D(real)
+            adv_fake = self.criterion_D.loss_adv_fake(d_fake).detach().item()
+            adv_real = self.criterion_D.loss_adv_real(d_real).detach().item()
+            return adv_fake + adv_real
 
 
     def train(self):
@@ -162,12 +155,11 @@ class Network():
             self.D.eval()
 
 
-    def load_model(self, model: Module, optimizer: Optimizer, scheduler: LambdaLR,  options: Options) -> Tuple[Module, Optimizer, LambdaLR, str, str]:
+    def load_model(self, model: Module, optimizer: Optimizer, options: Options) -> Tuple[Module, Optimizer, str, str]:
             filename = f'{type(model).__name__}_{options.continue_id}'
             state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
             model.load_state_dict(state_dict['model'])
             optimizer.load_state_dict(state_dict['optimizer'])
-            scheduler.load_state_dict(state_dict['scheduler'])
             epoch = state_dict['epoch'] + 1
             iteration = state_dict['iteration']
 
@@ -178,16 +170,15 @@ class Network():
 
             self.logger.log_info(f'Model loaded: {filename}')
             
-            return model, optimizer, scheduler, epoch, iteration
+            return model, optimizer, epoch, iteration
 
 
-    def save_model(self, model: Module, optimizer: Optimizer, scheduler: LambdaLR, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
+    def save_model(self, model: Module, optimizer: Optimizer, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
         if time_for_name is None:
             time_for_name = datetime.now()
 
         m = model.module if isinstance(model, DataParallel) else model
         # o = optimizer.module if isinstance(optimizer, DataParallel) else optimizer
-        # s = scheduler.module if isinstance(scheduler, DataParallel) else scheduler
 
         m.eval()
         if options.device == 'cuda':
@@ -197,7 +188,6 @@ class Network():
         torch.save({
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),
-                'scheduler': scheduler.state_dict(),
                 'epoch': epoch,
                 'iteration': iteration
             },
