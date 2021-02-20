@@ -72,7 +72,7 @@ class Network():
             return self.G(images, landmarks)
 
 
-    def forward_G(self, batch, iterations: int):
+    def forward_G(self, batch):
         for p in self.D.parameters():
             p.requires_grad = False
 
@@ -84,10 +84,10 @@ class Network():
         fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
         fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
 
-        loss_G, l_adv, losses_dict = self.criterion_G(
+        loss_G, losses_dict = self.criterion_G(
             batch['image1'], batch['image2'], d_fake_12,
             fake_12, fake_121, fake_13, fake_23,
-            fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23, iterations
+            fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
         )
         loss_G.backward()
 
@@ -98,18 +98,27 @@ class Network():
 
         del fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
 
-        return fake_12.detach(), loss_G.detach().item(), l_adv.detach().item(), losses_dict
+        return fake_12.detach(), loss_G.detach().item(), losses_dict
 
 
-    def get_adv_G(self, images, landmarks):
+    def get_loss_G(self, batch):
         with torch.no_grad():
-            img_g, _, _ = self.G(images, landmarks)
-            d_img_g = self.D(img_g)
-            adv_gen = self.criterion_G.loss_adv(d_img_g).detach().item()
-            return adv_gen
+            fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
+            d_fake_12 = self.D(fake_12)
+            fake_121, fake_mask_121, _ = self.G(fake_12, batch['landmark1'])
+            fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
+            fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
+
+            loss_G, _ = self.criterion_G(
+                batch['image1'], batch['image2'], d_fake_12,
+                fake_12, fake_121, fake_13, fake_23,
+                fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
+            )
+            del fake_12, fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
+            return loss_G.detach().item()
 
 
-    def forward_D(self, batch, iterations: int):
+    def forward_D(self, batch):
         for p in self.D.parameters():
             p.requires_grad = True
 
@@ -122,7 +131,7 @@ class Network():
         d_fake_12 = self.D(fake_12)
         d_real_12 = self.D(batch['image2'])
 
-        loss_D, losses_dict = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'], iterations)
+        loss_D, losses_dict = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
         loss_D.backward()
 
         if self.options.grad_clip:
@@ -135,13 +144,12 @@ class Network():
         return loss_D.detach().item(), losses_dict
 
 
-    def get_adv_D(self, real, fake):
-        with torch.no_grad():
-            d_fake = self.D(fake)
-            d_real = self.D(real)
-            adv_fake = self.criterion_D.loss_adv_fake(d_fake).detach().item()
-            adv_real = self.criterion_D.loss_adv_real(d_real).detach().item()
-            return adv_fake + adv_real
+    def get_loss_D(self, real, fake):
+        d_fake = self.D(fake)
+        d_real = self.D(real)
+        loss_D, _ = self.criterion_D(self.D, d_fake, d_real, fake, real, req_grad=True)
+        del d_fake, d_real, _
+        return loss_D.detach().item()
 
 
     def train(self):

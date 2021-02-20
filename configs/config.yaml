@@ -31,7 +31,7 @@ dataset:
 
 train:
   test: false                                     # test model after each epoch
-  continue_id: null                               # continue training from checkpoint
+  continue_id: t20210220_0020_e004_i00091305.pth  # continue training from checkpoint
   epochs: 30
   batch_size: 8
   lr_g: 1.0e-4
@@ -42,7 +42,7 @@ train:
   update_strategy:
     d_iters: 5                                    # fixed update strategy
     loss_coeff: 1                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
-  grad_clip: 0.01                                    # use gradient clipping
+  grad_clip: 1                                    # use gradient clipping
   loss_weights:
     l_adv: 1
     l_rec: 10

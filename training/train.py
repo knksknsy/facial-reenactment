@@ -127,11 +127,10 @@ class Train():
 
 
     def _train_epoch(self, epoch):
-        loss_G = None
-        loss_D = None
-        d_G_prev = None
-        d_D_prev = None
-        gen_counter = 0
+        set_adaptive_strategy(False)
+        set_gen_counter(0)
+        loss_G, loss_D = None, None
+        loss_G_prev, loss_D_prev = None, None
 
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
@@ -139,56 +138,53 @@ class Train():
             # Fixed update strategy
             if not is_adaptive_strategy():
                 d_iters = self.options.d_iters if self.options.gan_type == 'wgan-gp' else 2
-                set_gen_active((batch_num + 1) % d_iters == 0, self.options.device)
+                set_gen_active((batch_num + 1) % d_iters == 0)
 
                 if is_gen_active():
-                    images_generated, loss_G, d_G, losses_G_dict = self.network.forward_G(batch, self.iterations)
-                    gen_counter += 1
+                    images_generated, loss_G, losses_G_dict = self.network.forward_G(batch)
+                    gen_counter_inc()
                 else:
-                    loss_D, losses_D_dict = self.network.forward_D(batch, self.iterations)
-                    d_D = loss_D
+                    loss_D, losses_D_dict = self.network.forward_D(batch)
 
                 # Start adaptive strategy after 3 fixed update cycles
                 if self.options.loss_coeff > 0 and (batch_num + 1) % (d_iters * 3) == 0:
-                    set_adaptive_strategy(True, self.options.device)
+                    set_adaptive_strategy(True)
 
             # Adaptive update strategy
             if self.options.loss_coeff > 0:
-                # First iteration: initialize loss change ratios r_d, r_g
-                if epoch == self.network.continue_epoch and batch_num == 0:
+                # Initialize loss change ratios r_d, r_g
+                if batch_num == 0:
                     r_d, r_g = 1, 1
 
                 # Initialize prev loss to current for first iteration
-                if is_gen_active() and d_G_prev is None:
-                    d_G_prev = d_G
-                elif not is_gen_active() and d_D_prev is None:
-                    d_D_prev = d_D
+                if is_gen_active() and loss_G_prev is None:
+                    loss_G_prev = loss_G
+                elif not is_gen_active() and loss_D_prev is None:
+                    loss_D_prev = loss_D
 
                 if r_d > self.options.loss_coeff * r_g:
                     if is_adaptive_strategy():
-                        set_gen_active(False, self.options.device)
-                        loss_D, losses_D_dict = self.network.forward_D(batch, self.iterations)
-                        d_D = loss_D
-                        d_G = self.network.get_adv_G(batch['image1'], batch['landmark2'])
+                        set_gen_active(False)
+                        loss_D, losses_D_dict = self.network.forward_D(batch)
+                        loss_G = self.network.get_loss_G(batch)
                 else:
                     if is_adaptive_strategy():
-                        set_gen_active(True, self.options.device)
-                        gen_counter += 1
-                        images_generated, loss_G, d_G, losses_G_dict = self.network.forward_G(batch, self.iterations)
-                        d_D = self.network.get_adv_D(batch['image2'], images_generated)
+                        set_gen_active(True)
+                        gen_counter_inc()
+                        images_generated, loss_G, losses_G_dict = self.network.forward_G(batch)
+                        loss_D = self.network.get_loss_D(batch['image2'], images_generated)
 
-                if d_G_prev is not None and d_D_prev is not None:
-                    r_g, r_d = abs((d_G - d_G_prev) / d_G_prev), abs((d_D - d_D_prev) / d_D_prev)
-                    d_G_prev, d_D_prev = d_G, d_D
-                    # self.logger.log_info(f'{batch_num}: r_d: {r_d:.3f} | r_g: {r_g:.3f} | {"DIS" if r_d > self.options.loss_coeff * r_g else "GEN"}')
+                if loss_G_prev is not None and loss_D_prev is not None:
+                    r_g, r_d = abs((loss_G - loss_G_prev) / loss_G_prev), abs((loss_D - loss_D_prev) / loss_D_prev)
+                    loss_G_prev, loss_D_prev = loss_G, loss_D
 
             batch_end = datetime.now()
 
             # LOG UPDATE INTERVALS
             if is_gen_active():
-                self.logger.log_scalar('Generator/Discriminator Updates', 1, self.iterations)
+                self.logger.log_scalar('Generator-Discriminator Updates', 1, self.iterations)
             else:
-                self.logger.log_scalar('Generator/Discriminator Updates', 0, self.iterations)
+                self.logger.log_scalar('Generator-Discriminator Updates', 0, self.iterations)
 
             # LOG PROGRESS
             if loss_G is not None and loss_D is not None and (batch_num + 1) % d_iters == 0:
@@ -206,14 +202,17 @@ class Train():
                     images_fake = images_generated.detach().clone()
                     images = torch.cat((images_real, images_fake), dim=0)
                     self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
-                    del images_real, images_fake
+                    del images_real, images_fake, images
 
                     # LOG GENERATED IMAGES
-                    if (not is_adaptive_strategy() and (batch_num + 1) % self.options.log_freq == 0) or (is_adaptive_strategy() and (gen_counter + 1) > self.options.log_freq):
-                        gen_counter = 0
+                    if (not is_adaptive_strategy() and (batch_num + 1) % self.options.log_freq == 0) or (is_adaptive_strategy() and (get_gen_counter() + 1) > self.options.log_freq):
+                        set_gen_counter(0)
+                        images_real = batch['image2'].detach().clone()
+                        images_fake = images_generated.detach().clone()
+                        images = torch.cat((images_real, images_fake), dim=0)
                         self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations)
                         self.logger.log_image('Train/Generated', images, self.iterations)
-                        del images
+                        del images_real, images_fake, images
                         
                         # LOG EVALUATION METRICS
                         if self.options.test:
@@ -225,7 +224,7 @@ class Train():
                             self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
                             self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
                             self.logger.log_scalar('FID Train', fid_train, self.iterations)
-                            del images_real, images_fake
+                            del images_real, images_fake, ssim_train, fid_train
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -233,6 +232,8 @@ class Train():
             #     self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, self.run_start)
 
             self.iterations += 1
+
+        del loss_G, loss_D, loss_G_prev, loss_D_prev, r_g, r_d, losses_G_dict, losses_D_dict
 
 
     def evaluate_metrics(self, images_real, images_fake, device):
@@ -247,23 +248,39 @@ class Train():
 # Global Tensors with shared memory. Needed for subprocesses of DataLoader
 adaptive_strategy = torch.tensor([False])
 gen_active = torch.tensor([False])
+gen_counter = torch.tensor([0])
 adaptive_strategy.share_memory_()
 gen_active.share_memory_()
+gen_counter.share_memory_()
 
 def is_adaptive_strategy():
     global adaptive_strategy
     return adaptive_strategy
 
-def set_adaptive_strategy(b: bool, device):
+def set_adaptive_strategy(b: bool):
     global adaptive_strategy
-    adaptive_strategy = torch.tensor([b]).to(device)
+    adaptive_strategy = torch.tensor([b])
     return adaptive_strategy
 
 def is_gen_active():
     global gen_active
     return gen_active
 
-def set_gen_active(b: bool, device):
+def set_gen_active(b: bool):
     global gen_active
-    gen_active = torch.tensor([b]).to(device)
+    gen_active = torch.tensor([b])
     return gen_active
+
+def get_gen_counter():
+    global gen_counter
+    return gen_counter
+
+def set_gen_counter(v):
+    global gen_counter
+    gen_counter = torch.tensor([v])
+    return gen_counter
+
+def gen_counter_inc():
+    global gen_counter
+    gen_counter += 1
+    return gen_counter

@@ -152,7 +152,7 @@ class LossG(nn.Module):
         ) * self.w_mask_smooth
 
 
-    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23, iterations: int):
+    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
         l_adv = self.w_adv * self.loss_adv(d_fake_12)
         l_rec = self.w_rec * self.loss_rec(fake_12, real_2)
         l_self = self.w_self * self.loss_self(fake_121, real_1)
@@ -174,6 +174,6 @@ class LossG(nn.Module):
             'Loss_TV': l_tv.detach().item(),
             'Loss_Mask': l_mask.detach().item()
         })
-        del l_rec, l_self, l_triple, l_percep, l_tv, l_mask
+        del l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
 
-        return loss_G, l_adv, losses_G
+        return loss_G, losses_G

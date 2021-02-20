@@ -60,10 +60,11 @@ class LossD(nn.Module):
 
 
     # TODO: check gradient penalty implementation
-    def loss_gp(self, discriminator, real, fake):
+    def loss_gp(self, discriminator, real, fake, req_grad):
         alpha = torch.rand(real.size(0), 1, 1, 1).to(self.options.device).expand_as(real)
         interpolated = alpha * real + (1 - alpha) * fake
-        # interpolated.requires_grad = True
+        if req_grad:
+            interpolated.requires_grad = True
         prob_interpolated = discriminator(interpolated)
 
         grad = torch.autograd.grad(
@@ -81,10 +82,10 @@ class LossD(nn.Module):
         return l_gp
 
 
-    def forward(self, discriminator, d_fake, d_real, fake, real, iterations: int):
+    def forward(self, discriminator, d_fake, d_real, fake, real, req_grad=False):
         l_adv_real = self.loss_adv_real(d_real)
         l_adv_fake = self.loss_adv_fake(d_fake)
-        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake)
+        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake, req_grad)
 
         loss_D = l_adv_real + l_adv_fake + l_gp
 
