@@ -15,17 +15,45 @@ class Preprocess():
     def __init__(self, logger: Logger, options: DatasetOptions):
         self.logger = logger
         self.options = options
+        self.ids = self.options.vox_ids if len(self.options.vox_ids) > 0 else None
 
-        self._preprocess_dataset()
-    
-    def _preprocess_dataset(self):
+
+    def preprocess_ids_dataset(self):
+        self.logger.log_info('===== DATASET PRE-PROCESSING IDS =====')
+        self.logger.log_info(f'Running on {self.options.device.upper()}.')
+        fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
+        self.num_frames = 3
+
+        self._create_csv(self.options.csv, self.num_frames)
+        video_list = self._get_video_list(
+            self.options.source,
+            self.options.num_videos,
+            self.options.output,
+            overwrite=self.options.overwrite_videos,
+            ids=self.ids
+        )
+        self.logger.log_info(f'Processing {len(video_list)} videos...')
+
+        self._init_pool(fa, self.options.output)
+        counter = 1
+        for v in video_list:
+            start_time = datetime.now()
+            self._process_video_folder(v, self.options.csv, self.num_frames)
+            self.logger.log_info(f'{counter}/{len(video_list)}\t{datetime.now() - start_time}')
+            counter += 1
+
+        self.logger.log_info(f'All {len(video_list)} videos processed.')
+        self.logger.log_info(f'CSV {self.options.csv} created.')
+
+
+    def preprocess_dataset(self):
         self.num_frames = self.options.num_frames + 1
         self.logger.log_info('===== DATASET PRE-PROCESSING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
-        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_frames + 1}).')
+        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_frames}).')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
-        
-        self._create_csv(self.options.csv)
+
+        self._create_csv(self.options.csv, self.num_frames)
         # Prune videos to large to fit into RAM
         self._prune_videos(self.options.source)
 
@@ -44,20 +72,20 @@ class Preprocess():
         counter = 1
         for v in video_list:
             start_time = datetime.now()
-            self._process_video_folder(v, self.options.csv)
-            self.logger.log_info(f'{counter}/{len(video_list)}\t{datetime.now()-start_time}')
+            self._process_video_folder(v, self.options.csv, self.num_frames)
+            self.logger.log_info(f'{counter}/{len(video_list)}\t{datetime.now() - start_time}')
             counter += 1
 
         self.logger.log_info(f'All {len(video_list)} videos processed.')
         self.logger.log_info(f'CSV {self.options.csv} created.')
 
-    
-    def _create_csv(self, path):
+
+    def _create_csv(self, path, num_frames):
         if not os.path.isfile(path):
             self.logger.log_info(f'Creating CSV file {path}).')
 
             header = []
-            for i in range(self.num_frames):
+            for i in range(num_frames):
                 header.append(f'landmark{i+1}')
                 header.append(f'image{i+1}')
             
@@ -119,7 +147,7 @@ class Preprocess():
         for i in range(0, len(l), n):
             yield l[i: i+n]
 
-    
+
     def _contains_only_videos(self, files, extension='.mp4'):
         """
         Checks whether the files provided all end with the specified video extension.
@@ -130,7 +158,7 @@ class Preprocess():
         return len([x for x in files if os.path.splitext(x)[1] != extension]) == 0
 
 
-    def _get_video_list(self, source, size, output, overwrite=True):
+    def _get_video_list(self, source, size, output, overwrite=True, ids=None):
         """
         Extracts a list of paths to videos to pre-process during the current run.
 
@@ -153,15 +181,26 @@ class Preprocess():
 
         self.logger.log_info(f'Analyze videos to be processed... (May take a while)')
         video_list = []
-        counter = 0
-        for root, dirs, files in os.walk(source):
-            if len(files) > 0 and os.path.sep.join(root.split(os.path.sep)[-2:]) not in already_processed:
-                assert self._contains_only_videos(files) and len(dirs) == 0
-                video_list.append((root, files))
-                counter += 1
-                if 0 < size <= counter:
-                    break
-                
+
+        # Process n=size videos
+        if ids is None:
+            counter = 0
+            for root, dirs, files in os.walk(source):
+                if len(files) > 0 and os.path.sep.join(root.split(os.path.sep)[-2:]) not in already_processed:
+                    assert self._contains_only_videos(files) and len(dirs) == 0
+                    video_list.append((root, files))
+                    counter += 1
+                    if 0 < size <= counter:
+                        break
+        # Process videos by id
+        else:
+            for id_path in ids:
+                id_path = os.path.join(source, 'mp4', id_path)
+                for root, dirs, files in os.walk(id_path):
+                    if len(files) > 0 and os.path.sep.join(root.split(os.path.sep)[-2:]) not in already_processed:
+                        assert self._contains_only_videos(files) and len(dirs) == 0
+                        video_list.append((root, files))
+
         return video_list
 
 
@@ -170,9 +209,9 @@ class Preprocess():
         _FA = face_alignment
         global _OUT_DIR
         _OUT_DIR = output
-    
 
-    def _process_video_folder(self, video, csv):
+
+    def _process_video_folder(self, video, csv, num_frames):
         """
         Extracts all frames from a video, selects K+1 random frames, and saves them along with their landmarks.
         :param video: 2-Tuple containing (1) the path to the folder where the video segments are located and (2) the file
@@ -187,17 +226,34 @@ class Preprocess():
             identity = folder.split(os.path.sep)[-2:][0]
             video_id = folder.split(os.path.sep)[-2:][1]
 
-            self._save_video(
-                frames=self._select_random_frames(frames),
-                identity=identity,
-                video_id=video_id,
-                path=_OUT_DIR,
-                csv=csv,
-                face_alignment=_FA
-            )
+            if self.ids is None:
+                self._save_video(
+                    frames=self._select_random_frames(frames, num_frames),
+                    identity=identity,
+                    video_id=video_id,
+                    path=_OUT_DIR,
+                    csv=csv,
+                    face_alignment=_FA
+                )
+            else:
+                np.random.shuffle(frames)
+                end_idx = frames.shape[0] - (frames.shape[0] % num_frames)
+                frames = frames[0:end_idx]
+                triplets = np.array_split(frames, frames.shape[0] // num_frames)
+                for idx, triplet in enumerate(triplets):
+                    self._save_video(
+                        frames=triplet,
+                        identity=identity,
+                        video_id=video_id,
+                        path=_OUT_DIR,
+                        csv=csv,
+                        face_alignment=_FA,
+                        frame_id=idx
+                    )
+
         except Exception as e:
             self.logger.log_error(f'Video {os.path.basename(os.path.normpath(folder))} could not be processed:\n{e}')
-    
+
 
     def _extract_frames(self, video):
         """
@@ -223,24 +279,24 @@ class Preprocess():
 
         cap.release()
         return frames
-    
 
-    def _select_random_frames(self, frames):
+
+    def _select_random_frames(self, frames, num_frames):
         """
         Selects K+1 random frames from a list of frames.
         :param frames: Iterator of frames.
         :return: List of selected frames.
         """
         S = []
-        while len(S) < self.num_frames:
+        while len(S) < num_frames:
             s = np.random.randint(0, len(frames)-1)
             if s not in S:
                 S.append(s)
 
         return [frames[s] for s in S]
-    
 
-    def _save_video(self, path, csv, identity, video_id, frames, face_alignment):
+
+    def _save_video(self, path, csv, identity, video_id, frames, face_alignment, frame_id=None):
         """
         Generates the landmarks for the face in each provided frame and saves the frames and the landmarks as a pickled
         list of dictionaries with entries {'frame', 'landmarks'}.
@@ -258,10 +314,11 @@ class Preprocess():
         
         csv_line = []
 
-        for i in range(len(frames)):
+        r = range(len(frames)) if frame_id is None else range(frames.shape[0])
+        for i in r:
             x = frames[i]
             y = face_alignment.get_landmarks_from_image(x)[0]
-            filename_y = f'{i+1}.npy'
+            filename_y = f'{i+1}.npy' if frame_id is None else f'{frame_id+1}_{i+1}.npy'
             csv_line.append(filename_y)
             np.save(os.path.join(path, filename_y), y)
 
@@ -271,7 +328,7 @@ class Preprocess():
             # plot.save(os.path.join(path, filename_plot))
 
             x = PIL.Image.fromarray(x, 'RGB')
-            filename_x = f'{i+1}.png'
+            filename_x = f'{i+1}.png' if frame_id is None else f'{frame_id+1}_{i+1}.png'
             csv_line.append(filename_x)
             x.save(os.path.join(path, filename_x))
 

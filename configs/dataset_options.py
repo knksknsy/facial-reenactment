@@ -32,4 +32,4 @@ class DatasetOptions(Options):
         self.parser.add_argument('--overwrite_videos', action='store_false' if self.config['preprocessing']['overwrite_videos'] else 'store_true',
                                             help='Add this flag to overwrite already pre-processed files. The default functionality'
                                             'is to ignore videos that have already been pre-processed.')
-
+        self.parser.add_argument('--vox_ids', nargs='+', type=str, help='Voxceleb2 ids to be processes')

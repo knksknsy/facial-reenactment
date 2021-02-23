@@ -22,7 +22,10 @@ def main():
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
-            Preprocess(logger, options)
+            if len(options.vox_ids) > 0:
+                Preprocess(logger, options).preprocess_ids_dataset()
+            else:
+                Preprocess(logger, options).preprocess_dataset()
 
         elif mode == 'train':
             options = TrainOptions(description=f'{description} Training')
@@ -40,6 +43,7 @@ def main():
             # Test single model
             if options.model is not None:
                 Test(logger, options, Network(logger, options, model_path=options.model)).test()
+                # Test(logger, options, Network(logger, options, model_path=options.model)).generate()
 
             # Test multiple models
             else:

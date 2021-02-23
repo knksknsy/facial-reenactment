@@ -15,7 +15,7 @@ paths:
 preprocessing:
   num_frames: 8                                   # number of frames +1 to extract from a video
   num_videos: 0                                   # >0: number of videos to be preprocessed, =0: all videos
-  overwrite: false
+  overwrite_videos: false
 
 dataset:
   dataset_train: /home/kaan/datasets/VoxCeleb2/Preprocessed/dev/
@@ -31,7 +31,7 @@ dataset:
 
 train:
   test: false                                     # test model after each epoch
-  continue_id: t20210220_0020_e004_i00091305.pth  # continue training from checkpoint
+  continue_id: null                               # continue training from checkpoint
   epochs: 30
   batch_size: 8
   lr_g: 1.0e-4
@@ -63,4 +63,4 @@ train:
     scheduler_lr_d_end: 4.0e-6
 
 test:
-  batch_size_test: 8
+  batch_size_test: 1
