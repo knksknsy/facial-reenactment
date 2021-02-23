@@ -25,7 +25,8 @@ class Network():
         # Testing mode
         if self.model_path is not None:
             self.G = Generator(self.options)
-            state_dict = torch.load(os.path.join(self.options.checkpoint_dir, self.model_path))
+            # state_dict = torch.load(os.path.join(self.options.checkpoint_dir, self.model_path))
+            state_dict = torch.load(self.model_path)
             self.G.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
 
@@ -97,8 +98,9 @@ class Network():
         self.optimizer_G.step()
 
         del fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
-
-        return fake_12.detach(), loss_G.detach().item(), losses_dict
+        fake_12 = fake_12.detach()
+        loss_G = loss_G.detach().item()
+        return fake_12, loss_G, losses_dict
 
 
     def get_loss_G(self, batch):
@@ -115,7 +117,8 @@ class Network():
                 fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
             )
             del fake_12, fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
-            return loss_G.detach().item()
+            loss_G = loss_G.detach().item()
+            return loss_G
 
 
     def forward_D(self, batch):
@@ -140,8 +143,8 @@ class Network():
         self.optimizer_D.step()
 
         del fake_12, fake_mask_12, _, d_real_12, d_fake_12
-
-        return loss_D.detach().item(), losses_dict
+        loss_D = loss_D.detach().item()
+        return loss_D, losses_dict
 
 
     def get_loss_D(self, real, fake):
@@ -149,7 +152,8 @@ class Network():
         d_real = self.D(real)
         loss_D, _ = self.criterion_D(self.D, d_fake, d_real, fake, real, req_grad=True)
         del d_fake, d_real, _
-        return loss_D.detach().item()
+        loss_D = loss_D.detach().item()
+        return loss_D
 
 
     def train(self):

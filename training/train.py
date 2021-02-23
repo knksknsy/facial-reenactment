@@ -200,31 +200,30 @@ class Train():
                     # LOG LATEST GENERATED IMAGE
                     images_real = batch['image2'].detach().clone()
                     images_fake = images_generated.detach().clone()
-                    images = torch.cat((images_real, images_fake), dim=0)
-                    self.logger.save_image(self.options.gen_dir, f'0_last_result', images)
-                    del images_real, images_fake, images
+                    images_source = batch['image1'].detach().clone()
+                    landmarks_target = batch['landmark2'].detach().clone()
+                    images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
+                    self.logger.save_image(self.options.gen_dir, f'0_last_result', images, nrow=self.options.batch_size)
 
                     # LOG GENERATED IMAGES
                     if (not is_adaptive_strategy() and (batch_num + 1) % self.options.log_freq == 0) or (is_adaptive_strategy() and (get_gen_counter() + 1) > self.options.log_freq):
                         set_gen_counter(0)
-                        images_real = batch['image2'].detach().clone()
-                        images_fake = images_generated.detach().clone()
-                        images = torch.cat((images_real, images_fake), dim=0)
-                        self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations)
-                        self.logger.log_image('Train/Generated', images, self.iterations)
-                        del images_real, images_fake, images
+                        self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
+                        self.logger.log_image('Train/Generated', images, self.iterations, nrow=self.options.batch_size)
                         
                         # LOG EVALUATION METRICS
                         if self.options.test:
                             val_time_start = datetime.now()
-                            images_real = batch['image2'].detach().clone()
-                            images_fake = images_generated.detach().clone()
                             ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, device=self.fid.device)
                             val_time_end = datetime.now()
                             self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
                             self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
                             self.logger.log_scalar('FID Train', fid_train, self.iterations)
-                            del images_real, images_fake, ssim_train, fid_train
+                            del images_generated, images_real, images_fake, images, images_source, landmarks_target, ssim_train, fid_train
+                        else:
+                            del images_generated, images_real, images_fake, images, images_source, landmarks_target
+                    else:
+                        del images_generated, images_real, images_fake, images, images_source, landmarks_target
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:

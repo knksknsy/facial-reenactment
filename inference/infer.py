@@ -44,7 +44,7 @@ class Infer():
         target_landmarks = normalize(target_landmarks)
 
         output, output_mask, output_color =  self.network(source, target_landmarks)
-        self.logger.save_image(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', output)
+        self.logger.save_image(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', output, nrow=self.options.batch_size)
 
 
     # TODO: implement video inference

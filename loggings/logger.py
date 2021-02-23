@@ -64,8 +64,8 @@ class Logger():
         self.writer.flush()
 
 
-    def save_image(self, path: str, filename: str, image, ext: str='.png', epoch: int=None, iteration: int=None):
-        grid = self._get_grid(image, as_tensor=False)
+    def save_image(self, path: str, filename: str, image, nrow=4, ext: str='.png', epoch: int=None, iteration: int=None):
+        grid = self._get_grid(image, nrow, as_tensor=False)
 
         if epoch is not None and iteration is not None:
             filename = f'{filename}_e_{str(epoch).zfill(3)}_b{str(iteration).zfill(8)}{ext}'
@@ -75,14 +75,14 @@ class Logger():
         cv2.imwrite(os.path.join(path, filename), grid)
 
 
-    def show_image(self, image):
-        grid = self._get_grid(image, as_tensor=False)
+    def show_image(self, image, nrow=4):
+        grid = self._get_grid(image, nrow, as_tensor=False)
 
         cv2.imshow('Image Preview', grid)
 
 
-    def log_image(self, tag: str, image, label):
-        grid = self._get_grid(image)
+    def log_image(self, tag: str, image, label, nrow=4):
+        grid = self._get_grid(image, nrow)
         self.writer.add_image(tag, grid, label)
         self.writer.flush()
 
