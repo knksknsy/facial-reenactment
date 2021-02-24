@@ -23,26 +23,27 @@ class Preprocess():
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
         self.num_frames = 3
+        self.max_frames = 99 * (self.num_frames - 1)
 
         self._create_csv(self.options.csv, self.num_frames)
-        video_list = self._get_video_list(
+        self.video_list = self._get_video_list(
             self.options.source,
             self.options.num_videos,
             self.options.output,
             overwrite=self.options.overwrite_videos,
             ids=self.ids
         )
-        self.logger.log_info(f'Processing {len(video_list)} videos...')
+        self.logger.log_info(f'Processing {len(self.video_list)} videos...')
 
         self._init_pool(fa, self.options.output)
-        counter = 1
-        for v in video_list:
+        self.counter = 1
+        for v in self.video_list:
             start_time = datetime.now()
             self._process_video_folder(v, self.options.csv, self.num_frames)
-            self.logger.log_info(f'{counter}/{len(video_list)}\t{datetime.now() - start_time}')
-            counter += 1
+            self.logger.log_info(f'{self.counter}/{len(self.video_list)}\t{datetime.now() - start_time}')
+            self.counter += 1
 
-        self.logger.log_info(f'All {len(video_list)} videos processed.')
+        self.logger.log_info(f'All {len(self.video_list)} videos processed.')
         self.logger.log_info(f'CSV {self.options.csv} created.')
 
 
@@ -57,26 +58,26 @@ class Preprocess():
         # Prune videos to large to fit into RAM
         self._prune_videos(self.options.source)
 
-        video_list = self._get_video_list(
+        self.video_list = self._get_video_list(
             self.options.source,
             self.options.num_videos,
             self.options.output,
             overwrite=self.options.overwrite_videos
         )
 
-        self.logger.log_info(f'Processing {len(video_list)} videos...')
+        self.logger.log_info(f'Processing {len(self.video_list)} videos...')
         # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
-        # pool.map(self._process_video_folder, video_list)
+        # pool.map(self._process_video_folder, self.video_list)
 
         self._init_pool(fa, self.options.output)
-        counter = 1
-        for v in video_list:
+        self.counter = 1
+        for v in self.video_list:
             start_time = datetime.now()
             self._process_video_folder(v, self.options.csv, self.num_frames)
-            self.logger.log_info(f'{counter}/{len(video_list)}\t{datetime.now() - start_time}')
-            counter += 1
+            self.logger.log_info(f'{self.counter}/{len(self.video_list)}\t{datetime.now() - start_time}')
+            self.counter += 1
 
-        self.logger.log_info(f'All {len(video_list)} videos processed.')
+        self.logger.log_info(f'All {len(self.video_list)} videos processed.')
         self.logger.log_info(f'CSV {self.options.csv} created.')
 
 
@@ -238,6 +239,7 @@ class Preprocess():
             else:
                 np.random.shuffle(frames)
                 end_idx = frames.shape[0] - (frames.shape[0] % num_frames)
+                end_idx = self.max_frames if end_idx > self.max_frames else end_idx
                 frames = frames[0:end_idx]
                 triplets = np.array_split(frames, frames.shape[0] // num_frames)
                 for idx, triplet in enumerate(triplets):
@@ -338,4 +340,4 @@ class Preprocess():
         with open(csv, 'a') as csv_file:
             csv_file.write(','.join(csv_line))
 
-        self.logger.log_info(f'Saved files: {path}')
+        self.logger.log_info(f'{self.counter}/{len(self.video_list)}\tSaved files: {path}')
