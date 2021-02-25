@@ -68,10 +68,6 @@ class TrainOptions(Options):
                                             help='Total variation loss')
         self.parser.add_argument('--l_gp', default=self.config['train']['loss_weights']['l_gp'], type=float,
                                             help='Gradient penalty loss')
-        self.parser.add_argument('--l_mask', default=self.config['train']['loss_weights']['l_mask'], type=float,
-                                            help='Maks loss')
-        self.parser.add_argument('--l_mask_smooth', default=self.config['train']['loss_weights']['l_mask_smooth'], type=float,
-                                            help='Maks Smooth loss')
 
         # ARGUMENTS: HYPERPARAMETERS
         self.parser.add_argument('--batch_size', default=self.config['train']['batch_size'], type=int,

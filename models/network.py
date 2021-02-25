@@ -80,16 +80,15 @@ class Network():
 
         self.G.zero_grad()
 
-        fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
+        fake_12 = self.G(batch['image1'], batch['landmark2'])
         d_fake_12 = self.D(fake_12)
-        fake_121, fake_mask_121, _ = self.G(fake_12, batch['landmark1'])
-        fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
-        fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
+        fake_121 = self.G(fake_12, batch['landmark1'])
+        fake_13 = self.G(batch['image1'], batch['landmark3'])
+        fake_23 = self.G(fake_12, batch['landmark3'])
 
         loss_G, losses_dict = self.criterion_G(
             batch['image1'], batch['image2'], d_fake_12,
-            fake_12, fake_121, fake_13, fake_23,
-            fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
+            fake_12, fake_121, fake_13, fake_23
         )
         loss_G.backward()
 
@@ -98,7 +97,7 @@ class Network():
 
         self.optimizer_G.step()
 
-        del fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
+        del d_fake_12, fake_121, fake_13, fake_23
         fake_12 = fake_12.detach()
         loss_G = loss_G.detach().item()
         return fake_12, loss_G, losses_dict
@@ -106,18 +105,17 @@ class Network():
 
     def get_loss_G(self, batch):
         with torch.no_grad():
-            fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
+            fake_12 = self.G(batch['image1'], batch['landmark2'])
             d_fake_12 = self.D(fake_12)
-            fake_121, fake_mask_121, _ = self.G(fake_12, batch['landmark1'])
-            fake_13, fake_mask_13, _ = self.G(batch['image1'], batch['landmark3'])
-            fake_23, fake_mask_23, _ = self.G(fake_12, batch['landmark3'])
+            fake_121= self.G(fake_12, batch['landmark1'])
+            fake_13 = self.G(batch['image1'], batch['landmark3'])
+            fake_23 = self.G(fake_12, batch['landmark3'])
 
             loss_G, _ = self.criterion_G(
                 batch['image1'], batch['image2'], d_fake_12,
-                fake_12, fake_121, fake_13, fake_23,
-                fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23
+                fake_12, fake_121, fake_13, fake_23
             )
-            del fake_12, fake_mask_12, d_fake_12, fake_121, fake_mask_121, fake_13, fake_mask_13, fake_23, fake_mask_23, _
+            del fake_12, d_fake_12, fake_121, fake_13, fake_23, _
             loss_G = loss_G.detach().item()
             return loss_G
 
@@ -128,7 +126,7 @@ class Network():
 
         self.D.zero_grad()
 
-        fake_12, fake_mask_12, _ = self.G(batch['image1'], batch['landmark2'])
+        fake_12 = self.G(batch['image1'], batch['landmark2'])
         fake_12 = fake_12.detach()
         fake_12.requires_grad = True
 
@@ -143,7 +141,7 @@ class Network():
 
         self.optimizer_D.step()
 
-        del fake_12, fake_mask_12, _, d_real_12, d_fake_12
+        del fake_12, d_real_12, d_fake_12
         loss_D = loss_D.detach().item()
         return loss_D, losses_dict
 

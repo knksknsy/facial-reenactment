@@ -52,8 +52,6 @@ train:
     l_percep: 10
     l_tv: 1.0e-4
     l_gp: 10
-    l_mask: 1
-    l_mask_smooth: 1.0e-4
   optimizer:
     overwrite_optim: true                         # true: settings from checkpoints optimizer will be used; false: overwrite settings
     beta1: 0.5

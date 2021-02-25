@@ -5,7 +5,6 @@ from torch.utils.data import DataLoader
 from datetime import datetime
 
 from configs.options import Options
-from testing import ssim
 from testing.fid import FrechetInceptionDistance
 from testing.ssim import calculate_ssim
 from dataset.dataset import VoxCelebDataset
@@ -62,8 +61,7 @@ class Test():
             batch_start = datetime.now()
 
             images_real = batch['image2']
-            images_fake, masks, colors = self.network(batch['image1'], batch['landmark2'])
-            del masks, colors
+            images_fake = self.network(batch['image1'], batch['landmark2'])
 
             # Calculate FID
             fid.calculate_activations(images_real, images_fake, batch_num)
@@ -119,8 +117,7 @@ class Test():
             batch_start = datetime.now()
 
             images_real = batch['image2']
-            images_fake, masks, colors = self.network(batch['image1'], batch['landmark2'])
-            del masks, colors
+            images_fake = self.network(batch['image1'], batch['landmark2'])
 
             batch_end = datetime.now()
 

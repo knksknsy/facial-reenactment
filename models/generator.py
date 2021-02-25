@@ -34,15 +34,9 @@ class Generator(nn.Module):
 
         layers.append(UpSamplingBlock(256, 128))    # B x 128 x 64 x 64
         layers.append(UpSamplingBlock(128, 64))     # B x 64 x 128 x 128
+
+        layers.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', use_bias=False))   # B x 3 x 128 x 128
         self.layers = nn.Sequential(*layers)
-
-        color_layers = []
-        color_layers.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', use_bias=False))   # B x 3 x 128 x 128
-        self.color_layers = nn.Sequential(*color_layers)
-
-        mask_layers = []
-        mask_layers.append(ConvBlock(in_channels=64, out_channels=1, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='sigmoid', use_bias=False)) # B x 1 x 128 x 128
-        self.mask_layers = nn.Sequential(*mask_layers)
 
         self.apply(init_weights)
         self.to(self.options.device)
@@ -50,12 +44,7 @@ class Generator(nn.Module):
 
     def forward(self, images, landmarks):
         # Input: B x 6 x 128 x 128
-        features = self.layers(torch.cat((images, landmarks), dim=1))
-        color = self.color_layers(features)
-        mask = self.mask_layers(features)
-
-        output = mask * images + (1 - mask) * color
-        return output, mask, color
+        return self.layers(torch.cat((images, landmarks), dim=1))
 
 
     def __str__(self):
@@ -79,8 +68,6 @@ class LossG(nn.Module):
         self.w_triple = self.options.l_triple
         self.w_percep = self.options.l_percep
         self.w_tv = self.options.l_tv
-        self.w_mask = self.options.l_mask
-        self.w_mask_smooth = self.options.l_mask_smooth
 
         self.to(self.options.device)
 
@@ -129,39 +116,15 @@ class LossG(nn.Module):
         return 2 * (h_tv / count_h + w_tv / count_w) / batch_size
 
 
-    def loss_mask(self, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
-        l_m_12 = self._loss_mask(fake_mask_12)
-        l_m_121 = self._loss_mask(fake_mask_121)
-        l_m_13 = self._loss_mask(fake_mask_13)
-        l_m_23 = self._loss_mask(fake_mask_23)
-        l_ms_12 = self._loss_mask_smooth(fake_mask_12)
-        l_ms_121 = self._loss_mask_smooth(fake_mask_121)
-        l_ms_13 = self._loss_mask_smooth(fake_mask_13)
-        l_ms_23 = self._loss_mask_smooth(fake_mask_23)
-
-        return l_m_12 + l_m_121 + l_m_13 + l_m_23 + l_ms_12 + l_ms_121 + l_ms_13 + l_ms_23
-
-
-    def _loss_mask(self, mask):
-        return torch.mean(mask) * self.w_mask
-
-
-    def _loss_mask_smooth(self, mask):
-        return (
-            torch.sum(torch.abs(mask[:, :, :, :-1] - mask[:, :, :, 1:])) + torch.sum(torch.abs(mask[:, :, :-1, :] - mask[:, :, 1:, :]))
-        ) * self.w_mask_smooth
-
-
-    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23, fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23):
+    def forward(self, real_1, real_2, d_fake_12, fake_12, fake_121, fake_13, fake_23):
         l_adv = self.w_adv * self.loss_adv(d_fake_12)
         l_rec = self.w_rec * self.loss_rec(fake_12, real_2)
         l_self = self.w_self * self.loss_self(fake_121, real_1)
         l_triple = self.w_triple * self.loss_triple(fake_13, fake_23)
         l_percep = self.w_percep * self.loss_percep(fake_12, real_2)
         l_tv = self.w_tv * self.loss_tv(fake_12)
-        l_mask = self.loss_mask(fake_mask_12, fake_mask_121, fake_mask_13, fake_mask_23)
 
-        loss_G = l_adv + l_rec + l_self + l_triple + l_percep + l_tv + l_mask
+        loss_G = l_adv + l_rec + l_self + l_triple + l_percep + l_tv
 
         # LOSSES DICT
         losses_G = dict({
@@ -171,9 +134,8 @@ class LossG(nn.Module):
             'Loss_Self': l_self.detach().item(),
             'Loss_Triple': l_triple.detach().item(),
             'Loss_Percep': l_percep.detach().item(),
-            'Loss_TV': l_tv.detach().item(),
-            'Loss_Mask': l_mask.detach().item()
+            'Loss_TV': l_tv.detach().item()
         })
-        del l_adv, l_rec, l_self, l_triple, l_percep, l_tv, l_mask
+        del l_adv, l_rec, l_self, l_triple, l_percep, l_tv
 
         return loss_G, losses_G
