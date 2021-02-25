@@ -18,25 +18,23 @@ preprocessing:
   overwrite_videos: false
 
 dataset:
-  dataset_train: /home/kaan/datasets/VoxCeleb2/Preprocessed/dev/
+  dataset_train: /home/kaan/datasets/VoxCeleb2/IdsPreprocessed/dev/
   dataset_test: /home/kaan/datasets/VoxCeleb2/Preprocessed/test/
-  csv_train: ./dataset/dataset_dev.csv
+  csv_train: ./dataset/dataset_ids_dev.csv
   csv_test: ./dataset/dataset_test.csv
   image_size: 128
   shuffle: true                                   # DataLoader: shuffle data
   augmentation:
-    shuffle_frames: true                          # if true: randomly select 3 frames out of 'num_frames' 
+    shuffle_frames: false                         # if true: randomly select 3 frames out of 'num_frames' 
     horizontal_flip: true                         # if true: randomly flip data
     rotation_angle: 15                            # >0: randomly rotate data
 
 train:
-  test: false                                     # test model after each epoch
+  test: true                                      # test model after each epoch
   continue_id: null                               # continue training from checkpoint
   seed: 57
   epochs: 30
   batch_size: 8
-  lr_g: 1.0e-4
-  lr_d: 4.0e-4
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   gan_type: wgan-gp
@@ -53,13 +51,16 @@ train:
     l_tv: 1.0e-4
     l_gp: 10
   optimizer:
-    overwrite_optim: true                         # true: settings from checkpoints optimizer will be used; false: overwrite settings
+    overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
+    lr_g: 1.0e-4
+    lr_d: 4.0e-4
     beta1: 0.5
     beta2: 0.9
     weight_decay: 5.0e-4
-    scheduler_epoch_range: [0, 19]                # modify learning rate from epoch 1 to 20
-    scheduler_lr_g_end: 1.0e-6
-    scheduler_lr_d_end: 4.0e-6
+    lr_decay:
+      epoch_range: [0, 24]                        # modify learning rate from epoch 1 to 25
+      lr_g_end: 1.0e-6
+      lr_d_end: 4.0e-6
 
 test:
-  batch_size_test: 1
+  batch_size_test: 8

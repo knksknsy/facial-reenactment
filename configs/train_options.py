@@ -74,9 +74,9 @@ class TrainOptions(Options):
                                             help='Batch size')
         self.parser.add_argument('--epochs', default=self.config['train']['epochs'], type=int,
                                             help='Epochs to train')
-        self.parser.add_argument('--lr_g', default=self.config['train']['lr_g'], type=float,
+        self.parser.add_argument('--lr_g', default=self.config['train']['optimizer']['lr_g'], type=float,
                                             help='Learning rate of generator')
-        self.parser.add_argument('--lr_d', default=self.config['train']['lr_d'], type=float,
+        self.parser.add_argument('--lr_d', default=self.config['train']['optimizer']['lr_d'], type=float,
                                             help='Learning rate of discriminator')
         self.parser.add_argument('--grad_clip', default=self.config['train']['grad_clip'], type=float,
                                             help='Use gradient clipping')
@@ -96,11 +96,11 @@ class TrainOptions(Options):
                                             help='Beta2 of Adam optimizer')
         self.parser.add_argument('--weight_decay', default=self.config['train']['optimizer']['weight_decay'], type=float,
                                             help='Weight decay of optimizer')
-        self.parser.add_argument('--scheduler_epoch_range', nargs='+', default=self.config['train']['optimizer']['scheduler_epoch_range'], type=int,
+        self.parser.add_argument('--epoch_range', nargs='+', default=self.config['train']['optimizer']['lr_decay']['epoch_range'], type=int,
                                             help='Schedule to decrease learning rate from epoch_start to epoch_end.')
-        self.parser.add_argument('--scheduler_lr_g_end', default=self.config['train']['optimizer']['scheduler_lr_g_end'], type=float,
+        self.parser.add_argument('--lr_g_end', default=self.config['train']['optimizer']['lr_decay']['lr_g_end'], type=float,
                                             help='Last learning rate of generator. If lr_end is reached, the learning rate will no longer be changed.')
-        self.parser.add_argument('--scheduler_lr_d_end', default=self.config['train']['optimizer']['scheduler_lr_d_end'], type=float,
+        self.parser.add_argument('--lr_d_end', default=self.config['train']['optimizer']['lr_decay']['lr_d_end'], type=float,
                                             help='Last learning rate of discriminator. If lr_end is reached, the learning rate will no longer be changed.')
 
 

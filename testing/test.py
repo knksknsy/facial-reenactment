@@ -84,11 +84,11 @@ class Test():
             images_source = batch['image1'].detach().clone()
             landmarks_target = batch['landmark2'].detach().clone()
             images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
-            self.logger.save_image(self.options.gen_test_dir, f'0_last_result', images, nrow=self.options.batch_size)
+            self.logger.save_image(self.options.gen_test_dir, f'0_last_result', images, nrow=self.options.batch_size_test)
 
             if not while_train or (batch_num + 1) % (self.options.log_freq // 10) == 0:
-                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=self.options.batch_size)
-                self.logger.log_image('Test/Generated', images, iterations, nrow=self.options.batch_size)
+                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=self.options.batch_size_test)
+                self.logger.log_image('Test/Generated', images, iterations, nrow=self.options.batch_size_test)
                 del images_real, images_fake, images, images_source, landmarks_target
             else:
                 del images_real, images_fake, images, images_source, landmarks_target

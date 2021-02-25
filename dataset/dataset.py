@@ -46,8 +46,8 @@ class VoxCelebDataset(Dataset):
 
         image_cols = [1,3,5,7,9,11,13,15,17]
 
-        identity = self.data_frame.iloc[idx, 18]
-        id_video = self.data_frame.iloc[idx, 19]
+        identity = self.data_frame.iloc[idx, -2]
+        id_video = self.data_frame.iloc[idx, -1]
         path = os.path.join(self.dataset_path, identity, id_video)
 
         # Training

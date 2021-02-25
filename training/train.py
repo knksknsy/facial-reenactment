@@ -110,17 +110,17 @@ class Train():
         # Schedule learning rate
         self.network.optimizer_G.param_groups[0]['lr'] = lr_linear_schedule(
             epoch,
-            epoch_start=self.options.scheduler_epoch_range[0],
-            epoch_end=self.options.scheduler_epoch_range[1],
+            epoch_start=self.options.epoch_range[0],
+            epoch_end=self.options.epoch_range[1],
             lr_base=self.options.lr_g,
-            lr_end=self.options.scheduler_lr_g_end
+            lr_end=self.options.lr_g_end
         )
         self.network.optimizer_D.param_groups[0]['lr'] = lr_linear_schedule(
             epoch,
-            epoch_start=self.options.scheduler_epoch_range[0],
-            epoch_end=self.options.scheduler_epoch_range[1],
+            epoch_start=self.options.epoch_range[0],
+            epoch_end=self.options.epoch_range[1],
             lr_base=self.options.lr_d,
-            lr_end=self.options.scheduler_lr_d_end
+            lr_end=self.options.lr_d_end
         )
 
         # LOG LEARNING RATES
@@ -234,8 +234,8 @@ class Train():
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
-            #     self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, self.run_start)
-            #     self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, self.run_start)
+            #     self.network.save_model(self.network.G, self.network.optimizer_G, epoch, self.iterations, self.options, self.run_start)
+            #     self.network.save_model(self.network.D, self.network.optimizer_D, epoch, self.iterations, self.options, self.run_start)
 
             self.iterations += 1
 

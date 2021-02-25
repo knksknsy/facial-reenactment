@@ -15,9 +15,9 @@ class ConvBlock(nn.Module):
             padding = kernel_size // 2
 
         if not self.deconv:
-            self.conv2d = nn.utils.spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=self.use_bias))
+            self.conv2d = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=self.use_bias)
         else:
-            self.conv2d = nn.utils.spectral_norm(nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=self.use_bias))
+            self.conv2d = nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=self.use_bias)
 
         if self.instance_norm:
             self.in2d = nn.InstanceNorm2d(num_features=out_channels, affine=True, track_running_stats=True)
