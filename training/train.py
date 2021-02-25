@@ -29,8 +29,10 @@ class Train():
         # Load seed states
         else:
             numpy_seed_state, torch_seed_state = load_seed_state(self.options)
-            torch.set_rng_state(torch_seed_state)
-            np.random.set_state(numpy_seed_state)
+            if torch_seed_state is not None:
+                torch.set_rng_state(torch_seed_state)
+            if numpy_seed_state is not None:
+                np.random.set_state(numpy_seed_state)
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, model_path=None)
