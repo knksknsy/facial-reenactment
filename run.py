@@ -23,7 +23,7 @@ def main():
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
             if len(options.vox_ids) > 0:
-                Preprocess(logger, options).preprocess_ids_dataset()
+                Preprocess(logger, options).preprocess_dataset_by_ids(options.vox_ids)
             else:
                 Preprocess(logger, options).preprocess_dataset()
 

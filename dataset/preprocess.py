@@ -15,10 +15,10 @@ class Preprocess():
     def __init__(self, logger: Logger, options: DatasetOptions):
         self.logger = logger
         self.options = options
-        self.ids = self.options.vox_ids if len(self.options.vox_ids) > 0 else None
+        self.ids = None
 
 
-    def preprocess_ids_dataset(self):
+    def preprocess_dataset_by_ids(self, ids):
         self.logger.log_info('===== DATASET PRE-PROCESSING IDS =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
