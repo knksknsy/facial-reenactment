@@ -12,7 +12,7 @@ from testing.fid import FrechetInceptionDistance
 from dataset.dataset import VoxCelebDataset
 from dataset.transforms import Resize, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
 from models.network import Network
-from models.utils import lr_linear_schedule
+from models.utils import lr_linear_schedule, load_seed_state
 from loggings.logger import Logger
 
 class Train():
@@ -21,11 +21,16 @@ class Train():
         self.options = options
         self.training = True
 
-        # Set seeds
         torch.backends.cudnn.benchmark = True
-        torch.manual_seed(57)
-        torch.cuda.manual_seed(57)
-        np.random.seed(57)
+        # Set seeds
+        if self.options.continue_id is None:
+            torch.manual_seed(self.options.seed)
+            np.random.seed(self.options.seed)
+        # Load seed states
+        else:
+            numpy_seed_state, torch_seed_state = load_seed_state(self.options)
+            torch.set_rng_state(torch_seed_state)
+            np.random.set_state(numpy_seed_state)
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, model_path=None)

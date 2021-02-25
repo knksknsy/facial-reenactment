@@ -1,4 +1,8 @@
+import os
+import torch
 import torch.nn as nn
+
+from configs.options import Options
 
 def init_weights(m, init_type='normal', gain=0.02):
     classname = m.__class__.__name__
@@ -34,3 +38,12 @@ def lr_linear_schedule(current_epoch, epoch_start, epoch_end, lr_base, lr_end):
         return lr_base
     elif current_epoch >= epoch_end:
         return lr_end
+
+
+def load_seed_state(options: Options, model_name: str = 'Generator'):
+        filename = f'{model_name}_{options.continue_id}'
+        state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
+        numpy_seed_state = state_dict['numpy_seed_state'] if 'numpy_seed_state' in state_dict else None
+        torch_seed_state = state_dict['torch_seed_state'] if 'torch_seed_state' in state_dict else None
+        del state_dict
+        return numpy_seed_state, torch_seed_state

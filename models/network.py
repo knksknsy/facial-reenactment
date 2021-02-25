@@ -1,6 +1,7 @@
 import os
 from typing import Tuple
 from datetime import datetime
+import numpy as np
 
 import torch
 from torch.nn import DataParallel
@@ -201,7 +202,9 @@ class Network():
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'epoch': epoch,
-                'iteration': iteration
+                'iteration': iteration,
+                'numpy_seed_state': np.random.get_state(),
+                'torch_seed_state': torch.random.get_rng_state()
             },
             os.path.join(options.checkpoint_dir, filename)
         )

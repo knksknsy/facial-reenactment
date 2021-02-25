@@ -22,7 +22,8 @@ class TrainOptions(Options):
         self.parser.add_argument('--log_freq', type=int, default=self.config['train']['log_freq'],
                                             help='Frequency in which logs will be saved')
         self.parser.add_argument('--test', action='store_false' if self.config['train']['test'] else 'store_true',
-                                            help='Model will be tested after each epoch.')    
+                                            help='Model will be tested after each epoch.')
+        self.parser.add_argument('--seed', type=int, default=self.config['train']['seed'])
 
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'],
