@@ -31,7 +31,7 @@ dataset:
 
 train:
   test: true                                      # test model after each epoch
-  continue_id: null                               # continue training from checkpoint
+  continue_id: t20210226_2256_e016_i00318750.pth  # continue training from checkpoint
   seed: 57
   epochs: 30
   batch_size: 8

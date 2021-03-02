@@ -3,6 +3,7 @@ import shutil
 import PIL
 import cv2
 import numpy as np
+import pandas as pd
 
 from multiprocessing import Pool
 from datetime import datetime
@@ -10,22 +11,41 @@ from face_alignment import FaceAlignment, LandmarksType
 
 from configs import DatasetOptions
 from loggings.logger import Logger
+from dataset.dataset import plot_landmarks
 
 class Preprocess():
     def __init__(self, logger: Logger, options: DatasetOptions):
         self.logger = logger
         self.options = options
-        self.ids = None
+        self.ids = self.options.vox_ids if hasattr(self.options, 'vox_ids') else None
+        # TODO: add to config
+        self.padding = 10
+        self.padding_value = [111, 108, 112]
+        self.dimension = (224,224)
+        self.prune_videos = False
+        if not os.path.isdir(self.options.output):
+            os.makedirs(self.options.output)
 
 
-    def preprocess_dataset_by_ids(self, ids):
-        self.logger.log_info('===== DATASET PRE-PROCESSING IDS =====')
-        self.logger.log_info(f'Running on {self.options.device.upper()}.')
-        fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
-        self.num_frames = 3
+    def preprocess_dataset(self):
+        self.num_frames = self.options.num_frames + 1 if self.ids is None else 3 # TODO: set fixed size
         self.max_frames = 99 * (self.num_frames - 1)
 
+        self.logger.log_info('===== DATASET PRE-PROCESSING =====')
+        self.logger.log_info(f'Running on {self.options.device.upper()}.')
+        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_frames}).')
+        fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
+
+        # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
+        # pool.map(self._process_video_folder, self.video_list)
+        self._init_pool(fa, self.options.output)
+
         self._create_csv(self.options.csv, self.num_frames)
+
+        # Prune videos to large to fit into RAM
+        if self.prune_videos:
+            self._prune_videos(self.options.source)
+
         self.video_list = self._get_video_list(
             self.options.source,
             self.options.num_videos,
@@ -35,50 +55,43 @@ class Preprocess():
         )
         self.logger.log_info(f'Processing {len(self.video_list)} videos...')
 
-        self._init_pool(fa, self.options.output)
         self.counter = 1
         for v in self.video_list:
             start_time = datetime.now()
-            self._process_video_folder(v, self.options.csv, self.num_frames)
-            self.logger.log_info(f'{self.counter}/{len(self.video_list)}\t{datetime.now() - start_time}')
+            self._process_video_folder(v, self.options.csv, self.num_frames, ids=self.ids)
+            self.logger.log_info(f'{self.counter}/{len(self.video_list)}: {v[0]} saved | Time: {datetime.now() - start_time}')
             self.counter += 1
 
         self.logger.log_info(f'All {len(self.video_list)} videos processed.')
         self.logger.log_info(f'CSV {self.options.csv} created.')
 
+        # Extend dataset
+        if self.ids is not None:
+            video_limit = 2
+            ids = os.listdir(os.path.join(self.options.source, 'mp4'))
+            misc_ids = [i for i in ids if i not in self.ids]
 
-    def preprocess_dataset(self):
-        self.num_frames = self.options.num_frames + 1
-        self.logger.log_info('===== DATASET PRE-PROCESSING =====')
-        self.logger.log_info(f'Running on {self.options.device.upper()}.')
-        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_frames}).')
-        fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
+            self.video_list = self._get_video_list(
+                self.options.source,
+                self.options.num_videos,
+                self.options.output,
+                overwrite=self.options.overwrite_videos,
+                ids=misc_ids,
+                video_limit=video_limit
+            )
+            self.logger.log_info(f'Extending dataset with additional {len(self.video_list)} data...')
 
-        self._create_csv(self.options.csv, self.num_frames)
-        # Prune videos to large to fit into RAM
-        self._prune_videos(self.options.source)
+            self.counter = 1
+            for v in self.video_list:
+                start_time = datetime.now()
+                self._process_video_folder(v, self.options.csv, self.num_frames, ids=misc_ids, video_limit=video_limit)
+                self.logger.log_info(f'{self.counter}/{len(self.video_list)}: {v[0]} saved | Time: {datetime.now() - start_time}')
+                self.counter += 1
+            
+            self.logger.log_info(f'All {len(self.video_list)} videos processed.')
+            self.logger.log_info(f'CSV {self.options.csv} updated.')
 
-        self.video_list = self._get_video_list(
-            self.options.source,
-            self.options.num_videos,
-            self.options.output,
-            overwrite=self.options.overwrite_videos
-        )
-
-        self.logger.log_info(f'Processing {len(self.video_list)} videos...')
-        # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
-        # pool.map(self._process_video_folder, self.video_list)
-
-        self._init_pool(fa, self.options.output)
-        self.counter = 1
-        for v in self.video_list:
-            start_time = datetime.now()
-            self._process_video_folder(v, self.options.csv, self.num_frames)
-            self.logger.log_info(f'{self.counter}/{len(self.video_list)}\t{datetime.now() - start_time}')
-            self.counter += 1
-
-        self.logger.log_info(f'All {len(self.video_list)} videos processed.')
-        self.logger.log_info(f'CSV {self.options.csv} created.')
+        self._sanitize_csv()
 
 
     def _create_csv(self, path, num_frames):
@@ -97,6 +110,13 @@ class Preprocess():
                 csv_file.write(','.join(header))
         else:
             self.logger.log_info(f'CSV file {path} loaded.')
+
+
+    def _sanitize_csv(self):
+        df = pd.read_csv(self.options.csv, sep=',', header=0)
+        df = df.drop_duplicates(keep=False)
+        df = df.sort_values(by=['id'], ascending=True)
+        df.to_csv(self.options.csv, sep=',', index=False)
 
 
     def _prune_videos(self, source):
@@ -150,26 +170,10 @@ class Preprocess():
 
 
     def _contains_only_videos(self, files, extension='.mp4'):
-        """
-        Checks whether the files provided all end with the specified video extension.
-        :param files: List of file names.
-        :param extension: Extension that all files should have.
-        :return: True if all files end with the given extension.
-        """
         return len([x for x in files if os.path.splitext(x)[1] != extension]) == 0
 
 
-    def _get_video_list(self, source, size, output, overwrite=True, ids=None):
-        """
-        Extracts a list of paths to videos to pre-process during the current run.
-
-        :param source: Path to the root directory of the dataset.
-        :param size: Number of videos to return.
-        :param output: Path where the pre-processed videos will be stored.
-        :param overwrite: If True, files that have already been processed will be overwritten, otherwise, they will be
-        ignored and instead, different files will be loaded.
-        :return: List of paths to videos.
-        """
+    def _get_video_list(self, source, size, output, overwrite=True, ids=None, video_limit=None):
         self.logger.log_info(f'Analyze already processed videos...')
 
         already_processed = []
@@ -180,11 +184,33 @@ class Preprocess():
         
         self.logger.log_info(f'{len(already_processed)} videos already processed.')
 
-        self.logger.log_info(f'Analyze videos to be processed... (May take a while)')
+        if video_limit is not None:
+            processed_dict = {f'{p.split(os.path.sep)[-2]}': 0 for p in already_processed}
+            for p in already_processed:
+                id_ = p.split(os.path.sep)[-2]
+                if id_ in processed_dict:
+                    processed_dict[id_] += 1
+
+        self.logger.log_info(f'Analyze videos to be processed...')
         video_list = []
 
+        # Process videos by id
+        if ids is not None:
+            for id_ in ids:
+                video_counter = 0
+                id_path = os.path.join(source, 'mp4', id_)
+                if video_limit is not None and id_ in processed_dict and processed_dict[id_] >= 2:
+                    continue
+                for root, dirs, files in os.walk(id_path):
+                    if len(files) > 0 and os.path.sep.join(root.split(os.path.sep)[-2:]) not in already_processed:
+                        assert self._contains_only_videos(files) and len(dirs) == 0
+                        video_list.append((root, files))
+                        video_counter += 1
+                        if video_limit is not None and video_counter >= video_limit:
+                            break
+
         # Process n=size videos
-        if ids is None:
+        else:
             counter = 0
             for root, dirs, files in os.walk(source):
                 if len(files) > 0 and os.path.sep.join(root.split(os.path.sep)[-2:]) not in already_processed:
@@ -193,14 +219,6 @@ class Preprocess():
                     counter += 1
                     if 0 < size <= counter:
                         break
-        # Process videos by id
-        else:
-            for id_path in ids:
-                id_path = os.path.join(source, 'mp4', id_path)
-                for root, dirs, files in os.walk(id_path):
-                    if len(files) > 0 and os.path.sep.join(root.split(os.path.sep)[-2:]) not in already_processed:
-                        assert self._contains_only_videos(files) and len(dirs) == 0
-                        video_list.append((root, files))
 
         return video_list
 
@@ -212,36 +230,22 @@ class Preprocess():
         _OUT_DIR = output
 
 
-    def _process_video_folder(self, video, csv, num_frames):
-        """
-        Extracts all frames from a video, selects K+1 random frames, and saves them along with their landmarks.
-        :param video: 2-Tuple containing (1) the path to the folder where the video segments are located and (2) the file
-        names of the video segments.
-        :param csv: Path where the CSV file will be stored.
-        """
+    def _process_video_folder(self, video, csv, num_frames, ids=None, video_limit=None):
         folder, files = video
+        identity = folder.split(os.path.sep)[-2:][0]
+        video_id = folder.split(os.path.sep)[-2:][1]
 
         try:
             assert self._contains_only_videos(files)
-            frames = np.concatenate([self._extract_frames(os.path.join(folder, f)) for f in files])
-            identity = folder.split(os.path.sep)[-2:][0]
-            video_id = folder.split(os.path.sep)[-2:][1]
+            frames_total = np.concatenate([self._extract_frames(os.path.join(folder, f)) for f in files])
 
-            if self.ids is None:
-                self._save_video(
-                    frames=self._select_random_frames(frames, num_frames),
-                    identity=identity,
-                    video_id=video_id,
-                    path=_OUT_DIR,
-                    csv=csv,
-                    face_alignment=_FA
-                )
-            else:
-                np.random.shuffle(frames)
-                end_idx = frames.shape[0] - (frames.shape[0] % num_frames)
+            if ids is not None:
+                np.random.shuffle(frames_total)
+                end_idx = frames_total.shape[0] - (frames_total.shape[0] % num_frames)
                 end_idx = self.max_frames if end_idx > self.max_frames else end_idx
-                frames = frames[0:end_idx]
-                triplets = np.array_split(frames, frames.shape[0] // num_frames)
+                selected_frames = frames_total[0:end_idx]
+                # Split array in chunks of size num_frames=3
+                triplets = np.array_split(selected_frames, selected_frames.shape[0] // num_frames)
                 for idx, triplet in enumerate(triplets):
                     self._save_video(
                         frames=triplet,
@@ -250,21 +254,27 @@ class Preprocess():
                         path=_OUT_DIR,
                         csv=csv,
                         face_alignment=_FA,
-                        frame_id=idx
+                        frame_id=idx,
+                        frames_total=frames_total,
+                        frame_limit=1 if video_limit is not None else None
                     )
+                    if video_limit is not None:
+                        break
+            else:
+                self._save_video(
+                    frames=self._select_random_frames(frames_total, num_frames),
+                    identity=identity,
+                    video_id=video_id,
+                    path=_OUT_DIR,
+                    csv=csv,
+                    face_alignment=_FA
+                )
 
         except Exception as e:
-            self.logger.log_error(f'Video {os.path.basename(os.path.normpath(folder))} could not be processed:\n{e}')
+            self.logger.log_error(f'Video {identity}/{video_id} could not be processed:\n{e}')
 
 
     def _extract_frames(self, video):
-        """
-        Extracts all frames of a video file. Frames are extracted in BGR format, but converted to RGB. The shape of the
-        extracted frames is [height, width, channels]. Be aware that PyTorch models expect the channels to be the first
-        dimension.
-        :param video: Path to a video file.
-        :return: NumPy array of frames in RGB.
-        """
         cap = cv2.VideoCapture(video)
 
         n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -284,11 +294,6 @@ class Preprocess():
 
 
     def _select_random_frames(self, frames, num_frames):
-        """
-        Selects K+1 random frames from a list of frames.
-        :param frames: Iterator of frames.
-        :return: List of selected frames.
-        """
         S = []
         while len(S) < num_frames:
             s = np.random.randint(0, len(frames)-1)
@@ -298,28 +303,24 @@ class Preprocess():
         return [frames[s] for s in S]
 
 
-    def _save_video(self, path, csv, identity, video_id, frames, face_alignment, frame_id=None):
-        """
-        Generates the landmarks for the face in each provided frame and saves the frames and the landmarks as a pickled
-        list of dictionaries with entries {'frame', 'landmarks'}.
-
-        :param path: Path to the output folder where the file will be saved.
-        :param csv: Path where the CSV file will be stored.
-        :param identity: ID of person.
-        :param video_id: ID of video.
-        :param frames: List of frames to save.
-        :param face_alignment: Face Alignment model used to extract face landmarks.
-        """
+    def _save_video(self, path, csv, identity, video_id, frames, face_alignment, frame_id=None, frames_total=None, frame_limit=None):
         path = os.path.join(path, identity, video_id)
         if not os.path.isdir(path):
             os.makedirs(path)
         
         csv_line = []
 
-        r = range(len(frames)) if frame_id is None else range(frames.shape[0])
+        if frame_id is None:
+            r = range(len(frames))
+        elif frame_id is not None:
+            r = range(frames.shape[0])
+        elif frame_limit is not None:
+            r = range(frame_limit)
+
         for i in r:
             x = frames[i]
-            y = face_alignment.get_landmarks_from_image(x)[0]
+            x, y = self.detect_face(x, frames_total, face_alignment)
+
             filename_y = f'{i+1}.npy' if frame_id is None else f'{frame_id+1}_{i+1}.npy'
             csv_line.append(filename_y)
             np.save(os.path.join(path, filename_y), y)
@@ -340,4 +341,36 @@ class Preprocess():
         with open(csv, 'a') as csv_file:
             csv_file.write(','.join(csv_line))
 
-        self.logger.log_info(f'{self.counter}/{len(self.video_list)}\tSaved files: {path}')
+
+    def crop_frame(self, frame, landmark, dimension, padding):
+        heatmap = plot_landmarks(frame, landmark)
+
+        rows = np.any(heatmap, axis=1)
+        cols = np.any(heatmap, axis=0)
+        rmin, rmax = np.where(rows)[0][[0, -1]]
+        cmin, cmax = np.where(cols)[0][[0, -1]]
+
+        frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
+        frame = cv2.resize(frame, dimension)
+        return frame
+
+
+    def detect_face(self, frame, frames_total, fa):
+        frame = cv2.copyMakeBorder(frame, self.padding, self.padding, self.padding, self.padding, cv2.BORDER_CONSTANT, value=self.padding_value)
+        landmark = fa.get_landmarks_from_image(frame)
+        face_detected = landmark is not None
+        if not face_detected:
+            id_x = np.random.randint(len(frames_total))
+            frame = frames_total[id_x]
+            self.detect_face(frame, frames_total, fa)
+        else:
+            landmark = landmark[0]
+            frame = self.crop_frame(frame, landmark, self.dimension, self.padding)
+            landmark = fa.get_landmarks_from_image(frame)
+            face_detected = landmark is not None
+            if not face_detected:
+                id_x = np.random.randint(len(frames_total))
+                frame = frames_total[id_x]
+                self.detect_face(frame, frames_total, fa)
+            else:
+                return frame, landmark[0]

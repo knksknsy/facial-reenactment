@@ -146,12 +146,12 @@ def plot_landmarks(frame, landmarks):
     ax.plot(landmarks[27:31, 0], landmarks[27:31, 1], linestyle='-', color='blue', lw=2)
     ax.plot(landmarks[31:36, 0], landmarks[31:36, 1], linestyle='-', color='blue', lw=2)
     # Eyes
-    ax.plot(landmarks[36:42, 0], landmarks[36:42, 1], linestyle='-', color='red', lw=2)
-    ax.plot(landmarks[42:48, 0], landmarks[42:48, 1], linestyle='-', color='red', lw=2)
+    ax.fill(landmarks[36:42, 0], landmarks[36:42, 1], linestyle='-', color='red', lw=2, fill=False)
+    ax.fill(landmarks[42:48, 0], landmarks[42:48, 1], linestyle='-', color='red', lw=2, fill=False)
     # Mouth
-    ax.plot(landmarks[48:60, 0], landmarks[48:60, 1], linestyle='-', color='purple', lw=2)
+    ax.fill(landmarks[48:60, 0], landmarks[48:60, 1], linestyle='-', color='purple', lw=2, fill=False)
     # TODO: Inner-Mouth
-    ax.plot(landmarks[60:68, 0], landmarks[60:68, 1], linestyle='-', color='purple', lw=2)
+    ax.fill(landmarks[60:68, 0], landmarks[60:68, 1], linestyle='-', color='purple', lw=2, fill=False)
 
     fig.canvas.draw()
     buffer = np.frombuffer(fig.canvas.tostring_rgb(), np.uint8)

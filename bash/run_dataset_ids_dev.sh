@@ -1,7 +1,7 @@
 #!/bin/sh
 python run.py dataset --source /media/Alpha/datasets/VoxCeleb2/Videos/dev/ \
-                      --output /media/Alpha/datasets/VoxCeleb2/IdsPreprocessed/dev/ \
-                      --csv ./dataset/dataset_ids_dev.csv \
+                      --output /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/dev/ \
+                      --csv ./dataset/dataset_crop_ids_dev.csv \
                       --num_videos 0 \
                       --device cuda \
                       --config ./configs/config.yaml \

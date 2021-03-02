@@ -21,21 +21,21 @@ class Generator(nn.Module):
         self.options = options
 
         layers = []
-        layers.append(ConvBlock(in_channels=3+3, out_channels=64, kernel_size=7, stride=1, padding=3)) # B x 64 x 128 x 128
-        layers.append(DownSamplingBlock(64, 128))   # B x 128 x 64 x 64
-        layers.append(DownSamplingBlock(128, 256))  # B x 256 x 32 x 32
+        layers.append(ConvBlock(in_channels=3+3, out_channels=64, kernel_size=7, stride=1, padding=3, instance_norm=True, activation='leakyrelu', bias=False))  # B x 64 x 128 x 128
+        layers.append(DownSamplingBlock(64,  128, kernel_size=4, stride=2, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                  # B x 128 x 64 x 64
+        layers.append(DownSamplingBlock(128, 256, kernel_size=4, stride=2, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                  # B x 256 x 32 x 32
 
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
-        layers.append(ResidualBlock(256, 256))      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256, kernel_size=3, stride=1, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256, kernel_size=3, stride=1, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256, kernel_size=3, stride=1, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256, kernel_size=3, stride=1, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256, kernel_size=3, stride=1, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                      # B x 256 x 32 x 32
+        layers.append(ResidualBlock(256, 256, kernel_size=3, stride=1, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                      # B x 256 x 32 x 32
 
-        layers.append(UpSamplingBlock(256, 128))    # B x 128 x 64 x 64
-        layers.append(UpSamplingBlock(128, 64))     # B x 64 x 128 x 128
+        layers.append(UpSamplingBlock(256, 128, kernel_size=4, stride=2, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                    # B x 128 x 64 x 64
+        layers.append(UpSamplingBlock(128,  64, kernel_size=4, stride=2, padding=1, instance_norm=True, activation='leakyrelu', bias=False))                    # B x 64 x 128 x 128
 
-        layers.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', use_bias=False))   # B x 3 x 128 x 128
+        layers.append(ConvBlock(in_channels=64, out_channels=3, kernel_size=7, stride=1, padding=3, instance_norm=False, activation='tanh', bias=False))        # B x 3 x 128 x 128
         self.layers = nn.Sequential(*layers)
 
         self.apply(init_weights)
@@ -86,6 +86,7 @@ class LossG(nn.Module):
         return F.l1_loss(fake_12, real_2)
 
 
+    # TODO: try l2
     def loss_self(self, fake_121, real_1):
         return F.l1_loss(fake_121, real_1)
 
