@@ -32,6 +32,7 @@ train:
   seed: 57
   epochs: 30
   batch_size: 8
+  iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   gan_type: wgan-gp

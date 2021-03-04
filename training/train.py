@@ -243,6 +243,10 @@ class Train():
 
             self.iterations += 1
 
+            # Limit iterations per epoch
+            if self.iterations >= self.options.iterations:
+                break
+
         del loss_G, loss_D, loss_G_prev, loss_D_prev, r_g, r_d, losses_G_dict, losses_D_dict
 
 

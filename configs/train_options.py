@@ -50,6 +50,8 @@ class TrainOptions(Options):
                                             help='Image channels')
         self.parser.add_argument('--precision', default=self.config['train']['precision'], type=int,
                                             help='Float precision: 16 or 32 bit')
+        self.parser.add_argument('--iterations', default=self.config['train']['iterations'], type=int,
+                                            help='Limit iteration per epoch; 0: no limit, >0: limit')
         self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'],
                                             help='Facial landmark type: boundary | keypoint')
         self.parser.add_argument('--shuffle_frames', action='store_false' if self.config['dataset']['augmentation']['shuffle_frames'] else 'store_true')
