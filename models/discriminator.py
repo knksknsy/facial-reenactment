@@ -14,9 +14,10 @@ class Discriminator(nn.Module):
     def __init__(self, options: Options):
         super(Discriminator, self).__init__()
         self.options = options
+        c = self.options.channels
 
         layers = []
-        layers.append(ConvBlock(3,      64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x   64 x 64 x 64
+        layers.append(ConvBlock(c,      64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x   64 x 64 x 64
         layers.append(ConvBlock(64,    128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x  128 x 32 x 32
         layers.append(ConvBlock(128,   256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x  256 x 16 x 16
         layers.append(ConvBlock(256,   512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x  512 x  8 x  8
@@ -30,7 +31,7 @@ class Discriminator(nn.Module):
 
 
     def forward(self, x):
-        # Input:    B x 3 x 128 x 128
+        # Input:    B x C x 128 x 128
         # Output:   B x 2 x 2
         return self.layers(x).squeeze()
 
@@ -86,7 +87,7 @@ class LossD(nn.Module):
     def forward(self, discriminator, d_fake, d_real, fake, real, req_grad=False):
         l_adv_real = self.loss_adv_real(d_real)
         l_adv_fake = self.loss_adv_fake(d_fake)
-        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake, req_grad)
+        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake, req_grad) if self.w_gp > 0 else 0
         
         loss_D = l_adv_real + l_adv_fake + l_gp
 
@@ -95,7 +96,7 @@ class LossD(nn.Module):
             'Loss_D': loss_D.detach().item(),
             'Loss_Adv_Real': l_adv_real.detach().item(),
             'Loss_Adv_Fake': l_adv_fake.detach().item(),
-            'Loss_GP': l_gp.detach().item()
+            'Loss_GP': l_gp.detach().item() if self.w_gp > 0 else None
         })
         del l_adv_real, l_adv_fake, l_gp
 

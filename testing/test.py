@@ -25,10 +25,13 @@ class Test():
         dataset_test = VoxCelebDataset(
             self.options.dataset_test,
             self.options.csv_test,
+            self.options.image_size,
+            self.options.channels,
+            self.options.landmark_type,
             shuffle_frames=False,
             transform=transforms.Compose([
                 Resize(self.options.image_size, train_format),
-                ToTensor(self.options.device, train_format),
+                ToTensor(self.options.device, self.options.precision, train_format),
                 Normalize(0.5, 0.5, train_format)
             ]),
             train_format=train_format

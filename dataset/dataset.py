@@ -1,17 +1,19 @@
 import os
 import torch
 import cv2
+import math
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from torch._C import Value
 
 from torch.utils.data import Dataset
 
 class VoxCelebDataset(Dataset):
     """Dataset object for accessing and pre-processing VoxCeleb2 dataset"""
 
-    def __init__(self, dataset_path, csv_file, shuffle_frames=False, transform=None, train_format=False):
+    def __init__(self, dataset_path, csv_file, image_size, channels, landmark_type, shuffle_frames=False, transform=None, train_format=False):
         """
         Instantiate the Dataset.
 
@@ -22,6 +24,9 @@ class VoxCelebDataset(Dataset):
         """
         self.dataset_path = dataset_path
         self.data_frame = pd.read_csv(csv_file)
+        self.image_size = image_size
+        self.channels = channels
+        self.landmark_type = landmark_type
         self.shuffle_frames = shuffle_frames
         self.transform = transform
         self.train_format = train_format
@@ -78,9 +83,9 @@ class VoxCelebDataset(Dataset):
             image3 = cv2.imread(image3_path, cv2.IMREAD_COLOR)
 
             # Read landmarks
-            landmark1 = plot_landmarks(image1, np.load(landmark1_path))
-            landmark2 = plot_landmarks(image2, np.load(landmark2_path))
-            landmark3 = plot_landmarks(image3, np.load(landmark3_path))
+            landmark1 = plot_landmarks(np.load(landmark1_path), self.image_size, image1.shape[0], self.channels, self.landmark_type)
+            landmark2 = plot_landmarks(np.load(landmark2_path), self.image_size, image2.shape[0], self.channels, self.landmark_type)
+            landmark3 = plot_landmarks(np.load(landmark3_path), self.image_size, image3.shape[0], self.channels, self.landmark_type)
 
             sample = {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -100,7 +105,7 @@ class VoxCelebDataset(Dataset):
             
             image1 = cv2.imread(image1_path, cv2.IMREAD_COLOR)
             image2 = cv2.imread(image2_path, cv2.IMREAD_COLOR)
-            landmark2 = plot_landmarks(image2, np.load(landmark2_path))
+            landmark2 = plot_landmarks(np.load(landmark2_path), self.image_size, image2.shape[0], self.channels, self.landmark_type)
 
             sample = {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
@@ -110,52 +115,57 @@ class VoxCelebDataset(Dataset):
         return sample
 
 
-def plot_landmarks(frame, landmarks):
-    """
-    Creates an RGB image with the landmarks. The generated image will be of the same size as the frame where the face
-    matching the landmarks.
-
-    The image is created by plotting the coordinates of the landmarks using matplotlib, and then converting the
-    plot to an image.
-
-    Things to watch out for:
-    * The figure where the landmarks will be plotted must have the same size as the image to create, but matplotlib
-    only accepts the size in inches, so it must be converted to pixels using the DPI of the screen.
-    * A white background is printed on the image (an array of ones) in order to keep the figure from being flipped.
-    * The axis must be turned off and the subplot must be adjusted to remove the space where the axis would normally be.
-
-    :param frame: Image with a face matching the landmarks.
-    :param landmarks: Landmarks of the provided frame,
-    :return: RGB image with the landmarks as a OpenCV Image.
-    """
-    # TODO: plot landmarks using cv2 (better performance?)
+def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
+    ratio = input_res / output_res
+    landmarks = landmarks/ratio
     dpi = 100
-    fig = plt.figure(figsize=(frame.shape[0] / dpi, frame.shape[1] / dpi), dpi=dpi)
+    fig = plt.figure(figsize=(output_res / dpi, output_res / dpi), dpi=dpi)
     ax = fig.add_subplot(111)
     ax.axis('off')
-    plt.imshow(np.zeros(frame.shape))
-    # plt.imshow(frame)
+    plt.imshow(np.zeros((output_res, output_res, channels)))
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
-    # Head
-    ax.plot(landmarks[0:17, 0], landmarks[0:17, 1], linestyle='-', color='green', lw=2)
-    # Eyebrows
-    ax.plot(landmarks[17:22, 0], landmarks[17:22, 1], linestyle='-', color='orange', lw=2)
-    ax.plot(landmarks[22:27, 0], landmarks[22:27, 1], linestyle='-', color='orange', lw=2)
-    # Nose
-    ax.plot(landmarks[27:31, 0], landmarks[27:31, 1], linestyle='-', color='blue', lw=2)
-    ax.plot(landmarks[31:36, 0], landmarks[31:36, 1], linestyle='-', color='blue', lw=2)
-    # Eyes
-    ax.fill(landmarks[36:42, 0], landmarks[36:42, 1], linestyle='-', color='red', lw=2, fill=False)
-    ax.fill(landmarks[42:48, 0], landmarks[42:48, 1], linestyle='-', color='red', lw=2, fill=False)
-    # Mouth
-    ax.fill(landmarks[48:60, 0], landmarks[48:60, 1], linestyle='-', color='purple', lw=2, fill=False)
-    # TODO: Inner-Mouth
-    ax.fill(landmarks[60:68, 0], landmarks[60:68, 1], linestyle='-', color='purple', lw=2, fill=False)
+    if landmark_type == 'boundary':
+        marker_size = 3*72./dpi/ratio
+        # Head
+        ax.plot(landmarks[0:17, 0], landmarks[0:17, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'green')
+        # Eyebrows
+        ax.plot(landmarks[17:22, 0], landmarks[17:22, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'orange')
+        ax.plot(landmarks[22:27, 0], landmarks[22:27, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'orange')
+        # Nose
+        ax.plot(landmarks[27:31, 0], landmarks[27:31, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'blue')
+        ax.plot(landmarks[31:36, 0], landmarks[31:36, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'blue')
+        # Eyes
+        ax.fill(landmarks[36:42, 0], landmarks[36:42, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'red', fill=False)
+        ax.fill(landmarks[42:48, 0], landmarks[42:48, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'red', fill=False)
+        # Mouth
+        ax.fill(landmarks[48:60, 0], landmarks[48:60, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'purple', fill=False)
+        # Inner-Mouth
+        ax.fill(landmarks[60:68, 0], landmarks[60:68, 1], linestyle='-', lw=marker_size, color='white' if channels == 1 else 'purple', fill=False)
+    elif landmark_type == 'keypoint':
+        marker_size = (4*72./dpi/ratio)**2
+        # Head
+        ax.scatter(landmarks[0:17, 0], landmarks[0:17, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'green')
+        # Eyebrows
+        ax.scatter(landmarks[17:22, 0], landmarks[17:22, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'orange')
+        ax.scatter(landmarks[22:27, 0], landmarks[22:27, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'orange')
+        # Nose
+        ax.scatter(landmarks[27:31, 0], landmarks[27:31, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'blue')
+        ax.scatter(landmarks[31:36, 0], landmarks[31:36, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'blue')
+        # Eyes
+        ax.scatter(landmarks[36:42, 0], landmarks[36:42, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'red')
+        ax.scatter(landmarks[42:48, 0], landmarks[42:48, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'red')
+        # Mouth
+        ax.scatter(landmarks[48:60, 0], landmarks[48:60, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'purple')
+        # Inner-Mouth
+        ax.scatter(landmarks[60:68, 0], landmarks[60:68, 1], marker='o', s=marker_size, color='white' if channels == 1 else 'purple')
+    else:
+        raise ValueError(f'Wrong type provided: {type}')
 
     fig.canvas.draw()
     buffer = np.frombuffer(fig.canvas.tostring_rgb(), np.uint8)
     canvas_shape = fig.canvas.get_width_height()
     data = np.reshape(buffer, (canvas_shape[0], canvas_shape[1], 3))
     plt.close(fig)
+
     return data

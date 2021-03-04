@@ -12,17 +12,13 @@ paths:
   gen_test_dir: /media/Alpha/facial-reenactment/generated_test
   output_dir: /media/Alpha/facial-reenactment/outputs
 
-preprocessing:
-  num_frames: 8                                   # number of frames +1 to extract from a video
-  num_videos: 0                                   # >0: number of videos to be preprocessed, =0: all videos
-  overwrite_videos: false
-
 dataset:
   dataset_train: /home/kaan/datasets/VoxCeleb2/IdsPreprocessed/dev/
   dataset_test: /home/kaan/datasets/VoxCeleb2/Preprocessed/test/
   csv_train: ./dataset/dataset_ids_dev.csv
   csv_test: ./dataset/dataset_test.csv
-  image_size: 128
+  image_size: 64
+  channels: 1
   shuffle: true                                   # DataLoader: shuffle data
   augmentation:
     shuffle_frames: false                         # if true: randomly select 3 frames out of 'num_frames' 
@@ -31,13 +27,15 @@ dataset:
 
 train:
   test: true                                      # test model after each epoch
-  continue_id: t20210226_2256_e016_i00318750.pth  # continue training from checkpoint
+  continue_id: null                               # continue training from checkpoint
+  precision: 16                                   # 16 or 32 bit
   seed: 57
   epochs: 30
   batch_size: 8
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   gan_type: wgan-gp
+  landmark_type: 'boundary'                       # 'boundary' or 'keypoint'
   update_strategy:
     d_iters: 5                                    # fixed update strategy
     loss_coeff: 1                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
@@ -58,9 +56,19 @@ train:
     beta2: 0.9
     weight_decay: 5.0e-4
     lr_decay:
-      epoch_range: [0, 24]                        # modify learning rate from epoch 1 to 25
+      epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
       lr_g_end: 1.0e-6
       lr_d_end: 4.0e-6
 
 test:
   batch_size_test: 8
+
+preprocessing:
+  num_pairs: 3                                    # number of training pairs (frames) to extract from a video
+  max_frames: 66                                  # number of max frames to extract from a video
+  num_videos: 0                                   # >0: number of videos to be preprocessed, =0: all videos
+  padding: 10
+  padding_color: [111, 108, 112]
+  image_size_db: 224
+  overwrite_videos: false
+  prune_videos: false

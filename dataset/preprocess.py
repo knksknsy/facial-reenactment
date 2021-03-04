@@ -18,29 +18,28 @@ class Preprocess():
         self.logger = logger
         self.options = options
         self.ids = self.options.vox_ids if hasattr(self.options, 'vox_ids') else None
-        # TODO: add to config
-        self.padding = 10
-        self.padding_value = [111, 108, 112]
-        self.dimension = (224,224)
-        self.prune_videos = False
+        self.num_pairs = self.options.num_pairs
+        self.max_frames = self.options.max_frames
+        self.padding = self.options.padding
+        self.padding_color = self.options.padding_color
+        self.output_res = (self.options.image_size_db,self.options.image_size_db)
+        self.prune_videos = self.options.prune_videos
         if not os.path.isdir(self.options.output):
             os.makedirs(self.options.output)
 
 
     def preprocess_dataset(self):
-        self.num_frames = self.options.num_frames + 1 if self.ids is None else 3 # TODO: set fixed size
-        self.max_frames = 99 * (self.num_frames - 1)
 
         self.logger.log_info('===== DATASET PRE-PROCESSING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
-        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_frames}).')
+        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_pairs}).')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
 
         # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
         # pool.map(self._process_video_folder, self.video_list)
         self._init_pool(fa, self.options.output)
 
-        self._create_csv(self.options.csv, self.num_frames)
+        self._create_csv(self.options.csv, self.num_pairs)
 
         # Prune videos to large to fit into RAM
         if self.prune_videos:
@@ -58,7 +57,7 @@ class Preprocess():
         self.counter = 1
         for v in self.video_list:
             start_time = datetime.now()
-            self._process_video_folder(v, self.options.csv, self.num_frames, ids=self.ids)
+            self._process_video_folder(v, self.options.csv, self.num_pairs, ids=self.ids)
             self.logger.log_info(f'{self.counter}/{len(self.video_list)}: {v[0]} saved | Time: {datetime.now() - start_time}')
             self.counter += 1
 
@@ -84,7 +83,7 @@ class Preprocess():
             self.counter = 1
             for v in self.video_list:
                 start_time = datetime.now()
-                self._process_video_folder(v, self.options.csv, self.num_frames, ids=misc_ids, video_limit=video_limit)
+                self._process_video_folder(v, self.options.csv, self.num_pairs, ids=misc_ids, video_limit=video_limit)
                 self.logger.log_info(f'{self.counter}/{len(self.video_list)}: {v[0]} saved | Time: {datetime.now() - start_time}')
                 self.counter += 1
             
@@ -343,7 +342,7 @@ class Preprocess():
 
 
     def crop_frame(self, frame, landmark, dimension, padding):
-        heatmap = plot_landmarks(frame, landmark)
+        heatmap = plot_landmarks(frame, landmark, channels=3)
 
         rows = np.any(heatmap, axis=1)
         cols = np.any(heatmap, axis=0)
@@ -356,7 +355,7 @@ class Preprocess():
 
 
     def detect_face(self, frame, frames_total, fa):
-        frame = cv2.copyMakeBorder(frame, self.padding, self.padding, self.padding, self.padding, cv2.BORDER_CONSTANT, value=self.padding_value)
+        frame = cv2.copyMakeBorder(frame, self.padding, self.padding, self.padding, self.padding, cv2.BORDER_CONSTANT, value=self.padding_color)
         landmark = fa.get_landmarks_from_image(frame)
         face_detected = landmark is not None
         if not face_detected:
@@ -365,7 +364,7 @@ class Preprocess():
             self.detect_face(frame, frames_total, fa)
         else:
             landmark = landmark[0]
-            frame = self.crop_frame(frame, landmark, self.dimension, self.padding)
+            frame = self.crop_frame(frame, landmark, self.output_res, self.padding)
             landmark = fa.get_landmarks_from_image(frame)
             face_detected = landmark is not None
             if not face_detected:

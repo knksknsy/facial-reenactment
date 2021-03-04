@@ -10,7 +10,7 @@ from testing.test import Test
 from testing.ssim import calculate_ssim
 from testing.fid import FrechetInceptionDistance
 from dataset.dataset import VoxCelebDataset
-from dataset.transforms import Resize, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
+from dataset.transforms import Resize, GrayScale, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
 from models.network import Network
 from models.utils import lr_linear_schedule, load_seed_state
 from loggings.logger import Logger
@@ -45,9 +45,10 @@ class Train():
     def _get_data_loader(self, train_format):
         transforms_list = [
             Resize(self.options.image_size, train_format),
+            GrayScale(train_format) if self.options.channels <= 1 else None,
             RandomHorizontalFlip(train_format) if self.options.horizontal_flip else None,
             RandomRotate(self.options.rotation_angle, train_format) if self.options.rotation_angle > 0 else None,
-            ToTensor(self.options.device, train_format),
+            ToTensor(self.options.device, self.options.precision, train_format),
             Normalize(0.5, 0.5, train_format)
         ]
         compose = [t for t in transforms_list if t is not None]
@@ -55,6 +56,9 @@ class Train():
         dataset_train = VoxCelebDataset(
             self.options.dataset_train,
             self.options.csv_train,
+            self.options.image_size,
+            self.options.channels,
+            self.options.landmark_type,
             self.options.shuffle_frames,
             transforms.Compose(compose),
             train_format

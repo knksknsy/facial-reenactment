@@ -46,6 +46,12 @@ class TrainOptions(Options):
                                             help='Path to CSV file needed for torch.utils.data.Dataset to load data for testing.')
         self.parser.add_argument('--image_size', default=self.config['dataset']['image_size'], type=int,
                                             help='Image size')
+        self.parser.add_argument('--channels', default=self.config['dataset']['channels'], type=int,
+                                            help='Image channels')
+        self.parser.add_argument('--precision', default=self.config['train']['precision'], type=int,
+                                            help='Float precision: 16 or 32 bit')
+        self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'],
+                                            help='Facial landmark type: boundary | keypoint')
         self.parser.add_argument('--shuffle_frames', action='store_false' if self.config['dataset']['augmentation']['shuffle_frames'] else 'store_true')
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
         self.parser.add_argument('--rotation_angle', type=int, default=self.config['dataset']['augmentation']['rotation_angle'],

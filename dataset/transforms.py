@@ -1,6 +1,7 @@
 import torch
 import cv2
 import numpy as np
+from torch._C import Value
 
 from dataset.utils import normalize
 
@@ -33,6 +34,48 @@ class Resize(object):
             image1 = cv2.resize(image1, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
             image2 = cv2.resize(image2, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
             landmark2 = cv2.resize(landmark2, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
+
+            return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
+
+
+class GrayScale(object):
+    """Convert RGB tensor to grayscale"""
+
+    def __init__(self, train_format=True):
+        self.train_format = train_format
+
+
+    def __call__(self, sample):
+        if self.train_format:
+            image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
+            landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
+
+            image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+            image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
+            image3 = cv2.cvtColor(image3, cv2.COLOR_BGR2GRAY)
+            landmark1 = cv2.cvtColor(landmark1, cv2.COLOR_BGR2GRAY)
+            landmark2 = cv2.cvtColor(landmark2, cv2.COLOR_BGR2GRAY)
+            landmark3 = cv2.cvtColor(landmark3, cv2.COLOR_BGR2GRAY)
+
+            image1 = image1[:,:,None]
+            image2 = image2[:,:,None]
+            image3 = image3[:,:,None]
+            landmark1 = landmark1[:,:,None]
+            landmark2 = landmark2[:,:,None]
+            landmark3 = landmark3[:,:,None]
+
+            return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
+
+        else:
+            image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
+            
+            image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+            image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
+            landmark2 = cv2.cvtColor(landmark2, cv2.COLOR_BGR2GRAY)
+
+            image1 = image1[:,:,None]
+            image2 = image2[:,:,None]
+            landmark2 = landmark2[:,:,None]
 
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
@@ -91,12 +134,18 @@ class RandomRotate(object):
                 if i == 0:
                     image1 = self.affine_transform(image1, angle_tmp)
                     landmark1 = self.affine_transform(landmark1, angle_tmp)
+                    if len(image1.shape) == 2: image1 = image1[:,:,None]
+                    if len(landmark1.shape) == 2: landmark1 = landmark1[:,:,None]
                 if i == 1:
                     image2 = self.affine_transform(image2, angle_tmp)
                     landmark2 = self.affine_transform(landmark2, angle_tmp)
+                    if len(image2.shape) == 2: image2 = image2[:,:,None]
+                    if len(landmark2.shape) == 2: landmark2 = landmark2[:,:,None]
                 if i == 2:
                     image3 = self.affine_transform(image3, angle_tmp)
                     landmark3 = self.affine_transform(landmark3, angle_tmp)
+                    if len(image3.shape) == 2: image3 = image3[:,:,None]
+                    if len(landmark3.shape) == 2: landmark3 = landmark3[:,:,None]
             
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -125,9 +174,16 @@ class RandomRotate(object):
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
-    def __init__(self, device, train_format=True):
+    def __init__(self, device, precision, train_format=True):
         self.device = device
         self.train_format = train_format
+
+        if precision == 16:
+            self.precision = np.float16
+        elif precision == 32:
+            self.precision = np.float32
+        else:
+            raise ValueError(f'False precision provided: {precision}')
 
 
     def __call__(self, sample):
@@ -136,18 +192,17 @@ class ToTensor(object):
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 
             # Convert BGR to RGB
-            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(np.float32))
-            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(np.float32))
-            image3 = np.ascontiguousarray(image3.transpose(2, 0, 1).astype(np.float32))
-            landmark1 = np.ascontiguousarray(landmark1.transpose(2, 0, 1).astype(np.float32))
-            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(np.float32))
-            landmark3 = np.ascontiguousarray(landmark3.transpose(2, 0, 1).astype(np.float32))
+            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(self.precision))
+            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(self.precision))
+            image3 = np.ascontiguousarray(image3.transpose(2, 0, 1).astype(self.precision))
+            landmark1 = np.ascontiguousarray(landmark1.transpose(2, 0, 1).astype(self.precision))
+            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(self.precision))
+            landmark3 = np.ascontiguousarray(landmark3.transpose(2, 0, 1).astype(self.precision))
 
             # Convert to Tensor
             image1 = torch.from_numpy(image1 * (1.0 / 255.0)).to(self.device)
             image2 = torch.from_numpy(image2 * (1.0 / 255.0)).to(self.device)
             image3 = torch.from_numpy(image3 * (1.0 / 255.0)).to(self.device)
-            # TODO: Test training with and without normalized landmarks
             landmark1 = torch.from_numpy(landmark1 * (1.0 / 255.0)).to(self.device)
             landmark2 = torch.from_numpy(landmark2 * (1.0 / 255.0)).to(self.device)
             landmark3 = torch.from_numpy(landmark3 * (1.0 / 255.0)).to(self.device)
@@ -158,14 +213,13 @@ class ToTensor(object):
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
 
             # Convert BGR to RGB
-            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(np.float32))
-            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(np.float32))
-            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(np.float32))
+            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(self.precision))
+            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(self.precision))
+            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(self.precision))
 
             # Convert to Tensor
             image1 = torch.from_numpy(image1 * (1.0 / 255.0)).to(self.device)
             image2 = torch.from_numpy(image2 * (1.0 / 255.0)).to(self.device)
-            # TODO: Test training with and without normalized landmarks
             landmark2 = torch.from_numpy(landmark2 * (1.0 / 255.0)).to(self.device)
 
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2, }
@@ -183,13 +237,19 @@ class Normalize(object):
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 
-            image1, image2, image3 = normalize(image1, self.mean, self.std), normalize(image2, self.mean, self.std), normalize(image3, self.mean, self.std)
-            landmark1, landmark2, landmark3 = normalize(landmark1, self.mean, self.std), normalize(landmark2, self.mean, self.std), normalize(landmark3, self.mean, self.std)
+            image1 = normalize(image1, self.mean, self.std)
+            image2 = normalize(image2, self.mean, self.std)
+            image3 = normalize(image3, self.mean, self.std)
+            landmark1 = normalize(landmark1, self.mean, self.std)
+            landmark2 = normalize(landmark2, self.mean, self.std)
+            landmark3 = normalize(landmark3, self.mean, self.std)
 
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
         
         else:
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
-            image1, image2, landmark2 = normalize(image1, self.mean, self.std), normalize(image2, self.mean, self.std), normalize(landmark2, self.mean, self.std)
+            image1 = normalize(image1, self.mean, self.std)
+            image2 = normalize(image2, self.mean, self.std)
+            landmark2 = normalize(landmark2, self.mean, self.std)
 
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
