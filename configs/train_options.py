@@ -48,8 +48,8 @@ class TrainOptions(Options):
                                             help='Image size')
         self.parser.add_argument('--channels', default=self.config['dataset']['channels'], type=int,
                                             help='Image channels')
-        self.parser.add_argument('--precision', default=self.config['train']['precision'], type=int,
-                                            help='Float precision: 16 or 32 bit')
+        self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float,
+                                            help='Image normalization: mean, std')
         self.parser.add_argument('--iterations', default=self.config['train']['iterations'], type=int,
                                             help='Limit iteration per epoch; 0: no limit, >0: limit')
         self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'],
@@ -70,8 +70,12 @@ class TrainOptions(Options):
                                             help='Cycle consistency loss')
         self.parser.add_argument('--l_triple', default=self.config['train']['loss_weights']['l_triple'], type=float,
                                             help='Triple consistency loss')
+        self.parser.add_argument('--l_id', default=self.config['train']['loss_weights']['l_id'], type=float,
+                                            help='Identity loss')
         self.parser.add_argument('--l_percep', default=self.config['train']['loss_weights']['l_percep'], type=float,
                                             help='Perceptual loss')
+        self.parser.add_argument('--l_feature_matching', default=self.config['train']['loss_weights']['l_feature_matching'], type=float,
+                                            help='Feature Matching loss')
         self.parser.add_argument('--l_tv', default=self.config['train']['loss_weights']['l_tv'], type=float,
                                             help='Total variation loss')
         self.parser.add_argument('--l_gp', default=self.config['train']['loss_weights']['l_gp'], type=float,

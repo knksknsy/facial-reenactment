@@ -48,8 +48,8 @@ class Train():
             GrayScale(train_format) if self.options.channels <= 1 else None,
             RandomHorizontalFlip(train_format) if self.options.horizontal_flip else None,
             RandomRotate(self.options.rotation_angle, train_format) if self.options.rotation_angle > 0 else None,
-            ToTensor(self.options.device, self.options.precision, train_format),
-            Normalize(0.5, 0.5, train_format)
+            ToTensor(self.options.device, train_format),
+            Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
         ]
         compose = [t for t in transforms_list if t is not None]
 
@@ -69,7 +69,8 @@ class Train():
             self.options.batch_size,
             self.options.shuffle,
             num_workers=self.options.num_workers,
-            pin_memory=self.options.pin_memory
+            pin_memory=self.options.pin_memory,
+            drop_last=True
         )
 
         return data_loader_train
@@ -199,7 +200,9 @@ class Train():
 
             # LOG PROGRESS
             if loss_G is not None and loss_D is not None and (batch_num + 1) % d_iters == 0:
-                self.logger.log_info(f'Epoch {epoch + 1}: [{str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))}/{len(self.data_loader_train)}] | '
+                cur_it = str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))
+                total_it = len(self.data_loader_train) if self.options.iterations == 0 else self.options.iterations
+                self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
                                     f'Time: {batch_end - batch_start} | '
                                     f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}')
 
@@ -244,14 +247,14 @@ class Train():
             self.iterations += 1
 
             # Limit iterations per epoch
-            if self.iterations >= self.options.iterations:
+            if (batch_num + 1) % self.options.iterations == 0:
                 break
 
         del loss_G, loss_D, loss_G_prev, loss_D_prev, r_g, r_d, losses_G_dict, losses_D_dict
 
 
     def evaluate_metrics(self, images_real, images_fake, device):
-        ssim_score = calculate_ssim(images_fake.to(device), images_real.to(device))
+        ssim_score = calculate_ssim(images_fake.to(device), images_real.to(device), normalize=self.options.normalize)
 
         self.fid.calculate_activations(images_real.to(device), images_fake.to(device), batch_num=1)
         fid_score = self.fid.calculate_fid()

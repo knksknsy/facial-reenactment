@@ -1,10 +1,12 @@
 import torch
 import torch.nn as nn
 from torchvision.models import inception_v3
+from configs.options import Options
 
 class InceptionNetwork(nn.Module):
-    def __init__(self, transform_input=True):
+    def __init__(self, options: Options, transform_input=True):
         super().__init__()
+        self.options = options
         self.inception_network = inception_v3(pretrained=True)
         self.inception_network.Mixed_7c.register_forward_hook(self.output_hook)
         self.transform_input = transform_input
@@ -16,12 +18,8 @@ class InceptionNetwork(nn.Module):
 
 
     def forward(self, x):
-        """
-        Args:
-            x: dtype: torch.float32 in range 0-1
-        Returns:
-            inception activations: torch.tensor, shape: (N, 2048), dtype: torch.float32
-        """
+        if self.options.channels == 1:
+            x = torch.cat((x,)*3, dim=1)
 
         # Trigger output hook
         self.inception_network(x)

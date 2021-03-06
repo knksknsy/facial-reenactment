@@ -3,6 +3,7 @@ import sys
 import logging
 import cv2
 
+import numpy as np
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
@@ -65,7 +66,7 @@ class Logger():
 
 
     def save_image(self, path: str, filename: str, image, nrow=4, ext: str='.png', epoch: int=None, iteration: int=None):
-        grid = self._get_grid(image, nrow, as_tensor=False)
+        grid = self._get_grid(image, nrow=nrow, as_tensor=False)
 
         if epoch is not None and iteration is not None:
             filename = f'{filename}_e_{str(epoch).zfill(3)}_b{str(iteration).zfill(8)}{ext}'
@@ -76,26 +77,25 @@ class Logger():
 
 
     def show_image(self, image, nrow=4):
-        grid = self._get_grid(image, nrow, as_tensor=False)
+        grid = self._get_grid(image, nrow=nrow, as_tensor=False)
 
         cv2.imshow('Image Preview', grid)
 
 
     def log_image(self, tag: str, image, label, nrow=4):
-        grid = self._get_grid(image, nrow)
+        grid = self._get_grid(image, nrow=nrow)
         self.writer.add_image(tag, grid, label)
         self.writer.flush()
 
 
-    def _get_grid(self, data, nrow=4, denorm=(0.5, 0.5), as_tensor=True):
-        if denorm is not None:
-            data = denormalize(data, denorm[0], denorm[1])
-
+    def _get_grid(self, data, nrow=4, as_tensor=True):
+        data = denormalize(data, self.options.normalize[0], self.options.normalize[1])
         grid = make_grid(data, nrow)
 
-        if not as_tensor:
-            grid = grid.cpu().numpy().transpose(1, 2, 0) * 255.0
-        else:
+        if as_tensor:
             grid = grid[[2, 1, 0],:]
+        else:
+            grid = grid.cpu().numpy().transpose(1, 2, 0) * 255.0
+            grid = grid.clip(0.0, 255.0).astype(np.int)
 
         return grid

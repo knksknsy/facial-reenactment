@@ -32,4 +32,6 @@ class TestOptions(Options):
         # ARGUMENTS: DATASET
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
         self.parser.add_argument('--batch_size_test', type=int, default=self.config['test']['batch_size_test'])
+        self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float,
+                                            help='Image normalization: mean, std')
         

@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from scipy import linalg
+import torch.nn.functional as F
 
 from testing.inceptionv3 import InceptionNetwork
 from configs.options import Options
@@ -11,7 +12,7 @@ class FrechetInceptionDistance():
         self.device = device
         self.data_loader_length = data_loader_length * self.options.batch_size
 
-        self.inception_network = InceptionNetwork()
+        self.inception_network = InceptionNetwork(self.options)
         self.inception_network.to(device)
         self.inception_network.eval()
 
@@ -20,6 +21,9 @@ class FrechetInceptionDistance():
 
 
     def calculate_activations(self, images_real, images_fake, batch_num):
+        # Resize images to 299x299
+        images_real = F.interpolate(images_real, size=299)
+        images_fake = F.interpolate(images_fake, size=299)
         start_idx = self.options.batch_size * batch_num if batch_num > 1 else 0
         end_idx = self.options.batch_size * (batch_num + 1) if batch_num > 1 else self.options.batch_size
 

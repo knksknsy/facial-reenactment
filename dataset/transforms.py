@@ -53,16 +53,10 @@ class GrayScale(object):
             image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
             image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
             image3 = cv2.cvtColor(image3, cv2.COLOR_BGR2GRAY)
-            landmark1 = cv2.cvtColor(landmark1, cv2.COLOR_BGR2GRAY)
-            landmark2 = cv2.cvtColor(landmark2, cv2.COLOR_BGR2GRAY)
-            landmark3 = cv2.cvtColor(landmark3, cv2.COLOR_BGR2GRAY)
 
             image1 = image1[:,:,None]
             image2 = image2[:,:,None]
             image3 = image3[:,:,None]
-            landmark1 = landmark1[:,:,None]
-            landmark2 = landmark2[:,:,None]
-            landmark3 = landmark3[:,:,None]
 
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -174,16 +168,9 @@ class RandomRotate(object):
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
-    def __init__(self, device, precision, train_format=True):
+    def __init__(self, device, train_format=True):
         self.device = device
         self.train_format = train_format
-
-        if precision == 16:
-            self.precision = np.float16
-        elif precision == 32:
-            self.precision = np.float32
-        else:
-            raise ValueError(f'False precision provided: {precision}')
 
 
     def __call__(self, sample):
@@ -192,12 +179,12 @@ class ToTensor(object):
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 
             # Convert BGR to RGB
-            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(self.precision))
-            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(self.precision))
-            image3 = np.ascontiguousarray(image3.transpose(2, 0, 1).astype(self.precision))
-            landmark1 = np.ascontiguousarray(landmark1.transpose(2, 0, 1).astype(self.precision))
-            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(self.precision))
-            landmark3 = np.ascontiguousarray(landmark3.transpose(2, 0, 1).astype(self.precision))
+            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(np.float32))
+            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(np.float32))
+            image3 = np.ascontiguousarray(image3.transpose(2, 0, 1).astype(np.float32))
+            landmark1 = np.ascontiguousarray(landmark1.transpose(2, 0, 1).astype(np.float32))
+            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(np.float32))
+            landmark3 = np.ascontiguousarray(landmark3.transpose(2, 0, 1).astype(np.float32))
 
             # Convert to Tensor
             image1 = torch.from_numpy(image1 * (1.0 / 255.0)).to(self.device)
@@ -213,9 +200,9 @@ class ToTensor(object):
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
 
             # Convert BGR to RGB
-            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(self.precision))
-            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(self.precision))
-            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(self.precision))
+            image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(np.float32))
+            image2 = np.ascontiguousarray(image2.transpose(2, 0, 1).astype(np.float32))
+            landmark2 = np.ascontiguousarray(landmark2.transpose(2, 0, 1).astype(np.float32))
 
             # Convert to Tensor
             image1 = torch.from_numpy(image1 * (1.0 / 255.0)).to(self.device)

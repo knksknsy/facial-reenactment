@@ -31,8 +31,8 @@ class Test():
             shuffle_frames=False,
             transform=transforms.Compose([
                 Resize(self.options.image_size, train_format),
-                ToTensor(self.options.device, self.options.precision, train_format),
-                Normalize(0.5, 0.5, train_format)
+                ToTensor(self.options.device, train_format),
+                Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
             ]),
             train_format=train_format
         )
@@ -42,7 +42,8 @@ class Test():
             self.options.batch_size_test,
             self.options.shuffle,
             num_workers=self.options.num_workers,
-            pin_memory=self.options.pin_memory
+            pin_memory=self.options.pin_memory,
+            drop_last=True
         )
 
         return data_loader_test
@@ -69,7 +70,7 @@ class Test():
             # Calculate FID
             fid.calculate_activations(images_real, images_fake, batch_num)
             # Calculate SSIM
-            ssim_val = calculate_ssim(images_fake, images_real)
+            ssim_val = calculate_ssim(images_fake, images_real, normalize=self.options.normalize)
 
             batch_end = datetime.now()
 

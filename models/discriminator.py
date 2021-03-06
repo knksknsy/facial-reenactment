@@ -16,15 +16,17 @@ class Discriminator(nn.Module):
         self.options = options
         c = self.options.channels
 
-        layers = []
-        layers.append(ConvBlock(c,      64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x   64 x 64 x 64
-        layers.append(ConvBlock(64,    128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x  128 x 32 x 32
-        layers.append(ConvBlock(128,   256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x  256 x 16 x 16
-        layers.append(ConvBlock(256,   512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x  512 x  8 x  8
-        layers.append(ConvBlock(512,  1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x 1024 x  4 x  4
-        layers.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))       # B x 2048 x  2 x  2
-        layers.append(ConvBlock(2048,    1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None, bias=False))  # B x    1 x  2 x  2
-        self.layers = nn.Sequential(*layers)
+        down_blocks = []
+        down_blocks.append(ConvBlock(c,      64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x   64 x 64 x 64
+        down_blocks.append(ConvBlock(64,    128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x  128 x 32 x 32
+        down_blocks.append(ConvBlock(128,   256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x  256 x 16 x 16
+        down_blocks.append(ConvBlock(256,   512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x  512 x  8 x  8
+        down_blocks.append(ConvBlock(512,  1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x 1024 x  4 x  4
+        down_blocks.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x 2048 x  2 x  2
+        self.down_blocks = nn.Sequential(*down_blocks)
+        conv = []
+        conv.append(ConvBlock(2048,    1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None, bias=False))    # B x    1 x  2 x  2
+        self.conv = nn.Sequential(*conv)
 
         self.apply(init_weights)
         self.to(self.options.device)
@@ -32,14 +34,20 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         # Input:    B x C x 128 x 128
+        feature_maps = []
+        out = x
+        for down_block in self.down_blocks:
+            feature_maps.append(down_block(out))
+            out = feature_maps[-1]
         # Output:   B x 2 x 2
-        return self.layers(x).squeeze()
+        prediction_map = self.conv(out).squeeze()
+        return feature_maps, prediction_map
 
 
     def __str__(self):
         old_stdout = sys.stdout
         sys.stdout = new_stdout = StringIO()
-        summary(self.layers, input_size=(3, 128, 128), batch_size=self.options.batch_size, device=self.options.device)
+        summary(self, input_size=(self.options.channels, self.options.image_size, self.options.image_size), batch_size=self.options.batch_size, device=self.options.device)
         sys.stdout = old_stdout
         return new_stdout.getvalue()
 
@@ -67,7 +75,7 @@ class LossD(nn.Module):
         alpha = torch.rand(real.size(0), 1, 1, 1).to(self.options.device).expand_as(real)
         interpolated = alpha * real + (1 - alpha) * fake
         if req_grad: interpolated.requires_grad = True 
-        prob_interpolated = discriminator(interpolated)
+        fm_prob_interpolated, prob_interpolated = discriminator(interpolated)
 
         grad = torch.autograd.grad(
             outputs=prob_interpolated,
@@ -81,6 +89,7 @@ class LossD(nn.Module):
         grad = grad.view(grad.size(0), -1)
         grad_l2norm = torch.sqrt(torch.sum(grad ** 2, dim=1))
         l_gp = torch.mean((grad_l2norm - 1) ** 2)
+        del alpha, interpolated, fm_prob_interpolated, prob_interpolated, grad, grad_l2norm
         return l_gp
 
 

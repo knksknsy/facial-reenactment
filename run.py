@@ -1,3 +1,4 @@
+from models.lightcnn import LightCNN
 import os
 import sys
 import torch

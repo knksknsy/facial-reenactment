@@ -1,3 +1,4 @@
+from models import lightcnn
 import os
 from typing import Tuple
 from datetime import datetime
@@ -47,7 +48,7 @@ class Network():
                 self.G = DataParallel(self.G)
                 self.D = DataParallel(self.D)
 
-            self.criterion_G = LossG(self.logger, self.options, vgg_device=self.options.device)
+            self.criterion_G = LossG(self.logger, self.options, vgg_device=self.options.device, lightcnn_device=self.options.device)
             self.criterion_D = LossD(self.logger, self.options)
 
             self.optimizer_G = Adam(
@@ -81,14 +82,16 @@ class Network():
         self.G.zero_grad()
 
         fake_12 = self.G(batch['image1'], batch['landmark2'])
-        d_fake_12 = self.D(fake_12)
+        fm_fake_12, d_fake_12 = self.D(fake_12)
+        fm_real_2, d_real_2 = self.D(batch['image2'])
         fake_121 = self.G(fake_12, batch['landmark1'])
         fake_13 = self.G(batch['image1'], batch['landmark3'])
         fake_23 = self.G(fake_12, batch['landmark3'])
 
         loss_G, losses_dict = self.criterion_G(
             batch['image1'], batch['image2'], d_fake_12,
-            fake_12, fake_121, fake_13, fake_23
+            fake_12, fake_121, fake_13, fake_23,
+            fm_fake_12, fm_real_2
         )
         loss_G.backward()
 
@@ -97,7 +100,7 @@ class Network():
 
         self.optimizer_G.step()
 
-        del d_fake_12, fake_121, fake_13, fake_23
+        del d_fake_12, fake_121, fake_13, fake_23, d_real_2, fm_fake_12, fm_real_2
         fake_12 = fake_12.detach()
         loss_G = loss_G.detach().item()
         return fake_12, loss_G, losses_dict
@@ -106,16 +109,18 @@ class Network():
     def get_loss_G(self, batch):
         with torch.no_grad():
             fake_12 = self.G(batch['image1'], batch['landmark2'])
-            d_fake_12 = self.D(fake_12)
+            fm_fake_12, d_fake_12 = self.D(fake_12)
+            fm_real_2, d_real_2 = self.D(batch['image2'])
             fake_121= self.G(fake_12, batch['landmark1'])
             fake_13 = self.G(batch['image1'], batch['landmark3'])
             fake_23 = self.G(fake_12, batch['landmark3'])
 
             loss_G, _ = self.criterion_G(
                 batch['image1'], batch['image2'], d_fake_12,
-                fake_12, fake_121, fake_13, fake_23
+                fake_12, fake_121, fake_13, fake_23,
+                fm_fake_12, fm_real_2
             )
-            del fake_12, d_fake_12, fake_121, fake_13, fake_23, _
+            del fake_12, d_fake_12, fake_121, fake_13, fake_23, _, d_real_2, fm_fake_12, fm_real_2
             loss_G = loss_G.detach().item()
             return loss_G
 
@@ -130,10 +135,10 @@ class Network():
         fake_12 = fake_12.detach()
         fake_12.requires_grad = True
 
-        d_fake_12 = self.D(fake_12)
-        d_real_12 = self.D(batch['image2'])
+        fm_fake_12, d_fake_12 = self.D(fake_12)
+        fm_real_2, d_real_2 = self.D(batch['image2'])
 
-        loss_D, losses_dict = self.criterion_D(self.D, d_fake_12, d_real_12, fake_12, batch['image2'])
+        loss_D, losses_dict = self.criterion_D(self.D, d_fake_12, d_real_2, fake_12, batch['image2'])
         loss_D.backward()
 
         if self.options.grad_clip:
@@ -141,16 +146,16 @@ class Network():
 
         self.optimizer_D.step()
 
-        del fake_12, d_real_12, d_fake_12
+        del fake_12, d_real_2, d_fake_12, fm_fake_12, fm_real_2
         loss_D = loss_D.detach().item()
         return loss_D, losses_dict
 
 
     def get_loss_D(self, real, fake):
-        d_fake = self.D(fake)
-        d_real = self.D(real)
+        fm_fake, d_fake = self.D(fake)
+        fm_real, d_real = self.D(real)
         loss_D, _ = self.criterion_D(self.D, d_fake, d_real, fake, real, req_grad=True)
-        del d_fake, d_real, _
+        del d_fake, d_real, _, fm_fake, fm_real
         loss_D = loss_D.detach().item()
         return loss_D
 

@@ -37,6 +37,7 @@ class Infer():
         target_landmarks = fa.get_landmarks_from_image(target)[0]
         target_landmarks = plot_landmarks(target, target_landmarks, self.options.channels)
 
+        # TODO: use Normalize class from transforms.py
         normalize = transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
         source = torch.FloatTensor(np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))).to(self.options.device)
         target_landmarks = torch.FloatTensor(np.ascontiguousarray(target_landmarks.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))).to(self.options.device)
