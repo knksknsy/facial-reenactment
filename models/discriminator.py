@@ -71,10 +71,10 @@ class LossD(nn.Module):
 
 
     # TODO: check gradient penalty implementation
-    def loss_gp(self, discriminator, real, fake, req_grad):
+    def loss_gp(self, discriminator, real, fake):
         alpha = torch.rand(real.size(0), 1, 1, 1).to(self.options.device).expand_as(real)
         interpolated = alpha * real + (1 - alpha) * fake
-        if req_grad: interpolated.requires_grad = True 
+        # if req_grad: interpolated.requires_grad = True 
         fm_prob_interpolated, prob_interpolated = discriminator(interpolated)
 
         grad = torch.autograd.grad(
@@ -93,10 +93,10 @@ class LossD(nn.Module):
         return l_gp
 
 
-    def forward(self, discriminator, d_fake, d_real, fake, real, req_grad=False):
+    def forward(self, discriminator, d_fake, d_real, fake, real, skip_gp=False):
         l_adv_real = self.loss_adv_real(d_real)
         l_adv_fake = self.loss_adv_fake(d_fake)
-        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake, req_grad) if self.w_gp > 0 else 0
+        l_gp = self.w_gp * self.loss_gp(discriminator, real, fake) if self.w_gp > 0 and not skip_gp else 0
         
         loss_D = l_adv_real + l_adv_fake + l_gp
 
@@ -105,7 +105,7 @@ class LossD(nn.Module):
             'Loss_D': loss_D.detach().item(),
             'Loss_Adv_Real': l_adv_real.detach().item(),
             'Loss_Adv_Fake': l_adv_fake.detach().item(),
-            'Loss_GP': l_gp.detach().item() if self.w_gp > 0 else None
+            'Loss_GP': l_gp.detach().item() if self.w_gp > 0 and not skip_gp else None
         })
         del l_adv_real, l_adv_fake, l_gp
 

@@ -54,10 +54,6 @@ class GrayScale(object):
             image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
             image3 = cv2.cvtColor(image3, cv2.COLOR_BGR2GRAY)
 
-            image1 = image1[:,:,None]
-            image2 = image2[:,:,None]
-            image3 = image3[:,:,None]
-
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
         else:
@@ -65,11 +61,6 @@ class GrayScale(object):
             
             image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
             image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
-            landmark2 = cv2.cvtColor(landmark2, cv2.COLOR_BGR2GRAY)
-
-            image1 = image1[:,:,None]
-            image2 = image2[:,:,None]
-            landmark2 = landmark2[:,:,None]
 
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
@@ -128,18 +119,12 @@ class RandomRotate(object):
                 if i == 0:
                     image1 = self.affine_transform(image1, angle_tmp)
                     landmark1 = self.affine_transform(landmark1, angle_tmp)
-                    if len(image1.shape) == 2: image1 = image1[:,:,None]
-                    if len(landmark1.shape) == 2: landmark1 = landmark1[:,:,None]
                 if i == 1:
                     image2 = self.affine_transform(image2, angle_tmp)
                     landmark2 = self.affine_transform(landmark2, angle_tmp)
-                    if len(image2.shape) == 2: image2 = image2[:,:,None]
-                    if len(landmark2.shape) == 2: landmark2 = landmark2[:,:,None]
                 if i == 2:
                     image3 = self.affine_transform(image3, angle_tmp)
                     landmark3 = self.affine_transform(landmark3, angle_tmp)
-                    if len(image3.shape) == 2: image3 = image3[:,:,None]
-                    if len(landmark3.shape) == 2: landmark3 = landmark3[:,:,None]
             
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -168,7 +153,8 @@ class RandomRotate(object):
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
-    def __init__(self, device, train_format=True):
+    def __init__(self, channels, device, train_format=True):
+        self.channels = channels
         self.device = device
         self.train_format = train_format
 
@@ -177,6 +163,10 @@ class ToTensor(object):
         if self.train_format:
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
+
+            if self.channels == 1:
+                image1, image2, image3 = image1[:,:,None], image2[:,:,None], image3[:,:,None]
+                landmark1, landmark2, landmark3 = landmark1[:,:,None], landmark2[:,:,None], landmark3[:,:,None]
 
             # Convert BGR to RGB
             image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(np.float32))
@@ -198,6 +188,9 @@ class ToTensor(object):
 
         else:
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
+
+            if self.channels == 1:
+                image1, image2, landmark2 = image1[:,:,None], image2[:,:,None], landmark2[:,:,None]
 
             # Convert BGR to RGB
             image1 = np.ascontiguousarray(image1.transpose(2, 0, 1).astype(np.float32))

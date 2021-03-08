@@ -27,11 +27,11 @@ class Logger():
         logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 
-    def init_writer(self, filename: str = None):
+    def init_writer(self, filename: str = None, filename_suffix: str = ''):
         if filename is not None:
-            self.writer = SummaryWriter(os.path.join(self.options.log_dir, filename))
+            self.writer = SummaryWriter(os.path.join(self.options.log_dir, filename), filename_suffix=filename_suffix)
         else:
-            self.writer = SummaryWriter(self.options.log_dir)
+            self.writer = SummaryWriter(self.options.log_dir, filename_suffix=filename_suffix)
 
 
     def log_info(self, message: str):

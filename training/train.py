@@ -36,7 +36,9 @@ class Train():
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, model_path=None)
-        self.fid = FrechetInceptionDistance(self.options, device='cpu', data_loader_length=1)
+
+        if self.options.test:
+            self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1)
 
         # Start training
         self()
@@ -48,7 +50,7 @@ class Train():
             GrayScale(train_format) if self.options.channels <= 1 else None,
             RandomHorizontalFlip(train_format) if self.options.horizontal_flip else None,
             RandomRotate(self.options.rotation_angle, train_format) if self.options.rotation_angle > 0 else None,
-            ToTensor(self.options.device, train_format),
+            ToTensor(self.options.channels, self.options.device, train_format),
             Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
         ]
         compose = [t for t in transforms_list if t is not None]
@@ -89,15 +91,18 @@ class Train():
         self.logger.log_info(f'Learning Rates: Generator = {self.network.optimizer_G.param_groups[0]["lr"]} Discriminator = {self.network.optimizer_D.param_groups[0]["lr"]}')
 
         for epoch in range(self.network.continue_epoch, self.options.epochs):
-            epoch_start =datetime.now()
+            epoch_start = datetime.now()
 
             self._train(epoch)
 
             if self.options.test:
                 Test(self.logger, self.options, self.network).test(epoch)
+            
+            # # Free unused memory
+            # torch.cuda.empty_cache()
 
             # Create new tensorboard event for each epoch
-            self.logger.init_writer()
+            self.logger.init_writer(filename_suffix=f'.{str(epoch+1)}')
 
             epoch_end = datetime.now()
             self.logger.log_info(f'Epoch {epoch + 1} finished in {epoch_end - epoch_start}.')
@@ -140,7 +145,6 @@ class Train():
 
     def _train_epoch(self, epoch):
         set_adaptive_strategy(False)
-        set_gen_counter(0)
         loss_G, loss_D = None, None
         loss_G_prev, loss_D_prev = None, None
 
@@ -154,7 +158,6 @@ class Train():
 
                 if is_gen_active():
                     images_generated, loss_G, losses_G_dict = self.network.forward_G(batch)
-                    gen_counter_inc()
                 else:
                     loss_D, losses_D_dict = self.network.forward_D(batch)
 
@@ -178,11 +181,10 @@ class Train():
                     if is_adaptive_strategy():
                         set_gen_active(False)
                         loss_D, losses_D_dict = self.network.forward_D(batch)
-                        loss_G = self.network.get_loss_G(batch)
+                        images_generated, loss_G = self.network.get_loss_G(batch)
                 else:
                     if is_adaptive_strategy():
                         set_gen_active(True)
-                        gen_counter_inc()
                         images_generated, loss_G, losses_G_dict = self.network.forward_G(batch)
                         loss_D = self.network.get_loss_D(batch['image2'], images_generated)
 
@@ -210,34 +212,32 @@ class Train():
                 self.logger.log_scalars(losses_G_dict, self.iterations)
                 self.logger.log_scalars(losses_D_dict, self.iterations)
 
-                if is_gen_active():
-                    # LOG LATEST GENERATED IMAGE
-                    images_real = batch['image2'].detach().clone()
-                    images_fake = images_generated.detach().clone()
-                    images_source = batch['image1'].detach().clone()
-                    landmarks_target = batch['landmark2'].detach().clone()
-                    images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
-                    self.logger.save_image(self.options.gen_dir, f'0_last_result', images, nrow=self.options.batch_size)
+                # LOG LATEST GENERATED IMAGE
+                images_real = batch['image2'].detach().clone()
+                images_fake = images_generated.detach().clone()
+                images_source = batch['image1'].detach().clone()
+                landmarks_target = batch['landmark2'].detach().clone()
+                images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
+                self.logger.save_image(self.options.gen_dir, f'0_last_result', images, nrow=self.options.batch_size)
 
-                    # LOG GENERATED IMAGES
-                    if (not is_adaptive_strategy() and (batch_num + 1) % self.options.log_freq == 0) or (is_adaptive_strategy() and (get_gen_counter() + 1) > self.options.log_freq):
-                        set_gen_counter(0)
-                        self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
-                        self.logger.log_image('Train/Generated', images, self.iterations, nrow=self.options.batch_size)
-                        
-                        # LOG EVALUATION METRICS
-                        if self.options.test:
-                            val_time_start = datetime.now()
-                            ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, device=self.fid.device)
-                            val_time_end = datetime.now()
-                            self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
-                            self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
-                            self.logger.log_scalar('FID Train', fid_train, self.iterations)
-                            del images_generated, images_real, images_fake, images, images_source, landmarks_target, ssim_train, fid_train
-                        else:
-                            del images_generated, images_real, images_fake, images, images_source, landmarks_target
+                # LOG GENERATED IMAGES
+                if (batch_num + 1) % self.options.log_freq == 0:
+                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
+                    self.logger.log_image('Train/Generated', images, self.iterations, nrow=self.options.batch_size)
+                    
+                    # LOG EVALUATION METRICS
+                    if self.options.test:
+                        val_time_start = datetime.now()
+                        ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, self.fid.device)
+                        val_time_end = datetime.now()
+                        self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
+                        self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
+                        self.logger.log_scalar('FID Train', fid_train, self.iterations)
+                        del images_generated, images_real, images_fake, images, images_source, landmarks_target, ssim_train, fid_train
                     else:
                         del images_generated, images_real, images_fake, images, images_source, landmarks_target
+                else:
+                    del images_generated, images_real, images_fake, images, images_source, landmarks_target
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -249,11 +249,14 @@ class Train():
             # Limit iterations per epoch
             if (batch_num + 1) % self.options.iterations == 0:
                 break
-
-        del loss_G, loss_D, loss_G_prev, loss_D_prev, r_g, r_d, losses_G_dict, losses_D_dict
+        
+        if self.options.loss_coeff > 0:
+            del loss_G_prev, loss_D_prev, r_g, r_d 
+        del loss_G, loss_D, losses_G_dict, losses_D_dict
 
 
     def evaluate_metrics(self, images_real, images_fake, device):
+        device = self.options.device
         ssim_score = calculate_ssim(images_fake.to(device), images_real.to(device), normalize=self.options.normalize)
 
         self.fid.calculate_activations(images_real.to(device), images_fake.to(device), batch_num=1)
@@ -265,10 +268,8 @@ class Train():
 # Global Tensors with shared memory. Needed for subprocesses of DataLoader
 adaptive_strategy = torch.tensor([False])
 gen_active = torch.tensor([False])
-gen_counter = torch.tensor([0])
 adaptive_strategy.share_memory_()
 gen_active.share_memory_()
-gen_counter.share_memory_()
 
 def is_adaptive_strategy():
     global adaptive_strategy
@@ -287,17 +288,3 @@ def set_gen_active(b: bool):
     global gen_active
     gen_active = torch.tensor([b])
     return gen_active
-
-def get_gen_counter():
-    global gen_counter
-    return gen_counter
-
-def set_gen_counter(v):
-    global gen_counter
-    gen_counter = torch.tensor([v])
-    return gen_counter
-
-def gen_counter_inc():
-    global gen_counter
-    gen_counter += 1
-    return gen_counter

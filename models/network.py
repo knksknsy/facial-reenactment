@@ -120,9 +120,9 @@ class Network():
                 fake_12, fake_121, fake_13, fake_23,
                 fm_fake_12, fm_real_2
             )
-            del fake_12, d_fake_12, fake_121, fake_13, fake_23, _, d_real_2, fm_fake_12, fm_real_2
+            del d_fake_12, fake_121, fake_13, fake_23, _, d_real_2, fm_fake_12, fm_real_2
             loss_G = loss_G.detach().item()
-            return loss_G
+            return fake_12, loss_G
 
 
     def forward_D(self, batch):
@@ -152,12 +152,13 @@ class Network():
 
 
     def get_loss_D(self, real, fake):
-        fm_fake, d_fake = self.D(fake)
-        fm_real, d_real = self.D(real)
-        loss_D, _ = self.criterion_D(self.D, d_fake, d_real, fake, real, req_grad=True)
-        del d_fake, d_real, _, fm_fake, fm_real
-        loss_D = loss_D.detach().item()
-        return loss_D
+        with torch.no_grad():
+            fm_fake, d_fake = self.D(fake)
+            fm_real, d_real = self.D(real)
+            loss_D, _ = self.criterion_D(self.D, d_fake, d_real, fake, real, skip_gp=True)
+            del d_fake, d_real, _, fm_fake, fm_real
+            loss_D = loss_D.detach().item()
+            return loss_D
 
 
     def train(self):

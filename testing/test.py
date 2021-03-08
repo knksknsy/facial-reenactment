@@ -8,7 +8,7 @@ from configs.options import Options
 from testing.fid import FrechetInceptionDistance
 from testing.ssim import calculate_ssim
 from dataset.dataset import VoxCelebDataset
-from dataset.transforms import Resize, ToTensor, Normalize
+from dataset.transforms import Resize, GrayScale, ToTensor, Normalize
 from models.network import Network
 from loggings.logger import Logger
 
@@ -31,7 +31,8 @@ class Test():
             shuffle_frames=False,
             transform=transforms.Compose([
                 Resize(self.options.image_size, train_format),
-                ToTensor(self.options.device, train_format),
+                GrayScale(train_format) if self.options.channels <= 1 else None,
+                ToTensor(self.options.channels, self.options.device, train_format),
                 Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
             ]),
             train_format=train_format

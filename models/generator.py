@@ -57,7 +57,7 @@ class Generator(nn.Module):
 
 
 class LossG(nn.Module):
-    def __init__(self, logger: Logger, options: Options, vgg_device='cpu', lightcnn_device='cpu'):
+    def __init__(self, logger: Logger, options: Options, vgg_device: str, lightcnn_device: str):
         super(LossG, self).__init__()
         self.logger = logger
         self.options = options
