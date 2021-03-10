@@ -50,19 +50,19 @@ train:
     l_percep: 10
     l_feature_matching: 10
     l_tv: 1.0e-4
-    l_gp: 0                                       # >0: gradient penalty mode
-    l_gc: 0.01                                    # >0: gradient clipping mode
+    l_gp: 10                                      # >0: gradient penalty mode
+    l_gc: 0                                       # >0: gradient clipping mode
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
     lr_g: 1.0e-4
-    lr_d: 4.0e-4
+    lr_d: 1.0e-4
     beta1: 0.5
     beta2: 0.999
     weight_decay: 5.0e-4
     lr_decay:
       epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
       lr_g_end: 1.0e-6
-      lr_d_end: 4.0e-6
+      lr_d_end: 1.0e-6
 
 test:
   batch_size_test: 32
