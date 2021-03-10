@@ -15,6 +15,7 @@ from models.network import Network
 from models.utils import lr_linear_schedule, load_seed_state
 from loggings.logger import Logger
 
+
 class Train():
     def __init__(self, logger: Logger, options: TrainOptions):
         self.logger = logger
@@ -22,26 +23,32 @@ class Train():
         self.training = True
 
         torch.backends.cudnn.benchmark = True
-        # Set seeds
-        if self.options.continue_id is None:
-            torch.manual_seed(self.options.seed)
-            np.random.seed(self.options.seed)
-        # Load seed states
-        else:
-            numpy_seed_state, torch_seed_state = load_seed_state(self.options)
-            if torch_seed_state is not None:
-                torch.set_rng_state(torch_seed_state)
-            if numpy_seed_state is not None:
-                np.random.set_state(numpy_seed_state)
+        self._init_seeds(self.options)
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, model_path=None)
 
-        if self.options.test:
+        if self.options.test_train:
             self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1)
+        else:
+            self.fid = None
 
         # Start training
         self()
+
+
+    def _init_seeds(self, options):
+        # Set seeds
+        if options.continue_id is None:
+            torch.manual_seed(options.seed)
+            np.random.seed(options.seed)
+        # Load seed states
+        else:
+            numpy_seed_state, torch_seed_state = load_seed_state(options)
+            if torch_seed_state is not None:
+                torch.set_rng_state(torch_seed_state)
+            if numpy_seed_state is not None:
+                np.random.set_state(numpy_seed_state)
 
 
     def _get_data_loader(self, train_format):
@@ -97,7 +104,7 @@ class Train():
 
             if self.options.test:
                 Test(self.logger, self.options, self.network).test(epoch)
-            
+
             # # Free unused memory
             # torch.cuda.empty_cache()
 
@@ -116,7 +123,7 @@ class Train():
 
         # TRAIN EPOCH
         self._train_epoch(epoch)
-        
+
         # Schedule learning rate
         self.network.optimizer_G.param_groups[0]['lr'] = lr_linear_schedule(
             epoch,
@@ -153,7 +160,7 @@ class Train():
 
             # Fixed update strategy
             if not is_adaptive_strategy():
-                d_iters = self.options.d_iters if self.options.gan_type == 'wgan-gp' else 2
+                d_iters = self.options.d_iters
                 set_gen_active((batch_num + 1) % d_iters == 0)
 
                 if is_gen_active():
@@ -181,12 +188,14 @@ class Train():
                     if is_adaptive_strategy():
                         set_gen_active(False)
                         loss_D, losses_D_dict = self.network.forward_D(batch)
-                        images_generated, loss_G = self.network.get_loss_G(batch)
+                        images_generated, loss_G, _ = self.network.get_loss_G(batch)
+                        del _
                 else:
                     if is_adaptive_strategy():
                         set_gen_active(True)
                         images_generated, loss_G, losses_G_dict = self.network.forward_G(batch)
-                        loss_D = self.network.get_loss_D(batch['image2'], images_generated)
+                        loss_D, _ = self.network.get_loss_D(batch['image2'], images_generated)
+                        del _
 
                 if loss_G_prev is not None and loss_D_prev is not None:
                     r_g, r_d = abs((loss_G - loss_G_prev) / loss_G_prev), abs((loss_D - loss_D_prev) / loss_D_prev)
@@ -204,6 +213,7 @@ class Train():
             if loss_G is not None and loss_D is not None and (batch_num + 1) % d_iters == 0:
                 cur_it = str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))
                 total_it = len(self.data_loader_train) if self.options.iterations == 0 else self.options.iterations
+
                 self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
                                     f'Time: {batch_end - batch_start} | '
                                     f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}')
@@ -222,11 +232,12 @@ class Train():
 
                 # LOG GENERATED IMAGES
                 if (batch_num + 1) % self.options.log_freq == 0:
-                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
+                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}',
+                                            images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
                     self.logger.log_image('Train/Generated', images, self.iterations, nrow=self.options.batch_size)
-                    
+
                     # LOG EVALUATION METRICS
-                    if self.options.test:
+                    if self.options.test_train:
                         val_time_start = datetime.now()
                         ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, self.fid.device)
                         val_time_end = datetime.now()
@@ -249,9 +260,9 @@ class Train():
             # Limit iterations per epoch
             if (batch_num + 1) % self.options.iterations == 0:
                 break
-        
+
         if self.options.loss_coeff > 0:
-            del loss_G_prev, loss_D_prev, r_g, r_d 
+            del loss_G_prev, loss_D_prev, r_g, r_d
         del loss_G, loss_D, losses_G_dict, losses_D_dict
 
 
@@ -271,18 +282,22 @@ gen_active = torch.tensor([False])
 adaptive_strategy.share_memory_()
 gen_active.share_memory_()
 
+
 def is_adaptive_strategy():
     global adaptive_strategy
     return adaptive_strategy
+
 
 def set_adaptive_strategy(b: bool):
     global adaptive_strategy
     adaptive_strategy = torch.tensor([b])
     return adaptive_strategy
 
+
 def is_gen_active():
     global gen_active
     return gen_active
+
 
 def set_gen_active(b: bool):
     global gen_active

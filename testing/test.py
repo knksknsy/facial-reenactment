@@ -1,3 +1,4 @@
+from models.generator import LossG
 import torch
 
 from torchvision import transforms
@@ -17,7 +18,7 @@ class Test():
         self.logger = logger
         self.options = options
         self.network = network
-        self.data_loader_test = self._get_data_loader(train_format=False)
+        self.data_loader_test = self._get_data_loader(train_format=True)
         self.network.eval()
 
 
@@ -66,7 +67,7 @@ class Test():
             batch_start = datetime.now()
 
             images_real = batch['image2']
-            images_fake = self.network(batch['image1'], batch['landmark2'])
+            images_fake, loss_G, losses_G_dict, loss_D, losses_D_dict = self.network(batch['image1'], batch['landmark2'], batch, calc_loss=True)
 
             # Calculate FID
             fid.calculate_activations(images_real, images_fake, batch_num)
@@ -80,10 +81,13 @@ class Test():
                 message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
-                self.logger.log_info(message)
-                self.logger.log_info(f'SSIM = {ssim_val.mean().item():.4f}')
+                self.logger.log_info(f'{message} | '
+                                    f'SSIM = {ssim_val.mean().item():.4f} | '
+                                    f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}')
                 self.logger.log_scalar('SSIM Validation', ssim_val.mean().item(), iterations)
-                del ssim_val
+                self.logger.log_scalars(losses_G_dict, iterations, tag_prefix='Test')
+                self.logger.log_scalars(losses_D_dict, iterations, tag_prefix='Test')
+                del ssim_val, loss_G, losses_G_dict, loss_D, losses_D_dict
 
             # LOG GENERATED IMAGES
             images_source = batch['image1'].detach().clone()

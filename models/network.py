@@ -26,11 +26,18 @@ class Network():
 
         # Testing mode
         if self.model_path is not None:
+            # Load Generator
             self.G = Generator(self.options)
-            # state_dict = torch.load(os.path.join(self.options.checkpoint_dir, self.model_path))
-            state_dict = torch.load(self.model_path)
-            self.G.load_state_dict(state_dict['model'])
-            self.continue_epoch = state_dict['epoch']
+            state_dict_G = torch.load(self.model_path)
+            self.G.load_state_dict(state_dict_G['model'])
+            self.continue_epoch = state_dict_G['epoch']
+            # Load Discriminator
+            self.D = Discriminator(self.options)
+            state_dict_D = torch.load(self.model_path.replace('Generator', 'Discriminator'))
+            self.D.load_state_dict(state_dict_D['model'])
+
+            self.criterion_G = LossG(self.logger, self.options, vgg_device=self.options.device, lightcnn_device=self.options.device)
+            self.criterion_D = LossD(self.logger, self.options)
 
         # Training mode
         else:
@@ -70,9 +77,16 @@ class Network():
                 self.D, self.optimizer_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.options)
 
 
-    def __call__(self, images, landmarks):
-        with torch.no_grad():
-            return self.G(images, landmarks)
+    def __call__(self, images, landmarks, batch = None, calc_loss:bool=False):
+        # During inference
+        if not calc_loss:
+            with torch.no_grad():
+                return self.G(images, landmarks)
+        # During testing
+        else:
+            image_generated, loss_G, losses_G_dict = self.get_loss_G(batch)
+            loss_D, losses_D_dict = self.get_loss_D(batch['image2'], image_generated)
+            return image_generated, loss_G, losses_G_dict, loss_D, losses_D_dict
 
 
     def forward_G(self, batch):
@@ -115,14 +129,14 @@ class Network():
             fake_13 = self.G(batch['image1'], batch['landmark3'])
             fake_23 = self.G(fake_12, batch['landmark3'])
 
-            loss_G, _ = self.criterion_G(
+            loss_G, losses_G_dict = self.criterion_G(
                 batch['image1'], batch['image2'], d_fake_12,
                 fake_12, fake_121, fake_13, fake_23,
                 fm_fake_12, fm_real_2
             )
-            del d_fake_12, fake_121, fake_13, fake_23, _, d_real_2, fm_fake_12, fm_real_2
+            del d_fake_12, fake_121, fake_13, fake_23, d_real_2, fm_fake_12, fm_real_2
             loss_G = loss_G.detach().item()
-            return fake_12, loss_G
+            return fake_12, loss_G, losses_G_dict
 
 
     def forward_D(self, batch):
@@ -155,10 +169,10 @@ class Network():
         with torch.no_grad():
             fm_fake, d_fake = self.D(fake)
             fm_real, d_real = self.D(real)
-            loss_D, _ = self.criterion_D(self.D, d_fake, d_real, fake, real, skip_gp=True)
-            del d_fake, d_real, _, fm_fake, fm_real
+            loss_D, losses_D_dict = self.criterion_D(self.D, d_fake, d_real, fake, real, skip_gp=True)
+            del d_fake, d_real, fm_fake, fm_real
             loss_D = loss_D.detach().item()
-            return loss_D
+            return loss_D, losses_D_dict
 
 
     def train(self):

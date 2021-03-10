@@ -3,7 +3,7 @@
 device: cuda
 device_options: [cuda, cpu]
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 0                                    # >0: faster data loading, increased GPU usage
+num_workers: 4                                    # >0: faster data loading, increased GPU usage
 
 paths:
   log_dir: /media/Alpha/facial-reenactment/logs
@@ -28,6 +28,7 @@ dataset:
 
 train:
   test: true                                      # test model after each epoch
+  test_train: false                               # calculate evaluations during training
   continue_id: null                               # continue training from checkpoint
   seed: 57
   epochs: 30
@@ -35,11 +36,10 @@ train:
   iterations: 1250 #5,000/b_s                     # limit iterations per epoch; 0: no limit, >0: limit
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 100                                   # frequency [iterations] to log generated images
-  gan_type: wgan-gp
   landmark_type: 'boundary'                       # 'boundary' or 'keypoint'
   update_strategy:
-    d_iters: 5                                    # fixed update strategy
-    loss_coeff: 0                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
+    d_iters: 5                                    # fixed update strategy: wgan-gp: d_iters=5, else: d_iters=2
+    loss_coeff: 5                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
   grad_clip: 1                                    # use gradient clipping
   loss_weights:
     l_adv: 1

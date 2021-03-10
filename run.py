@@ -47,7 +47,7 @@ def main():
             else:
                 models = sorted([f for f in os.listdir(options.checkpoint_dir) if 'Generator' in f])
                 for model in models:
-                    network = Network(logger, options, model_path=model)
+                    network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
                     Test(logger, options, network).test(network.continue_epoch)
 
         elif mode == 'infer':

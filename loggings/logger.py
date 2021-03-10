@@ -59,8 +59,11 @@ class Logger():
         self.writer.flush()
 
 
-    def log_scalars(self, scalars: dict, x_value):
+    def log_scalars(self, scalars: dict, x_value, tag_prefix=None):
+        scalars = {k: v for k, v in scalars.items() if v is not None}
         for key, value in scalars.items():
+            if tag_prefix is not None:
+                key = f'{tag_prefix}_{key}'
             self.writer.add_scalar(tag=key, scalar_value=value, global_step=x_value)
         self.writer.flush()
 

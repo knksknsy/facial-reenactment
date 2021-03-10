@@ -62,12 +62,12 @@ class LossD(nn.Module):
         self.to(self.options.device)
 
 
-    def loss_adv_real(self, d_real):
-        return -torch.mean(d_real)
+    def loss_adv_real(self, d_real, is_wgan):
+        return -torch.mean(d_real) if is_wgan else torch.mean(nn.ReLU()(1.0 - d_real))
 
 
-    def loss_adv_fake(self, d_fake):
-        return torch.mean(d_fake)
+    def loss_adv_fake(self, d_fake, is_wgan):
+        return torch.mean(d_fake) if is_wgan else torch.mean(nn.ReLU()(1.0 + d_fake))
 
 
     # TODO: check gradient penalty implementation
@@ -94,8 +94,8 @@ class LossD(nn.Module):
 
 
     def forward(self, discriminator, d_fake, d_real, fake, real, skip_gp=False):
-        l_adv_real = self.loss_adv_real(d_real)
-        l_adv_fake = self.loss_adv_fake(d_fake)
+        l_adv_real = self.loss_adv_real(d_real, self.w_gp > 0)
+        l_adv_fake = self.loss_adv_fake(d_fake, self.w_gp > 0)
         l_gp = self.w_gp * self.loss_gp(discriminator, real, fake) if self.w_gp > 0 and not skip_gp else 0
         
         loss_D = l_adv_real + l_adv_fake + l_gp

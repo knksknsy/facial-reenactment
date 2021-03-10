@@ -23,6 +23,8 @@ class TrainOptions(Options):
                                             help='Frequency in which logs will be saved')
         self.parser.add_argument('--test', action='store_false' if self.config['train']['test'] else 'store_true',
                                             help='Model will be tested after each epoch.')
+        self.parser.add_argument('--test_train', action='store_false' if self.config['train']['test_train'] else 'store_true',
+                                            help='Evaluations will be calculated for train set during training.')
         self.parser.add_argument('--seed', type=int, default=self.config['train']['seed'])
 
         # ARGUMENTS: DIRECTORIES
@@ -92,8 +94,6 @@ class TrainOptions(Options):
                                             help='Learning rate of discriminator')
         self.parser.add_argument('--grad_clip', default=self.config['train']['grad_clip'], type=float,
                                             help='Use gradient clipping')
-        self.parser.add_argument('--gan_type', default=self.config['train']['gan_type'], type=str,
-                                            help='GAN type')
         self.parser.add_argument('--d_iters', default=self.config['train']['update_strategy']['d_iters'], type=int,
                                             help='Fixed update interval of discriminator')
         self.parser.add_argument('--loss_coeff', default=self.config['train']['update_strategy']['loss_coeff'], type=int,
