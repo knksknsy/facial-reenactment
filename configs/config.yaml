@@ -28,7 +28,7 @@ dataset:
 
 train:
   test: true                                      # test model after each epoch
-  test_train: false                               # calculate evaluations during training
+  test_train: true                                # calculate evaluations during training
   continue_id: null                               # continue training from checkpoint
   seed: 57
   epochs: 30
@@ -40,7 +40,7 @@ train:
   update_strategy:
     d_iters: 5                                    # fixed update strategy: wgan-gp: d_iters=5, else: d_iters=2
     loss_coeff: 5                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
-  grad_clip: 1                                    # use gradient clipping
+  grad_clip: 0.01                                 # use gradient clipping
   loss_weights:
     l_adv: 1
     l_rec: 10
@@ -50,7 +50,7 @@ train:
     l_percep: 10
     l_feature_matching: 10
     l_tv: 1.0e-4
-    l_gp: 10
+    l_gp: 0
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
     lr_g: 1.0e-4
