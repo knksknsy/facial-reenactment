@@ -145,6 +145,11 @@ class Network():
 
         self.D.zero_grad()
 
+        # Clamp parameters if in gradient clipping mode
+        if self.options.l_gc > 0:
+            for p in self.D.parameters():
+                p.data.clamp_(-self.options.l_gc, self.options.l_gc)
+
         fake_12 = self.G(batch['image1'], batch['landmark2'])
         fake_12 = fake_12.detach()
         fake_12.requires_grad = True

@@ -82,6 +82,8 @@ class TrainOptions(Options):
                                             help='Total variation loss')
         self.parser.add_argument('--l_gp', default=self.config['train']['loss_weights']['l_gp'], type=float,
                                             help='Gradient penalty loss')
+        self.parser.add_argument('--l_gc', default=self.config['train']['loss_weights']['l_gc'], type=float,
+                                            help='Gradient clipping value')
 
         # ARGUMENTS: HYPERPARAMETERS
         self.parser.add_argument('--batch_size', default=self.config['train']['batch_size'], type=int,
