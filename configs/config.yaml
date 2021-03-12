@@ -13,8 +13,8 @@ paths:
   output_dir: /media/Alpha/facial-reenactment/outputs
 
 dataset:
-  dataset_train: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/dev/
-  dataset_test: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/
+  dataset_train: ~/datasets/VoxCeleb2/CropIdsPreprocessed/dev/
+  dataset_test: ~/datasets/VoxCeleb2/CropIdsPreprocessed/test/
   csv_train: ./dataset/dataset_crop_ids_dev.csv
   csv_test: ./dataset/dataset_crop_test.csv
   image_size: 64
@@ -28,8 +28,8 @@ dataset:
 
 train:
   test: true                                      # test model after each epoch
-  test_train: true                                # calculate evaluations during training
-  continue_id: null                               # continue training from checkpoint
+  test_train: false                               # calculate evaluations during training
+  continue_id: t20210312_1917_e016_i00021250.pth
   seed: 57
   epochs: 30
   batch_size: 32
@@ -55,14 +55,14 @@ train:
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
     lr_g: 1.0e-4
-    lr_d: 1.0e-4
+    lr_d: 4.0e-4
     beta1: 0.5
     beta2: 0.999
     weight_decay: 5.0e-4
     lr_decay:
       epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
-      lr_g_end: 1.0e-6
-      lr_d_end: 1.0e-6
+      lr_g_end: 1.0e-4
+      lr_d_end: 4.0e-4
 
 test:
   batch_size_test: 32
