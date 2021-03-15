@@ -30,8 +30,9 @@ class LightCNN(nn.Module):
         self.fc     = mfm(8*8*128, 256, type=0)
         self.fc2    = nn.Linear(256, num_classes)
 
-        state_dict = self.load_model('./models/LightCNN_29Layers.pth.tar')
+        state_dict = torch.load('./models/pretrained/light_cnn.pth')
         self.load_state_dict(state_dict)
+        del state_dict
 
         if not requires_grad:
             for param in self.parameters():
@@ -77,16 +78,6 @@ class LightCNN(nn.Module):
         fc = self.fc(x)
         out = [p, fc]
         return out
-
-
-    def load_model(self, path):
-        sd = torch.load(path)
-        sd = sd['state_dict']
-        state_dict = {}
-        for k, v in sd.items():
-            state_dict[k.replace('module.','')] = v
-        del sd
-        return state_dict
 
 
 class mfm(nn.Module):

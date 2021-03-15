@@ -1,5 +1,4 @@
 todos.md
-configs/config.yaml
 
 logs/
 checkpoints/
@@ -7,6 +6,7 @@ generated_train/
 generated_test/
 outputs/
 inputs/
+models/pretrained/
 
 # VS Code
 .vscode/

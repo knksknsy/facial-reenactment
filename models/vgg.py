@@ -7,13 +7,17 @@ from configs.options import Options
 from dataset.utils import denormalize
 
 class VGG16(nn.Module):
-    def __init__(self, options: Options, requires_grad=False):
+    def __init__(self, options: Options, vgg_type='vgg16', requires_grad=False):
         super(VGG16, self).__init__()
         self.options = options
         vgg_model = vgg16(pretrained=True)
         
         # If model is used in DataParallel
         vgg_features = vgg_model.features if hasattr(vgg_model,'features') else vgg_model.module.features
+
+        if vgg_type == 'vggface':
+            state_dict = torch.load('./models/pretrained/vgg_face_features.pth')
+            vgg_features.load_state_dict(state_dict)
 
         self.relu_count = 4
         self.slice1 = nn.Sequential()
@@ -28,6 +32,8 @@ class VGG16(nn.Module):
             self.slice3.add_module(str(x), vgg_features[x])
         for x in range(16,23):
             self.slice4.add_module(str(x), vgg_features[x])
+
+        del vgg_model, vgg_features, state_dict
 
         self.mean = nn.Parameter(data=torch.Tensor(np.array([0.485, 0.456, 0.406]).reshape((1,3,1,1))), requires_grad=False)
         self.std = nn.Parameter(data=torch.Tensor(np.array([0.229, 0.224, 0.225]).reshape((1,3,1,1))), requires_grad=False)

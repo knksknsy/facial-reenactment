@@ -76,7 +76,7 @@ class LossG(nn.Module):
         self.to(self.options.device)
 
         if self.options.l_percep > 0:
-            self.vgg16 = VGG16(self.options)
+            self.vgg16 = VGG16(self.options, vgg_type=self.options.vgg_type)
             if self.vgg_device == 'cuda' and torch.cuda.device_count() > 1:
                 self.vgg16 = DataParallel(self.vgg16)
             self.vgg16.to(self.vgg_device)
