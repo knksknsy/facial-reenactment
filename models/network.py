@@ -158,12 +158,12 @@ class Network():
         if self.options.grad_clip:
             torch.nn.utils.clip_grad_norm_(self.D.parameters(), self.options.grad_clip, norm_type=2)
 
+        self.optimizer_D.step()
+
         # Clamp parameters if in gradient clipping mode
         if self.options.l_gc > 0:
             for p in self.D.parameters():
                 p.data.clamp_(-self.options.l_gc, self.options.l_gc)
-
-        self.optimizer_D.step()
 
         del fake_12, d_real_2, d_fake_12, fm_fake_12, fm_real_2
         loss_D = loss_D.detach().item()
