@@ -15,14 +15,15 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.options = options
         c = self.options.channels
+        spec_norm = self.options.spec_norm
 
         down_blocks = []
-        down_blocks.append(ConvBlock(c,      64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x   64 x 64 x 64
-        down_blocks.append(ConvBlock(64,    128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x  128 x 32 x 32
-        down_blocks.append(ConvBlock(128,   256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x  256 x 16 x 16
-        down_blocks.append(ConvBlock(256,   512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x  512 x  8 x  8
-        down_blocks.append(ConvBlock(512,  1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x 1024 x  4 x  4
-        down_blocks.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu'))  # B x 2048 x  2 x  2
+        down_blocks.append(ConvBlock(c,      64, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu', sn=spec_norm))  # B x   64 x 64 x 64
+        down_blocks.append(ConvBlock(64,    128, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu', sn=spec_norm))  # B x  128 x 32 x 32
+        down_blocks.append(ConvBlock(128,   256, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu', sn=spec_norm))  # B x  256 x 16 x 16
+        down_blocks.append(ConvBlock(256,   512, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu', sn=spec_norm))  # B x  512 x  8 x  8
+        down_blocks.append(ConvBlock(512,  1024, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu', sn=spec_norm))  # B x 1024 x  4 x  4
+        down_blocks.append(ConvBlock(1024, 2048, kernel_size=4, stride=2, padding=1, instance_norm=False, activation='leakyrelu', sn=spec_norm))  # B x 2048 x  2 x  2
         self.down_blocks = nn.Sequential(*down_blocks)
         conv = []
         conv.append(ConvBlock(2048,    1, kernel_size=3, stride=1, padding=1, instance_norm=False, activation=None, bias=False))    # B x    1 x  2 x  2
