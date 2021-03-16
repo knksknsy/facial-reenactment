@@ -18,6 +18,7 @@ class VGG16(nn.Module):
         if vgg_type == 'vggface':
             state_dict = torch.load('./models/pretrained/vgg_face_features.pth')
             vgg_features.load_state_dict(state_dict)
+            del state_dict
 
         self.relu_count = 4
         self.slice1 = nn.Sequential()
@@ -33,7 +34,7 @@ class VGG16(nn.Module):
         for x in range(16,23):
             self.slice4.add_module(str(x), vgg_features[x])
 
-        del vgg_model, vgg_features, state_dict
+        del vgg_model, vgg_features
 
         self.mean = nn.Parameter(data=torch.Tensor(np.array([0.485, 0.456, 0.406]).reshape((1,3,1,1))), requires_grad=False)
         self.std = nn.Parameter(data=torch.Tensor(np.array([0.229, 0.224, 0.225]).reshape((1,3,1,1))), requires_grad=False)
