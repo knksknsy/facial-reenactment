@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.nn as nn
+import numpy as np
 
 from configs.options import Options
 
@@ -40,10 +41,20 @@ def lr_linear_schedule(current_epoch, epoch_start, epoch_end, lr_base, lr_end):
         return lr_end
 
 
-def load_seed_state(options: Options, model_name: str = 'Generator'):
+def init_seed_state(options: Options, model_name: str = 'Generator'):
+    # Set seeds
+    if options.continue_id is None:
+        torch.manual_seed(options.seed)
+        np.random.seed(options.seed)
+    # Load seed states from checkpoint
+    else:
         filename = f'{model_name}_{options.continue_id}'
         state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
         numpy_seed_state = state_dict['numpy_seed_state'] if 'numpy_seed_state' in state_dict else None
         torch_seed_state = state_dict['torch_seed_state'] if 'torch_seed_state' in state_dict else None
         del state_dict
-        return numpy_seed_state, torch_seed_state
+
+        if torch_seed_state is not None:
+            torch.set_rng_state(torch_seed_state)
+        if numpy_seed_state is not None:
+            np.random.set_state(numpy_seed_state)

@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -12,7 +11,7 @@ from testing.fid import FrechetInceptionDistance
 from dataset.dataset import VoxCelebDataset
 from dataset.transforms import Resize, GrayScale, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
 from models.network import Network
-from models.utils import lr_linear_schedule, load_seed_state
+from models.utils import lr_linear_schedule, init_seed_state
 from loggings.logger import Logger
 
 
@@ -23,7 +22,7 @@ class Train():
         self.training = True
 
         torch.backends.cudnn.benchmark = True
-        self._init_seeds(self.options)
+        init_seed_state(self.options)
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, model_path=None)
@@ -35,20 +34,6 @@ class Train():
 
         # Start training
         self()
-
-
-    def _init_seeds(self, options):
-        # Set seeds
-        if options.continue_id is None:
-            torch.manual_seed(options.seed)
-            np.random.seed(options.seed)
-        # Load seed states
-        else:
-            numpy_seed_state, torch_seed_state = load_seed_state(options)
-            if torch_seed_state is not None:
-                torch.set_rng_state(torch_seed_state)
-            if numpy_seed_state is not None:
-                np.random.set_state(numpy_seed_state)
 
 
     def _get_data_loader(self, train_format):
@@ -68,7 +53,6 @@ class Train():
             self.options.image_size,
             self.options.channels,
             self.options.landmark_type,
-            self.options.shuffle_frames,
             transforms.Compose(compose),
             train_format
         )
