@@ -30,7 +30,7 @@ class LightCNN(nn.Module):
         self.fc     = mfm(8*8*128, 256, type=0)
         self.fc2    = nn.Linear(256, num_classes)
 
-        state_dict = torch.load('./models/pretrained/light_cnn.pth')
+        state_dict = torch.load('./models/pretrained/light_cnn.pth', map_location=torch.device('cpu') if self.options.device == 'cpu' else None)
         self.load_state_dict(state_dict)
         del state_dict
 

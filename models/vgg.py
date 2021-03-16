@@ -16,7 +16,7 @@ class VGG16(nn.Module):
         vgg_features = vgg_model.features if hasattr(vgg_model,'features') else vgg_model.module.features
 
         if vgg_type == 'vggface':
-            state_dict = torch.load('./models/pretrained/vgg_face_features.pth')
+            state_dict = torch.load('./models/pretrained/vgg_face_features.pth', map_location=torch.device('cpu') if self.options.device == 'cpu' else None)
             vgg_features.load_state_dict(state_dict)
             del state_dict
 

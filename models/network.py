@@ -193,7 +193,7 @@ class Network():
 
     def load_model(self, model: Module, optimizer: Optimizer, options: Options) -> Tuple[Module, Optimizer, str, str]:
             filename = f'{type(model).__name__}_{options.continue_id}'
-            state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
+            state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
             model.load_state_dict(state_dict['model'])
             optimizer.load_state_dict(state_dict['optimizer'])
             epoch = state_dict['epoch'] + 1
