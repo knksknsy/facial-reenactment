@@ -59,7 +59,6 @@ class TrainOptions(Options):
         self.parser.add_argument('--vgg_type', type=str, default=self.config['train']['vgg_type'],
                                             help='Perceptual network: vgg16 | vggface')
         self.parser.add_argument('--spec_norm', action='store_false' if self.config['train']['spec_norm'] else 'store_true')
-        self.parser.add_argument('--shuffle_frames', action='store_false' if self.config['dataset']['augmentation']['shuffle_frames'] else 'store_true')
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
         self.parser.add_argument('--rotation_angle', type=int, default=self.config['dataset']['augmentation']['rotation_angle'],
                                             help='Angle for random image rotation when loading data.')

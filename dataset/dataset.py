@@ -13,13 +13,12 @@ from torch.utils.data import Dataset
 class VoxCelebDataset(Dataset):
     """Dataset object for accessing and pre-processing VoxCeleb2 dataset"""
 
-    def __init__(self, dataset_path, csv_file, image_size, channels, landmark_type, shuffle_frames=False, transform=None, train_format=False):
+    def __init__(self, dataset_path, csv_file, image_size, channels, landmark_type, transform=None, train_format=False):
         """
         Instantiate the Dataset.
 
         :param dataset_path: Path to the folder where the pre-processed dataset is stored.
         :param csv_file: CSV file containing the triplet data-pairs.
-        :param shuffle_frames: If True, randomly select a triplet data-pair from the CSV row.
         :param transform: Transformations to be done to triplet data-pairs.
         """
         self.dataset_path = dataset_path
@@ -27,7 +26,6 @@ class VoxCelebDataset(Dataset):
         self.image_size = image_size
         self.channels = channels
         self.landmark_type = landmark_type
-        self.shuffle_frames = shuffle_frames
         self.transform = transform
         self.train_format = train_format
 
@@ -40,16 +38,16 @@ class VoxCelebDataset(Dataset):
             idx = idx.tolist()
         
         # CSV structure:
-        # 0             2           4           6           8           10          12          14          16
-        # landmark1,    landmark2,  landmark3,  landmark4,  landmark5,  landmark6,  landmark7,  landmark8,  landmark9
+        # 0             2           4
+        # landmark1,    landmark2,  landmark3
 
-        # 1             3           5           7           9           11          13          15          17
-        # image1,       image2,     image3,     image4,     image5,     image6,     image7,     image8,     image9
+        # 1             3           5
+        # image1,       image2,     image3
         
-        # 18            19
+        # 6             7
         # id,           id_video
 
-        image_cols = [1,3,5,7,9,11,13,15,17]
+        image_cols = [1,3,5]
 
         identity = self.data_frame.iloc[idx, -2]
         id_video = self.data_frame.iloc[idx, -1]
@@ -57,25 +55,13 @@ class VoxCelebDataset(Dataset):
 
         # Training
         if self.train_format:
-            if self.shuffle_frames:
-                samples_n = 3
-                image_col_samples = np.random.choice(image_cols, size=samples_n)
+            image1_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[0]])
+            image2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1]])
+            image3_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[2]])
 
-                image1_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[0]])
-                image2_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[1]])
-                image3_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[2]])
-
-                landmark1_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[0] - 1])
-                landmark2_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[1] - 1])
-                landmark3_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[2] - 1])
-            else:
-                image1_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[0]])
-                image2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1]])
-                image3_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[2]])
-
-                landmark1_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[0] - 1])
-                landmark2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1] - 1])
-                landmark3_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[2] - 1])
+            landmark1_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[0] - 1])
+            landmark2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1] - 1])
+            landmark3_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[2] - 1])
 
             # Read images
             image1 = cv2.imread(image1_path, cv2.IMREAD_COLOR)
@@ -91,17 +77,9 @@ class VoxCelebDataset(Dataset):
 
         # Testing
         else:
-            if self.shuffle_frames:
-                samples_n = 2
-                image_col_samples = np.random.choice(image_cols, size=samples_n)
-
-                image1_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[0]])
-                image2_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[1]])
-                landmark2_path = os.path.join(path, self.data_frame.iloc[idx, image_col_samples[1] - 1])
-            else:
-                image1_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[0]])
-                image2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1]])
-                landmark2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1] - 1])
+            image1_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[0]])
+            image2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1]])
+            landmark2_path = os.path.join(path, self.data_frame.iloc[idx, image_cols[1] - 1])
             
             image1 = cv2.imread(image1_path, cv2.IMREAD_COLOR)
             image2 = cv2.imread(image2_path, cv2.IMREAD_COLOR)

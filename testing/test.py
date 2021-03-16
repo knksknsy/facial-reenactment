@@ -1,4 +1,3 @@
-from models.generator import LossG
 import torch
 
 from torchvision import transforms
@@ -18,6 +17,7 @@ class Test():
         self.logger = logger
         self.options = options
         self.network = network
+
         self.data_loader_test = self._get_data_loader(train_format=True)
         self.network.eval()
 
@@ -29,7 +29,6 @@ class Test():
             self.options.image_size,
             self.options.channels,
             self.options.landmark_type,
-            shuffle_frames=False,
             transform=transforms.Compose([
                 Resize(self.options.image_size, train_format),
                 GrayScale(train_format) if self.options.channels <= 1 else None,
@@ -42,7 +41,7 @@ class Test():
         data_loader_test = DataLoader(
             dataset_test,
             self.options.batch_size_test,
-            self.options.shuffle,
+            self.options.shuffle_test,
             num_workers=self.options.num_workers,
             pin_memory=self.options.pin_memory,
             drop_last=True

@@ -30,8 +30,8 @@ class TestOptions(Options):
                                             help='Path to the generator model.')
 
         # ARGUMENTS: DATASET
-        self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
         self.parser.add_argument('--batch_size_test', type=int, default=self.config['test']['batch_size_test'])
+        self.parser.add_argument('--shuffle_test', action='store_false' if self.config['test']['shuffle_test'] else 'store_true')
         self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float,
                                             help='Image normalization: mean, std')
         
