@@ -42,7 +42,7 @@ def lr_linear_schedule(current_epoch, epoch_start, epoch_end, lr_base, lr_end):
 
 def load_seed_state(options: Options, model_name: str = 'Generator'):
         filename = f'{model_name}_{options.continue_id}'
-        state_dict = torch.load(os.path.join(options.checkpoint_dir, filename))
+        state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
         numpy_seed_state = state_dict['numpy_seed_state'] if 'numpy_seed_state' in state_dict else None
         torch_seed_state = state_dict['torch_seed_state'] if 'torch_seed_state' in state_dict else None
         del state_dict

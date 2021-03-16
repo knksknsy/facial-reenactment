@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch.nn import DataParallel
 from torch.optim import Adam
+from torch.optim.lr_scheduler import StepLR
 from torch.nn.modules.module import Module
 from torch.optim.optimizer import Optimizer
 
@@ -72,9 +73,21 @@ class Network():
                 weight_decay=self.options.weight_decay
             )
 
+            self.scheduler_G = StepLR(
+                optimizer=self.optimizer_G,
+                step_size=self.options.step_size,
+                gamma=self.options.gamma
+            ) if 'lr_step_decay' in self.options.config['train']['optimizer'] else None
+
+            self.scheduler_D = StepLR(
+                optimizer=self.optimizer_D,
+                step_size=self.options.step_size,
+                gamma=self.options.gamma
+            ) if 'lr_step_decay' in self.options.config['train']['optimizer'] else None
+
             if self.options.continue_id is not None:
-                self.G, self.optimizer_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.options)
-                self.D, self.optimizer_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.options)
+                self.G, self.optimizer_G, self.scheduler_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.scheduler_G, self.options)
+                self.D, self.optimizer_D, self.scheduler_D, self.continue_epoch, self.continue_iteration = self.load_model(self.D, self.optimizer_D, self.scheduler_D, self.options)
 
 
     def __call__(self, images, landmarks, batch = None, calc_loss:bool=False):
@@ -191,11 +204,13 @@ class Network():
             self.D.eval()
 
 
-    def load_model(self, model: Module, optimizer: Optimizer, options: Options) -> Tuple[Module, Optimizer, str, str]:
+    def load_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, options: Options) -> Tuple[Module, Optimizer, StepLR, str, str]:
             filename = f'{type(model).__name__}_{options.continue_id}'
             state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
             model.load_state_dict(state_dict['model'])
             optimizer.load_state_dict(state_dict['optimizer'])
+            if 'scheduler' in state_dict and state_dict['scheduler'] is not None and scheduler is not None:
+                scheduler.load_state_dict(state_dict['scheduler'])
             epoch = state_dict['epoch'] + 1
             iteration = state_dict['iteration']
 
@@ -206,10 +221,10 @@ class Network():
 
             self.logger.log_info(f'Model loaded: {filename}')
             
-            return model, optimizer, epoch, iteration
+            return model, optimizer, scheduler, epoch, iteration
 
 
-    def save_model(self, model: Module, optimizer: Optimizer, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
+    def save_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
         if time_for_name is None:
             time_for_name = datetime.now()
 
@@ -224,6 +239,7 @@ class Network():
         torch.save({
                 'model': m.state_dict(),
                 'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict() if scheduler is not None else None,
                 'epoch': epoch,
                 'iteration': iteration,
                 'numpy_seed_state': np.random.get_state(),

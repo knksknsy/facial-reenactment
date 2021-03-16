@@ -125,20 +125,24 @@ class Train():
         self._train_epoch(epoch)
 
         # Schedule learning rate
-        self.network.optimizer_G.param_groups[0]['lr'] = lr_linear_schedule(
-            epoch,
-            epoch_start=self.options.epoch_range[0],
-            epoch_end=self.options.epoch_range[1],
-            lr_base=self.options.lr_g,
-            lr_end=self.options.lr_g_end
-        )
-        self.network.optimizer_D.param_groups[0]['lr'] = lr_linear_schedule(
-            epoch,
-            epoch_start=self.options.epoch_range[0],
-            epoch_end=self.options.epoch_range[1],
-            lr_base=self.options.lr_d,
-            lr_end=self.options.lr_d_end
-        )
+        if 'lr_linear_decay' in self.options.config['train']['optimizer']:
+            self.network.optimizer_G.param_groups[0]['lr'] = lr_linear_schedule(
+                epoch,
+                epoch_start=self.options.epoch_range[0],
+                epoch_end=self.options.epoch_range[1],
+                lr_base=self.options.lr_g,
+                lr_end=self.options.lr_g_end
+            )
+            self.network.optimizer_D.param_groups[0]['lr'] = lr_linear_schedule(
+                epoch,
+                epoch_start=self.options.epoch_range[0],
+                epoch_end=self.options.epoch_range[1],
+                lr_base=self.options.lr_d,
+                lr_end=self.options.lr_d_end
+            )
+        elif 'lr_step_decay' in self.options.config['train']['optimizer']:
+            self.network.scheduler_G.step()
+            self.network.scheduler_D.step()
 
         # LOG LEARNING RATES
         self.logger.log_info(f'Update learning rates: LR_G = {self.network.optimizer_G.param_groups[0]["lr"]:.8f} LR D = {self.network.optimizer_D.param_groups[0]["lr"]:.8f}')
@@ -146,8 +150,8 @@ class Train():
         self.logger.log_scalar('LR_D', self.network.optimizer_D.param_groups[0]["lr"], epoch)
 
         # SAVE MODEL (EPOCH)
-        self.network.save_model(self.network.G, self.network.optimizer_G, epoch, self.iterations, self.options, time_for_name=self.run_start)
-        self.network.save_model(self.network.D, self.network.optimizer_D, epoch, self.iterations, self.options, time_for_name=self.run_start)
+        self.network.save_model(self.network.G, self.network.optimizer_G, self.network.scheduler_G, epoch, self.iterations, self.options, time_for_name=self.run_start)
+        self.network.save_model(self.network.D, self.network.optimizer_D, self.network.scheduler_D, epoch, self.iterations, self.options, time_for_name=self.run_start)
 
 
     def _train_epoch(self, epoch):

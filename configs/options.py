@@ -37,6 +37,8 @@ class Options(ABC):
 
     def _set_properties(self, d, create_dirs=True):
         for k, v in d.items():
+            if k == 'config':
+                continue
             if isinstance(v, dict):
                 self._set_properties(v, create_dirs)
             else:
