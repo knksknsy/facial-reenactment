@@ -3,7 +3,7 @@
 device: cuda
 device_options: [cuda, cpu]
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 2                                    # >0: faster data loading, increased GPU usage
+num_workers: 4                                    # >0: faster data loading, increased GPU usage
 
 paths:
   log_dir: /media/Alpha/facial-reenactment/logs
@@ -22,7 +22,6 @@ dataset:
   normalize: [0.5,0.5]                            # input normalization: [mean:0.5,std:0.5] -> min:-1;max:1
   shuffle: true                                   # DataLoader: shuffle data
   augmentation:
-    shuffle_frames: false                         # if true: randomly select 3 frames out of 'num_frames' 
     horizontal_flip: true                         # if true: randomly flip data
     rotation_angle: 15                            # >0: randomly rotate data
 
@@ -37,7 +36,8 @@ train:
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 100                                   # frequency [iterations] to log generated images
   landmark_type: 'boundary'                       # 'boundary' or 'keypoint'
-  vgg_type: 'vggface'                            # vgg16 or vggface
+  vgg_type: 'vgg16'                               # vgg16 or vggface
+  spec_norm: false                                # use spectral normalization
   update_strategy:
     d_iters: 5                                    # fixed update strategy: wgan-gp: d_iters=5, else: d_iters=2
     loss_coeff: 5                                 # >0: use adaptive update strategy; =0: use fixed update strategy; will start with fixed stategy then adaptive
@@ -45,7 +45,7 @@ train:
   loss_weights:
     l_adv: 1
     l_rec: 10
-    l_self: 0
+    l_self: 100
     l_triple: 100
     l_id: 1
     l_percep: 10
@@ -60,13 +60,17 @@ train:
     beta1: 0.5
     beta2: 0.999
     weight_decay: 5.0e-4
-    lr_decay:
+    lr_linear_decay:                              # linear learning rate schedule
       epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
       lr_g_end: 1.0e-4
       lr_d_end: 1.0e-4
+    # lr_step_decay:                                # step based learning rate schedule
+    #   step_size: 10                               # decay learning rate every epoch = step_size
+    #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma
 
 test:
   batch_size_test: 32
+  shuffle_test: false                             # shuffle DataLoader during testing
 
 preprocessing:
   num_pairs: 3                                    # number of training pairs (frames) to extract from a video
