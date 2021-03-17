@@ -9,5 +9,4 @@ class LogsOptions(Options):
 
     def _init_parser(self):
         # ARGUMENTS: OPTIONS
-        self.parser.add_argument('--log_dir', type=str, required=True, help='Path to the tensorboard events directory.')
-        self.parser.add_argument('--output_dir', type=str, required=True, help='Path where the outputs (Metrics-CSV, Images) will be saved.')
+        self.parser.add_argument('--logs_dir', type=str, required=True, help='Path to the tensorboard events directory.')

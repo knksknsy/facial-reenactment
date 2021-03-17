@@ -1,12 +1,9 @@
 import os
-import glob
-import struct
-import cv2
+import re
 import numpy as np
 import pandas as pd
-import tensorboard.compat.proto.event_pb2 as event_pb2
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-from datetime import datetime
 from configs import LogsOptions
 from loggings.logger import Logger
 
@@ -14,73 +11,82 @@ class LogsExtractor():
     def __init__(self, logger: Logger, options: LogsOptions):
         self.logger = logger
         self.options = options
+        self()
+
+    def __call__(self):
+        names = sorted([log_dir for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
+        logs_dir = sorted([os.path.join(self.options.logs_dir, log_dir) for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
+        aggregations = []
+        for log_dir, name in zip(logs_dir, names):
+            events_dir = os.path.join(log_dir, 'logs')
+            events_test_dir = os.path.join(events_dir, 'test')
+            has_events_test_dir = os.path.isdir(events_test_dir)
+            aggregations.append({
+                'name': name,
+                'source_dir': log_dir,
+                'events': sorted([os.path.join(events_dir, event) for event in os.listdir(events_dir) if 'tfevents' in event]),
+                'output_dir': os.path.join(log_dir, 'csv')
+            })
+            if has_events_test_dir:
+                aggregations.append({
+                    'name': name,
+                    'source_dir': log_dir,
+                    'events': sorted([os.path.join(events_test_dir, event) for event in os.listdir(events_test_dir) if 'tfevents' in event]),
+                    'output_dir': os.path.join(log_dir, 'csv_test')
+                })
+        for aggregation in aggregations:
+            self.aggregate(**aggregation)
 
 
-    def extract(self):
-        self.run_start = datetime.now()
-        self.logger.log_info('===== EXTRACTING LOGS =====')
-
-        event_paths = glob.glob(os.path.join(self.options.log_dir, 'event*'))
-
-        all_log = pd.DataFrame()
-
-        for path in event_paths:
-            log = self._sum_log(path)
-            if log is not None:
-                if all_log.shape[0] == 0:
-                    all_log = log
-                else:
-                    all_log = all_log.append(log)
-
-        self.logger.log_info(f'CSV shape: {all_log.shape}')
-        all_log.head()
-        filename = f'{datetime.now():%Y%m%d_%H%M%S}_metrics.csv'
-        csv_path = os.path.join(self.options.output_dir, filename)
-        all_log.to_csv(csv_path, index=None)
-        self.logger.log_info(f'CSV saved to: {csv_path}')
-
-        self.logger.log_info(f'Images saved to: {self.options.output_dir}')
-
-        self.run_end = datetime.now()
-        self.logger.log_info(f'Extracting logs finished in {self.run_end - self.run_start}.')
+    def aggregate(self, name, events, source_dir, output_dir):
+        already_processed = os.path.isdir(output_dir)
+        if not already_processed:
+            # Extract scalars from event files
+            extracts = self.extract(events)
+            # Create csv
+            self.aggregate_to_csv(name, extracts, output_dir)
+            self.logger.log_info(f'Aggregation finished: {name}')
+            # Plots (losses: train, val; metrics: fid, ssim)
 
 
-    def _sum_log(self, path):
-        runlog = pd.DataFrame(columns=['metric', 'value', 'step'])
-        line_count = 0
+    def extract(self, events):
+        accumulators = [EventAccumulator(event).Reload().scalars for event in events]
+        # Filter non event files
+        accumulators = [accumulator for accumulator in accumulators if accumulator.Keys()]
+        # Get and validate all scalar keys
+        all_keys = [tuple(accumulator.Keys()) for accumulator in accumulators]
+        keys = all_keys[0]
 
-        try:
-            with open(path, 'rb') as f:
-                data = f.read()
-        except Exception as e:
-            print(e)
-            raise e
+        all_scalar_events_per_key = [[accumulator.Items(key) for accumulator in accumulators if key in accumulator.Keys()] for key in keys]
+        all_scalars_accumulated = []
 
-        while data:
-            data, event_str = self._read_event(data)
-            event = event_pb2.Event()
+        for scalar_events_per_key in all_scalar_events_per_key:
+            accumulated = []
+            for scalar_events in scalar_events_per_key:
+                accumulated = accumulated + scalar_events
 
-            event.ParseFromString(event_str)
-            if event.HasField('summary'):
-                for value in event.summary.value:
-                    if value.HasField('simple_value'):
-                        r = {'metric': value.tag, 'value': value.simple_value, 'step': event.step}
-                        runlog = runlog.append(r, ignore_index=True)
-                    # if value.HasField('image'):
-                    #     self.logger.log_info(f'image')
-                    #     img = value.image.encoded_image_string
-                    #     img_array = np.asarray(bytearray(img), dtype=np.uint8)
-                    #     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                    #     cv2.imwrite(os.path.join(self.options.output_dir, f'{event.step}.png'), img)
-            
-            self.logger.log_info(f'Line {line_count + 1} extracted.')
-            line_count += 1
+            scalar_events_per_key = [[acc.step, acc.wall_time, acc.value] for acc in accumulated]
+            all_scalars_accumulated.append(scalar_events_per_key)
 
-        return runlog
+        all_per_key = dict(zip(keys, all_scalars_accumulated))
+        return all_per_key
 
 
-    def _read_event(self, data):
-        header = struct.unpack('Q', data[:8])
-        event_str = data[12:12 + int(header[0])] # 8+4
-        data = data[12 + int(header[0]) + 4:]
-        return data, event_str
+    def aggregate_to_csv(self, name, extracts, output_dir):
+        for key, all_per_key in extracts.items():
+            self.write_csv(output_dir, key, name, all_per_key)
+
+
+    def write_csv(self, output_dir, key, name, aggregations):
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+        
+        filename = f'{self.get_valid_filename(name.lower())}_{self.get_valid_filename(key.lower())}.csv'
+        aggregations = np.asarray(aggregations)
+        df = pd.DataFrame(aggregations[:,1:], index=aggregations[:,0], columns=['wall_time', 'value'])
+        df.to_csv(os.path.join(output_dir, filename), sep=',')
+
+
+    def get_valid_filename(self, s):
+        s = str(s).strip().replace(' ', '_')
+        return re.sub(r'(?u)[^-\w.]', '', s)
