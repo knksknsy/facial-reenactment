@@ -27,7 +27,7 @@ dataset:
 
 train:
   test: true                                      # test model after each epoch
-  test_train: false                               # calculate evaluations during training
+  metrics: false                               # calculate evaluation metrics during training
   continue_id: null
   seed: 57
   epochs: 30

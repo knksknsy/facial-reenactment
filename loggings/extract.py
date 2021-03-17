@@ -14,8 +14,9 @@ class LogsExtractor():
         self()
 
     def __call__(self):
-        names = sorted([log_dir for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
         logs_dir = sorted([os.path.join(self.options.logs_dir, log_dir) for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
+        names = sorted([log_dir for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
+
         aggregations = []
         for log_dir, name in zip(logs_dir, names):
             events_dir = os.path.join(log_dir, 'logs')
@@ -34,6 +35,7 @@ class LogsExtractor():
                     'events': sorted([os.path.join(events_test_dir, event) for event in os.listdir(events_test_dir) if 'tfevents' in event]),
                     'output_dir': os.path.join(log_dir, 'csv_test')
                 })
+
         for aggregation in aggregations:
             self.aggregate(**aggregation)
 

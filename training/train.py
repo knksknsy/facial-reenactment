@@ -27,7 +27,7 @@ class Train():
         self.data_loader_train = self._get_data_loader(train_format=self.training)
         self.network = Network(self.logger, self.options, model_path=None)
 
-        if self.options.test_train:
+        if self.options.metrics:
             self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1)
         else:
             self.fid = None
@@ -225,7 +225,7 @@ class Train():
                     self.logger.log_image('Train/Generated', images, self.iterations, nrow=self.options.batch_size)
 
                     # LOG EVALUATION METRICS
-                    if self.options.test_train:
+                    if self.options.metrics:
                         val_time_start = datetime.now()
                         ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, self.fid.device)
                         val_time_end = datetime.now()

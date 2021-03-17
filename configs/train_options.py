@@ -23,7 +23,7 @@ class TrainOptions(Options):
                                             help='Frequency in which logs will be saved')
         self.parser.add_argument('--test', action='store_false' if self.config['train']['test'] else 'store_true',
                                             help='Model will be tested after each epoch.')
-        self.parser.add_argument('--test_train', action='store_false' if self.config['train']['test_train'] else 'store_true',
+        self.parser.add_argument('--metrics', action='store_false' if self.config['train']['metrics'] else 'store_true',
                                             help='Evaluations will be calculated for train set during training.')
         self.parser.add_argument('--seed', type=int, default=self.config['train']['seed'])
 
