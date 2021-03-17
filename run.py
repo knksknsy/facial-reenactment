@@ -12,6 +12,17 @@ from models import Network
 from loggings.logger import Logger
 from loggings.extract import LogsExtractor
 
+def generate_images(experiments_root, options, logger):
+    experiments_list = sorted(os.listdir(experiments_root))
+    for experiment in experiments_list:
+        checkpoint_dir = os.path.join(experiments_root, experiment, 'checkpoints')
+        gen_dir = os.path.join(experiments_root, experiment, 'generated_test')
+        models = sorted([f for f in os.listdir(checkpoint_dir) if 'Generator' in f])
+        for model in models:
+            model_path = os.path.join(checkpoint_dir, model)
+            network = Network(logger, options, model_path=model_path)
+            Test(logger, options, network).generate(gen_dir, epoch=network.continue_epoch)
+
 def main():
     # mode: 'dataset', 'train', 'test', 'infer' or 'logs'
     mode = sys.argv[1]
@@ -41,7 +52,6 @@ def main():
             # Test single model
             if options.model is not None:
                 Test(logger, options, Network(logger, options, model_path=options.model)).test()
-                # Test(logger, options, Network(logger, options, model_path=options.model)).generate()
 
             # Test multiple models
             else:
@@ -49,6 +59,7 @@ def main():
                 for model in models:
                     network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
                     Test(logger, options, network).test(network.continue_epoch)
+                # generate_images('/media/Alpha/experiments/gs_64', options, logger)
 
         elif mode == 'infer':
             options = TestOptions(description=f'{description} Testing')

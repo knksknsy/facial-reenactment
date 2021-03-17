@@ -14,7 +14,6 @@ from models.vgg import VGG16
 from models.components import ConvBlock, DownSamplingBlock, UpSamplingBlock, ResidualBlock
 from loggings.logger import Logger
 
-# TODO: test leakyrelu
 class Generator(nn.Module):
     def __init__(self, options: Options):
         super(Generator, self).__init__()
@@ -99,7 +98,6 @@ class LossG(nn.Module):
         return F.l1_loss(fake_12, real_2)
 
 
-    # TODO: try l2
     def loss_self(self, fake_121, real_1):
         return F.l1_loss(fake_121, real_1)
 

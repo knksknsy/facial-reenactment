@@ -22,7 +22,7 @@ class Options(ABC):
         if hasattr(self.args, 'device'):
             self.device = 'cuda' if (torch.cuda.is_available() and self.args.device == 'cuda') else 'cpu'
         # Set default values from config file
-        self._set_properties(self.config, create_dirs=False)
+        self._set_properties(self.config)
         # Override default values
         self._set_properties(vars(self.args))
 
@@ -35,15 +35,15 @@ class Options(ABC):
             self.config = yaml.load(f, Loader=yaml.FullLoader)
 
 
-    def _set_properties(self, d, create_dirs=True):
+    def _set_properties(self, d):
         for k, v in d.items():
             if k == 'config':
                 continue
             if isinstance(v, dict):
-                self._set_properties(v, create_dirs)
+                self._set_properties(v)
             else:
                 setattr(self, k, v)
-                if create_dirs and '_dir' in k and not os.path.isdir(v):
+                if '_dir' in k and not os.path.isdir(v):
                     os.makedirs(v)
 
 

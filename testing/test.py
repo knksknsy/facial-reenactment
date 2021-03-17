@@ -111,15 +111,16 @@ class Test():
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
 
-
-    def generate(self):
+    def generate(self, gen_test_dir, epoch=None):
         run_start = datetime.now()
 
-        self.logger.log_info('===== GENERATING FAKE DATASET =====')
+        while_train = epoch is not None
+
+        self.logger.log_info('===== TESTING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size_test}')
 
-        iterations = 0
+        iterations = epoch * len(self.data_loader_test) if while_train else 0
 
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
@@ -131,13 +132,23 @@ class Test():
 
             # LOG PROGRESS
             if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                self.logger.log_info(f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start}')
+                message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start} | Experiment: {gen_test_dir}'
+                if while_train:
+                    message = f'Epoch {epoch + 1}: {message}'
+                self.logger.log_info(message)
 
             # LOG GENERATED IMAGES
-            self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images_fake, epoch=self.network.continue_epoch, iteration=iterations, nrow=self.options.batch_size)
-            del images_real, images_fake
+            images_source = batch['image1'].detach().clone()
+            landmarks_target = batch['landmark2'].detach().clone()
+            images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
+
+            if not while_train or (batch_num + 1) % (self.options.log_freq // 10) == 0:
+                self.logger.save_image(gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=self.options.batch_size_test)
+                del images_real, images_fake, images, images_source, landmarks_target
+            else:
+                del images_real, images_fake, images, images_source, landmarks_target
             
             iterations += 1
 
         run_end = datetime.now()
-        self.logger.log_info(f'Generating fake dataset finished in {run_end - run_start}.')
+        self.logger.log_info(f'Testing finished in {run_end - run_start}.')
