@@ -18,7 +18,7 @@ class Options(ABC):
 
 
     def _parse_args(self):
-        self.args, unknown = self.parser.parse_known_args()
+        self.args = self.parser.parse_args()
         if hasattr(self.args, 'device'):
             self.device = 'cuda' if (torch.cuda.is_available() and self.args.device == 'cuda') else 'cpu'
         # Set default values from config file
@@ -26,10 +26,15 @@ class Options(ABC):
         # Override default values
         self._set_properties(vars(self.args))
 
+    
+    def check_error(self, config, arg, choices):
+        if config[arg] not in choices:
+            self.parser.error(f'Ilegal value for --{arg}={config[arg]}! Allowed choices: {choices}')
+
 
     def _load_config(self):
         self.parser.add_argument('--config', type=str, required=True,  help='Path to YAML config file.')
-        args, unknown = self.parser.parse_known_args()
+        args = self.parser.parse_args()
 
         with open(args.config) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)

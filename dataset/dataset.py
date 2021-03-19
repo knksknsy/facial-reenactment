@@ -92,7 +92,6 @@ class VoxCelebDataset(Dataset):
 
         return sample
 
-
 def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
     ratio = input_res / output_res
     landmarks = landmarks/ratio
@@ -142,8 +141,6 @@ def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
         ax.scatter(landmarks[48:60, 0], landmarks[48:60, 1], marker='o', s=marker_size, color=white if channels == 1 else blue)
         # Inner-Mouth
         ax.scatter(landmarks[60:68, 0], landmarks[60:68, 1], marker='o', s=marker_size, color=white if channels == 1 else blue)
-    else:
-        raise ValueError(f'Wrong type provided: {type}')
 
     fig.canvas.draw()
     buffer = np.frombuffer(fig.canvas.tostring_rgb(), np.uint8)
@@ -194,6 +191,4 @@ def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
 #             elif landmark_type == 'keypoint':
 #                 c = int(landmarks[g[0][i]][0]), int(landmarks[g[0][i]][1])
 #                 cv2.circle(image, c, 1, g[1], -1)
-#             else:
-#                 raise ValueError(f'Wrong type provided: {type}')
 #     return image

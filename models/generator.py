@@ -70,7 +70,7 @@ class LossG(nn.Module):
         self.w_triple = self.options.l_triple
         self.w_id = self.options.l_id
         self.w_percep = self.options.l_percep
-        self.w_feature_matching = self.options.l_feature_matching
+        self.w_fm = self.options.l_fm
         self.w_tv = self.options.l_tv
 
         self.to(self.options.device)
@@ -126,11 +126,11 @@ class LossG(nn.Module):
         return l_percep
 
 
-    def loss_feature_matching(self, fm_real_2, fm_fake_12):
-        l_feature_matching = 0
+    def loss_fm(self, fm_real_2, fm_fake_12):
+        l_fm = 0
         for real, fake in zip(fm_real_2, fm_fake_12):
-            l_feature_matching += self.w_feature_matching * torch.abs(real - fake).mean()
-        return l_feature_matching
+            l_fm += self.w_fm * torch.abs(real - fake).mean()
+        return l_fm
 
 
     def loss_tv(self, fake_12):
@@ -151,10 +151,10 @@ class LossG(nn.Module):
         l_triple = self.w_triple * self.loss_triple(fake_13, fake_23) if self.w_triple > 0 else 0
         l_id = self.w_id * self.loss_id(fake_12, real_2) if self.w_id > 0 else 0
         l_percep = self.w_percep * self.loss_percep(fake_12, real_2) if self.w_percep > 0 else 0
-        l_feature_matching = self.loss_feature_matching(fm_real_2, fm_fake_12) if self.w_feature_matching > 0 else 0
+        l_fm = self.loss_fm(fm_real_2, fm_fake_12) if self.w_fm > 0 else 0
         l_tv = self.w_tv * self.loss_tv(fake_12) if self.w_tv > 0 else 0
 
-        loss_G = l_adv + l_rec + l_self + l_triple + l_id + l_percep + l_feature_matching + l_tv
+        loss_G = l_adv + l_rec + l_self + l_triple + l_id + l_percep + l_fm + l_tv
 
         # LOSSES DICT
         losses_G = dict({
@@ -165,9 +165,9 @@ class LossG(nn.Module):
             'Loss_Triple': l_triple.detach().item() if self.w_triple > 0 else None,
             'Loss_Id': l_id.detach().item() if self.w_id > 0 else None,
             'Loss_Percep': l_percep.detach().item() if self.w_percep > 0 else None,
-            'Loss_Feature_Matching': l_feature_matching.detach().item() if self.w_feature_matching > 0 else None,
+            'Loss_Feature_Matching': l_fm.detach().item() if self.w_fm > 0 else None,
             'Loss_TV': l_tv.detach().item() if self.w_tv > 0 else None
         })
-        del l_adv, l_rec, l_self, l_triple, l_id, l_percep, l_feature_matching, l_tv
+        del l_adv, l_rec, l_self, l_triple, l_id, l_percep, l_fm, l_tv
 
         return loss_G, losses_G

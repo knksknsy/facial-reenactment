@@ -26,6 +26,7 @@ def generate_images(experiments_root, options, logger):
 def main():
     # mode: 'dataset', 'train', 'test', 'infer' or 'logs'
     mode = sys.argv[1]
+    del sys.argv[1]
     description = 'Facial Reenactment'
 
     try:
