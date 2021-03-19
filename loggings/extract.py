@@ -67,37 +67,42 @@ class LogsExtractor():
             self.logger.log_info(f'Aggregation finished: {name}')
 
 
-    def create_plot(self, csv_root, keys, legends, colors, xlabel, ylabel, concat=False, smooth=False, filename=None):
+    def write_plot(self, csv_dir, plot_dir, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, ignore_outliers=True, smooth={'rolling':15, 'alpha':0.33}, filename=None, format='.png'):
         legend_handles, ylower, yupper = [], [], []
-        fig = plt.figure()
+        dpi = 100
+        figsize = (size[0] / dpi, size[1] / dpi)
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+
+        assert len(keys) == len(colors) == len(legends), 'Lists: keys, legends, and colors must have the same lengths!'
 
         # Format scientific notation
         formatter = ticker.ScalarFormatter(useMathText=True)
-        formatter.set_scientific(True) 
+        formatter.set_scientific(sci_ticks) 
         formatter.set_powerlimits((-1,1)) 
 
         if concat:
-            fig, axes = plt.subplots(1, len(keys), sharey=True, sharex=False)
+            fig, axes = plt.subplots(1, len(keys), figsize=figsize, dpi=dpi, sharey=True, sharex=False)
 
         for i, (key, legend, color) in enumerate(zip(keys, legends, colors)):
             # Combine multiple CSVs by operation, e.g.: csv_name1:csv_name2:mean
             if ':' in key and len(key.split(':')) > 0:
                 agg_keys = key.split(':')[0:-1]
                 agg_op = key.split(':')[-1]
-                data_aggs = [self.get_data_frame(csv_root, ag_key) for ag_key in agg_keys]
+                data_aggs = [self.get_data_frame(csv_dir, ag_key) for ag_key in agg_keys]
                 data = pd.concat(data_aggs)
                 by_row_index = data.groupby(data.index)
                 data = getattr(by_row_index, agg_op)()
             # Process single CSV
             else:
-                data = self.get_data_frame(csv_root, key)
+                data = self.get_data_frame(csv_dir, key)
 
             # Get outliers
-            q1 = data.quantile(0.25)
-            q3 = data.quantile(0.75)
-            iqr = q3 - q1
-            ylower.append(q1 - (1.5 * iqr))
-            yupper.append(q3 + (1.5 * iqr))
+            if ignore_outliers:
+                q1 = data.quantile(0.25)
+                q3 = data.quantile(0.75)
+                iqr = q3 - q1
+                ylower.append(q1 - (1.5 * iqr))
+                yupper.append(q3 + (1.5 * iqr))
 
             if not concat:
                 ax = plt.subplot(111)
@@ -105,9 +110,9 @@ class LogsExtractor():
                 ax = axes[i]
             
             # Plot chart
-            if smooth:
-                data.plot(color=color, alpha=0.33, ax=ax)
-                data.rolling(15).mean().plot(color=color, ax=ax)
+            if smoothing:
+                data.plot(color=color, alpha=smooth['alpha'], ax=ax)
+                data.rolling(smooth['rolling']).mean().plot(color=color, ax=ax)
             else:
                 data.plot(color=color, ax=ax)
 
@@ -116,34 +121,39 @@ class LogsExtractor():
             ax.set_xlabel(xlabel)
             ax.yaxis.set_major_formatter(formatter)
             ax.xaxis.set_major_formatter(formatter)
-            ax.grid(True)
+            ax.grid(grid)
                 
             # Add legend
             legend_handles.append(mpatches.Patch(color=color, label=legend))
             plt.legend(handles=legend_handles, loc='best')
 
         # Ignore outliers
-        plt.ylim(min(ylower), max(yupper))
-        return fig
+        if ignore_outliers:
+            plt.ylim(min(ylower), max(yupper))
+
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+        # Save plot
+        if not os.path.isdir(plot_dir):
+            os.makedirs(plot_dir)
+        filename = self.get_valid_filename(filename.lower()) + format
+        fig.savefig(os.path.join(plot_dir, filename), bbox_inches='tight')
+        plt.close(fig)
 
 
-    def get_data_frame(self, csv_root, key, format='.csv'):
-        df = pd.read_csv(os.path.join(csv_root, key+format), sep=r',', header=0, index_col='step')
+    def get_data_frame(self, csv_dir, key, format='.csv'):
+        df = pd.read_csv(os.path.join(csv_dir, key+format), sep=r',', header=0, index_col='step')
         return df['value']
 
 
-    def aggregate_plots(self, name, events, source_dir, csv_dir, plot_dir, format='.png'):
+    def aggregate_plots(self, name, events, source_dir, csv_dir, plot_dir):
         with open('./loggings/plots.json') as f:
             plots = json.load(f)
+            plots_config = plots['config']
+            plots = plots['plots']
         
         for plot in plots:
-            fig = self.create_plot(csv_dir, **plot)
-            # Save plot
-            if not os.path.isdir(plot_dir):
-                os.makedirs(plot_dir)
-            filename = self.get_valid_filename(plot['filename'].lower()) + format
-            plot_path = os.path.join(plot_dir, filename)
-            fig.savefig(plot_path, bbox_inches='tight')
+            self.write_plot(csv_dir, plot_dir, **plot, **plots_config)
 
         self.logger.log_info(f'Plots created: {name}')
 
