@@ -9,7 +9,7 @@ class Options(ABC):
     def __init__(self, description):
         self.description = description
         self.parser = argparse.ArgumentParser(description=self.description)
-        self._load_config()
+        self.config = self._load_config()
 
 
     @abstractmethod
@@ -34,10 +34,11 @@ class Options(ABC):
 
     def _load_config(self):
         self.parser.add_argument('--config', type=str, required=True,  help='Path to YAML config file.')
-        args = self.parser.parse_args()
+        args, unkown = self.parser.parse_known_args()
 
         with open(args.config) as f:
-            self.config = yaml.load(f, Loader=yaml.FullLoader)
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        return config
 
 
     def _set_properties(self, d):

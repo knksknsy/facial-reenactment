@@ -3,11 +3,12 @@ import shutil
 import re
 import numpy as np
 import pandas as pd
-from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import ticker
-import json
+
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 from configs import LogsOptions
 from loggings.logger import Logger
@@ -147,10 +148,8 @@ class LogsExtractor():
 
 
     def aggregate_plots(self, name, events, source_dir, csv_dir, plot_dir):
-        with open('./loggings/plots.json') as f:
-            plots = json.load(f)
-            plots_config = plots['config']
-            plots = plots['plots']
+        plots_config = self.options.plots['config']
+        plots = self.options.plots['plots']
         
         for plot in plots:
             self.write_plot(csv_dir, plot_dir, **plot, **plots_config)
