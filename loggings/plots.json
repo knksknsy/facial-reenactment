@@ -1,0 +1,116 @@
+[
+    {
+        "keys": ["loss_adv_fake:loss_adv_real:mean", "loss_adv_fake", "loss_adv_real", "loss_adv"],
+        "legends": ["critic average", "critic fake", "critic real", "generator"],
+        "colors": ["#000000", "#FF0000", "#0000FF", "#FFA500"],
+        "smooth": true,
+        "xlabel": "Iteration",
+        "ylabel": "Wasserstein Loss",
+        "filename": "loss_wasserstein"
+    },
+    {
+        "keys": ["loss_gp"],
+        "legends": ["gp"],
+        "colors": ["#FF0000"],
+        "smooth": true,
+        "xlabel": "Iteration",
+        "ylabel": "Gradient Penalty",
+        "filename": "loss_gp"
+    },
+    {
+        "keys": ["test_loss_adv_fake:test_loss_adv_real:mean", "test_loss_adv_fake", "test_loss_adv_real", "test_loss_adv"],
+        "legends": ["critic average (val)", "critic fake (val)", "critic real (val)", "generator (val)"],
+        "colors": ["#000000", "#FF0000", "#0000FF", "#FFA500"],
+        "smooth": true,
+        "xlabel": "Iteration",
+        "ylabel": "Wasserstein Loss",
+        "filename": "test_loss_wasserstein"
+    },
+    {
+        "keys": ["loss_rec", "test_loss_rec"],
+        "legends": ["rec", "rec (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Reconstruction Loss",
+        "filename": "loss_rec"
+    },
+    {
+        "keys": ["loss_self", "test_loss_self"],
+        "legends": ["self", "self (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Consistency Loss",
+        "filename": "loss_self"
+    },
+    {
+        "keys": ["loss_triple", "test_loss_triple"],
+        "legends": ["triple", "triple (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Triple Consistency Loss",
+        "filename": "loss_triple"
+    },
+    {
+        "keys": ["loss_percep", "test_loss_percep"],
+        "legends": ["percep", "percep (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Perceptual Loss",
+        "filename": "loss_percep"
+    },
+    {
+        "keys": ["loss_id", "test_loss_id"],
+        "legends": ["id", "id (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Identity Preserving Loss",
+        "filename": "loss_id"
+    },
+    {
+        "keys": ["loss_feature_matching", "test_loss_feature_matching"],
+        "legends": ["fm", "fm (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Feature Matching Loss",
+        "filename": "loss_feature_matching"
+    },
+    {
+        "keys": ["loss_tv", "test_loss_tv"],
+        "legends": ["tv", "tv (val)"],
+        "colors": ["#FF0000", "#0000FF"],
+        "smooth": true,
+        "concat": true,
+        "xlabel": "Iteration",
+        "ylabel": "Total Variation Regularization Loss",
+        "filename": "loss_tv"
+    },
+    {
+        "keys": ["fid_validation"],
+        "legends": ["FID (val)"],
+        "colors": ["#0000FF"],
+        "xlabel": "Iteration",
+        "ylabel": "FID",
+        "filename": "fid_validation"
+    },
+    {
+        "keys": ["ssim_validation"],
+        "legends": ["SSIM (val)"],
+        "colors": ["#0000FF"],
+        "smooth": true,
+        "xlabel": "Iteration",
+        "ylabel": "SSIM",
+        "filename": "ssim_validation"
+    }
+]

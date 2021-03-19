@@ -1,8 +1,13 @@
 import os
+import shutil
 import re
 import numpy as np
 import pandas as pd
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib import ticker
+import json
 
 from configs import LogsOptions
 from loggings.logger import Logger
@@ -16,7 +21,19 @@ class LogsExtractor():
     def __call__(self):
         logs_dir = sorted([os.path.join(self.options.logs_dir, log_dir) for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
         names = sorted([log_dir for log_dir in os.listdir(self.options.logs_dir) if not log_dir.startswith('.')])
+        
+        # Create CSVs
+        aggregations = self.get_experiments(logs_dir, names, prune=True)
+        for aggregation in aggregations:
+            self.aggregate_csvs(**aggregation)
 
+        # Create plots
+        aggregations = self.get_experiments(logs_dir, names, prune=False)
+        for aggregation in aggregations:
+            self.aggregate_plots(**aggregation)
+
+
+    def get_experiments(self, logs_dir, names, prune=False):
         aggregations = []
         for log_dir, name in zip(logs_dir, names):
             events_dir = os.path.join(log_dir, 'logs')
@@ -26,29 +43,109 @@ class LogsExtractor():
                 'name': name,
                 'source_dir': log_dir,
                 'events': sorted([os.path.join(events_dir, event) for event in os.listdir(events_dir) if 'tfevents' in event]),
-                'output_dir': os.path.join(log_dir, 'csv')
+                'csv_dir': os.path.join(log_dir, 'csv'),
+                'plot_dir': os.path.join(log_dir, 'plots')
             })
-            if has_events_test_dir:
+            if prune and has_events_test_dir:
                 aggregations.append({
                     'name': name,
                     'source_dir': log_dir,
                     'events': sorted([os.path.join(events_test_dir, event) for event in os.listdir(events_test_dir) if 'tfevents' in event]),
-                    'output_dir': os.path.join(log_dir, 'csv_test')
+                    'csv_dir': os.path.join(log_dir, 'csv_test'),
+                    'plot_dir': os.path.join(log_dir, 'plots')
                 })
-
-        for aggregation in aggregations:
-            self.aggregate(**aggregation)
+        return aggregations
 
 
-    def aggregate(self, name, events, source_dir, output_dir):
-        already_processed = os.path.isdir(output_dir)
+    def aggregate_csvs(self, name, events, source_dir, csv_dir, plot_dir):
+        already_processed = os.path.isdir(csv_dir)
         if not already_processed:
             # Extract scalars from event files
             extracts = self.extract(events)
             # Create csv
-            self.aggregate_to_csv(name, extracts, output_dir)
+            self.aggregate_to_csv(name, extracts, csv_dir)
             self.logger.log_info(f'Aggregation finished: {name}')
-            # Plots (losses: train, val; metrics: fid, ssim)
+
+
+    def create_plot(self, csv_root, keys, legends, colors, xlabel, ylabel, concat=False, smooth=False, filename=None):
+        legend_handles, ylower, yupper = [], [], []
+        fig = plt.figure()
+
+        # Format scientific notation
+        formatter = ticker.ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True) 
+        formatter.set_powerlimits((-1,1)) 
+
+        if concat:
+            fig, axes = plt.subplots(1, len(keys), sharey=True, sharex=False)
+
+        for i, (key, legend, color) in enumerate(zip(keys, legends, colors)):
+            # Combine multiple CSVs by operation, e.g.: csv_name1:csv_name2:mean
+            if ':' in key and len(key.split(':')) > 0:
+                agg_keys = key.split(':')[0:-1]
+                agg_op = key.split(':')[-1]
+                data_aggs = [self.get_data_frame(csv_root, ag_key) for ag_key in agg_keys]
+                data = pd.concat(data_aggs)
+                by_row_index = data.groupby(data.index)
+                data = getattr(by_row_index, agg_op)()
+            # Process single CSV
+            else:
+                data = self.get_data_frame(csv_root, key)
+
+            # Get outliers
+            q1 = data.quantile(0.25)
+            q3 = data.quantile(0.75)
+            iqr = q3 - q1
+            ylower.append(q1 - (1.5 * iqr))
+            yupper.append(q3 + (1.5 * iqr))
+
+            if not concat:
+                ax = plt.subplot(111)
+            else:
+                ax = axes[i]
+            
+            # Plot chart
+            if smooth:
+                data.plot(color=color, alpha=0.33, ax=ax)
+                data.rolling(15).mean().plot(color=color, ax=ax)
+            else:
+                data.plot(color=color, ax=ax)
+
+            # Set labels
+            ax.set_ylabel(ylabel)
+            ax.set_xlabel(xlabel)
+            ax.yaxis.set_major_formatter(formatter)
+            ax.xaxis.set_major_formatter(formatter)
+            ax.grid(True)
+                
+            # Add legend
+            legend_handles.append(mpatches.Patch(color=color, label=legend))
+            plt.legend(handles=legend_handles, loc='best')
+
+        # Ignore outliers
+        plt.ylim(min(ylower), max(yupper))
+        return fig
+
+
+    def get_data_frame(self, csv_root, key, format='.csv'):
+        df = pd.read_csv(os.path.join(csv_root, key+format), sep=r',', header=0, index_col='step')
+        return df['value']
+
+
+    def aggregate_plots(self, name, events, source_dir, csv_dir, plot_dir, format='.png'):
+        with open('./loggings/plots.json') as f:
+            plots = json.load(f)
+        
+        for plot in plots:
+            fig = self.create_plot(csv_dir, **plot)
+            # Save plot
+            if not os.path.isdir(plot_dir):
+                os.makedirs(plot_dir)
+            filename = self.get_valid_filename(plot['filename'].lower()) + format
+            plot_path = os.path.join(plot_dir, filename)
+            fig.savefig(plot_path, bbox_inches='tight')
+
+        self.logger.log_info(f'Plots created: {name}')
 
 
     def extract(self, events):
@@ -74,19 +171,26 @@ class LogsExtractor():
         return all_per_key
 
 
-    def aggregate_to_csv(self, name, extracts, output_dir):
+    def aggregate_to_csv(self, name, extracts, csv_dir):
         for key, all_per_key in extracts.items():
-            self.write_csv(output_dir, key, name, all_per_key)
+            self.write_csv(csv_dir, key, name, all_per_key)
+        # Move CSVs in 'csv_test' to 'csv' directory
+        if 'csv_test' in csv_dir:
+            csvs_test = [os.path.join(csv_dir, file) for file in os.listdir(csv_dir) if not file.startswith('.')]
+            for csv_test in csvs_test:
+                shutil.move(csv_test, csv_test.replace('csv_test', 'csv'))
+            # TODO: uncomment
+            #os.rmdir(csv_dir)
 
 
-    def write_csv(self, output_dir, key, name, aggregations):
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
+    def write_csv(self, csv_dir, key, name, aggregations):
+        if not os.path.isdir(csv_dir):
+            os.makedirs(csv_dir)
         
-        filename = f'{self.get_valid_filename(name.lower())}_{self.get_valid_filename(key.lower())}.csv'
+        filename = f'{self.get_valid_filename(key.lower())}.csv'
         aggregations = np.asarray(aggregations)
-        df = pd.DataFrame(aggregations[:,1:], index=aggregations[:,0], columns=['wall_time', 'value'])
-        df.to_csv(os.path.join(output_dir, filename), sep=',')
+        df = pd.DataFrame(aggregations, index=None, columns=['step', 'wall_time', 'value'])
+        df.to_csv(os.path.join(csv_dir, filename), sep=',')
 
 
     def get_valid_filename(self, s):

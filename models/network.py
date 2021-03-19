@@ -1,8 +1,7 @@
-from models import lightcnn
 import os
-from typing import Tuple
 from datetime import datetime
 import numpy as np
+from typing import Tuple
 
 import torch
 from torch.nn import DataParallel
