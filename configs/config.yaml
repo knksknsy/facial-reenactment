@@ -2,7 +2,7 @@
 
 device: cuda
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 4                                    # >0: faster data loading, increased GPU usage
+num_workers: 3                                    # >0: faster data loading, increased GPU usage
 
 paths:
   log_dir: /media/Alpha/facial-reenactment/logs
