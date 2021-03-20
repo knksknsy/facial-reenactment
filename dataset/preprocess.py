@@ -32,7 +32,7 @@ class Preprocess():
 
         self.logger.log_info('===== DATASET PRE-PROCESSING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
-        self.logger.log_info(f'Saving K+1 random frames from each video (K = {self.num_pairs}).')
+        self.logger.log_info(f'Saving K random frames from each video (K = {self.num_pairs}).')
         fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
 
         # pool = Pool(processes=4, initializer=self._init_pool, initargs=(fa, output))
@@ -324,11 +324,6 @@ class Preprocess():
             csv_line.append(filename_y)
             np.save(os.path.join(path, filename_y), y)
 
-            # # Save landmarks as image
-            # plot = plot_landmarks(frames[i], y)
-            # filename_plot = f'{i+1}_plot.png'
-            # plot.save(os.path.join(path, filename_plot))
-
             x = PIL.Image.fromarray(x, 'RGB')
             filename_x = f'{i+1}.png' if frame_id is None else f'{frame_id+1}_{i+1}.png'
             csv_line.append(filename_x)
@@ -341,8 +336,8 @@ class Preprocess():
             csv_file.write(','.join(csv_line))
 
 
-    def crop_frame(self, frame, landmark, dimension, padding):
-        heatmap = plot_landmarks(frame, landmark, channels=3)
+    def crop_frame(self, frame, landmarks, dimension, padding):
+        heatmap = plot_landmarks(landmarks=landmarks, landmark_type='boundary', channels=3, output_res=frame.shape[0], input_res=frame.shape[0])
 
         rows = np.any(heatmap, axis=1)
         cols = np.any(heatmap, axis=0)
@@ -356,20 +351,20 @@ class Preprocess():
 
     def detect_face(self, frame, frames_total, fa):
         frame = cv2.copyMakeBorder(frame, self.padding, self.padding, self.padding, self.padding, cv2.BORDER_CONSTANT, value=self.padding_color)
-        landmark = fa.get_landmarks_from_image(frame)
-        face_detected = landmark is not None
+        landmarks = fa.get_landmarks_from_image(frame)
+        face_detected = landmarks is not None
         if not face_detected:
             id_x = np.random.randint(len(frames_total))
             frame = frames_total[id_x]
             self.detect_face(frame, frames_total, fa)
         else:
-            landmark = landmark[0]
-            frame = self.crop_frame(frame, landmark, self.output_res, self.padding)
-            landmark = fa.get_landmarks_from_image(frame)
-            face_detected = landmark is not None
+            landmarks = landmarks[0]
+            frame = self.crop_frame(frame, landmarks, self.output_res, self.padding)
+            landmarks = fa.get_landmarks_from_image(frame)
+            face_detected = landmarks is not None
             if not face_detected:
                 id_x = np.random.randint(len(frames_total))
                 frame = frames_total[id_x]
                 self.detect_face(frame, frames_total, fa)
             else:
-                return frame, landmark[0]
+                return frame, landmarks[0]

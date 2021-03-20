@@ -69,9 +69,9 @@ class VoxCelebDataset(Dataset):
             image3 = cv2.imread(image3_path, cv2.IMREAD_COLOR)
 
             # Read landmarks
-            landmark1 = plot_landmarks(np.load(landmark1_path), self.image_size, image1.shape[0], self.channels, self.landmark_type)
-            landmark2 = plot_landmarks(np.load(landmark2_path), self.image_size, image2.shape[0], self.channels, self.landmark_type)
-            landmark3 = plot_landmarks(np.load(landmark3_path), self.image_size, image3.shape[0], self.channels, self.landmark_type)
+            landmark1 = plot_landmarks(landmarks=np.load(landmark1_path), output_res=self.image_size, input_res=image1.shape[0], channels=self.channels, landmark_type=self.landmark_type)
+            landmark2 = plot_landmarks(landmarks=np.load(landmark2_path), output_res=self.image_size, input_res=image2.shape[0], channels=self.channels, landmark_type=self.landmark_type)
+            landmark3 = plot_landmarks(landmarks=np.load(landmark3_path), output_res=self.image_size, input_res=image3.shape[0], channels=self.channels, landmark_type=self.landmark_type)
 
             sample = {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -83,7 +83,7 @@ class VoxCelebDataset(Dataset):
             
             image1 = cv2.imread(image1_path, cv2.IMREAD_COLOR)
             image2 = cv2.imread(image2_path, cv2.IMREAD_COLOR)
-            landmark2 = plot_landmarks(np.load(landmark2_path), self.image_size, image2.shape[0], self.channels, self.landmark_type)
+            landmark2 = plot_landmarks(landmarks=np.load(landmark2_path), output_res=self.image_size, input_res=image2.shape[0], channels=self.channels, landmark_type=self.landmark_type)
 
             sample = {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
@@ -92,7 +92,7 @@ class VoxCelebDataset(Dataset):
 
         return sample
 
-def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
+def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
     ratio = input_res / output_res
     landmarks = landmarks/ratio
     dpi = 100
@@ -154,7 +154,7 @@ def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
     return data
 
 
-# def plot_landmarks(landmarks, output_res, input_res, channels, landmark_type):
+# def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
 #     ratio = input_res / output_res
 #     landmarks = landmarks/ratio
 
