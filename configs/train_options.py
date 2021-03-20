@@ -1,3 +1,4 @@
+import json
 from configs import Options
 
 class TrainOptions(Options):
@@ -5,6 +6,13 @@ class TrainOptions(Options):
         super(TrainOptions, self).__init__(description)
         self._init_parser()
         self._parse_args()
+        if self.plots is not None:
+            self.plots = self._load_plots_config()
+
+    def _load_plots_config(self):
+        with open(self.plots) as f:
+            plots = json.load(f)
+        return plots
 
     def _init_parser(self):
         # ARGUMENTS: OPTIONS
@@ -26,6 +34,9 @@ class TrainOptions(Options):
         self.parser.add_argument('--metrics', action='store_false' if self.config['train']['metrics'] else 'store_true', help='Evaluations will be calculated for train set during training.')
 
         self.parser.add_argument('--seed', type=int, default=self.config['train']['seed'])
+
+        # ARGUMENTS: PLOTS DIRECTORY
+        self.parser.add_argument('--plots', type=str, help='Path to the plots.json configuration file.')
 
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'], help='Path where logs will be saved.')

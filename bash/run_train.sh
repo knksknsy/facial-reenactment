@@ -1,5 +1,6 @@
 #!/bin/sh
 CONFIG="./configs/config.yaml"
+PLOTS="./configs/plots.json"
 
 CHECKPOINT_DIR="$(cat $CONFIG | grep checkpoint_dir)"
 CHECKPOINT_DIR="${CHECKPOINT_DIR#*": "}" # Remove yaml property; Keep value
@@ -8,7 +9,7 @@ DO=1
 while [ $DO -eq 1 ]
     do
         # Start training
-        python run.py train --config $CONFIG
+        python run.py train --config $CONFIG --plots $PLOTS
         # Get stdout and stderr
         RESULT=$?
 

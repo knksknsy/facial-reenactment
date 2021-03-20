@@ -1,4 +1,3 @@
-from models.lightcnn import LightCNN
 import os
 import sys
 import torch
@@ -43,6 +42,8 @@ def main():
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
             Train(logger, options)
+            if options.plots is not None:
+                LogsExtractor(logger, options, options.log_dir)
 
         elif mode == 'test':
             options = TestOptions(description=f'{description} Testing')
@@ -78,7 +79,7 @@ def main():
             options = LogsOptions(description=f'{description} Logs-Extracting')
             logger = Logger(options)
             logger.init_writer()
-            LogsExtractor(logger, options)
+            LogsExtractor(logger, options, options.logs_dir)
 
         else:
             print('invalid command')
