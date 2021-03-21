@@ -64,14 +64,12 @@ def main():
                 # generate_images('/media/Alpha/experiments/gs_64', options, logger)
 
         elif mode == 'infer':
-            options = TestOptions(description=f'{description} Testing')
+            options = TestOptions(description=f'{description} Inference')
             logger = Logger(options)
             infer = Infer(logger, options, options.model_path)
 
-            # Video mode
-            if '.mp4' in options.target:
+            if options.target.endswith('.mp4'):
                 infer.from_video()
-            # Image mode
             else:
                 infer.from_image()
 

@@ -12,9 +12,9 @@ paths:
   output_dir: /media/Alpha/facial-reenactment/outputs
 
 dataset:
-  dataset_train: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/dev/
-  dataset_test: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/
-  csv_train: ./dataset/dataset_crop_ids_dev.csv
+  dataset_train: /home/kaan/datasets/VoxCeleb2/CropPreprocessed/dev/
+  dataset_test: /home/kaan/datasets/VoxCeleb2/CropPreprocessed/test/
+  csv_train: ./dataset/dataset_crop_dev.csv
   csv_test: ./dataset/dataset_crop_test.csv
   image_size: 64
   channels: 1
@@ -61,8 +61,8 @@ train:
     weight_decay: 5.0e-4
     # lr_linear_decay:                              # linear learning rate schedule
     #   epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
-    #   lr_g_end: 1.0e-4
-    #   lr_d_end: 1.0e-4
+    #   lr_g_end: 1.0e-6
+    #   lr_d_end: 1.0e-6
     # lr_step_decay:                                # step based learning rate schedule
     #   step_size: 10                               # decay learning rate every epoch = step_size
     #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma

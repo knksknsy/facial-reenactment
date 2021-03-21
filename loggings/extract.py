@@ -1,5 +1,4 @@
 import os
-import shutil
 import re
 import numpy as np
 import pandas as pd
@@ -24,15 +23,13 @@ class LogsExtractor():
         experiment_paths = sorted([os.path.join(self.experiments_path, d) for d in os.listdir(self.experiments_path) if not d.startswith('.')])
         experiment_names = sorted([d for d in os.listdir(self.experiments_path) if not d.startswith('.')])
         
-        # Create CSVs
         aggregations = self.get_meta_data(experiment_paths, experiment_names)
         for aggregation in aggregations:
+            # Create CSVs
             if not os.path.isdir(aggregation['csv_path']):
                 self.aggregate_csv(**aggregation)
 
-        # Create plots
-        aggregations = self.get_meta_data(experiment_paths, experiment_names)
-        for aggregation in aggregations:
+            # Create plots
             if not os.path.isdir(aggregation['plot_path']):
                 self.aggregate_plots(**aggregation)
 
