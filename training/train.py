@@ -28,7 +28,7 @@ class Train():
         self.network = Network(self.logger, self.options, model_path=None)
 
         if self.options.metrics:
-            self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1)
+            self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1, batch_size=self.options.batch_size)
         else:
             self.fid = None
 
@@ -246,7 +246,7 @@ class Train():
             self.iterations += 1
 
             # Limit iterations per epoch
-            if (batch_num + 1) % self.options.iterations == 0:
+            if self.options.iterations > 0 and (batch_num + 1) % self.options.iterations == 0:
                 break
 
         if self.options.loss_coeff > 0:

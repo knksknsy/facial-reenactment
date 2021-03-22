@@ -23,18 +23,21 @@ class Test():
 
 
     def _get_data_loader(self, train_format):
+        transforms_list = [
+            Resize(self.options.image_size, train_format),
+            GrayScale(train_format) if self.options.channels <= 1 else None,
+            ToTensor(self.options.channels, self.options.device, train_format),
+            Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
+        ]
+        compose = [t for t in transforms_list if t is not None]
+
         dataset_test = VoxCelebDataset(
             self.options.dataset_test,
             self.options.csv_test,
             self.options.image_size,
             self.options.channels,
             self.options.landmark_type,
-            transform=transforms.Compose([
-                Resize(self.options.image_size, train_format),
-                GrayScale(train_format) if self.options.channels <= 1 else None,
-                ToTensor(self.options.channels, self.options.device, train_format),
-                Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
-            ]),
+            transform=transforms.Compose(compose),
             train_format=train_format
         )
 
@@ -59,7 +62,7 @@ class Test():
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'Batches/Iterations: {len(self.data_loader_test)} Batch Size: {self.options.batch_size_test}')
 
-        fid = FrechetInceptionDistance(self.options, self.options.device, len(self.data_loader_test))
+        fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=len(self.data_loader_test), batch_size=self.options.batch_size_test)
         iterations = epoch * len(self.data_loader_test) if while_train else 0
 
         for batch_num, batch in enumerate(self.data_loader_test):
@@ -94,7 +97,7 @@ class Test():
             images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
             self.logger.save_image(self.options.gen_test_dir, f'0_last_result', images, nrow=self.options.batch_size_test)
 
-            if not while_train or (batch_num + 1) % (self.options.log_freq // 10) == 0:
+            if not while_train or (batch_num + 1) % (self.options.log_freq_test) == 0:
                 self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=self.options.batch_size_test)
                 self.logger.log_image('Test/Generated', images, iterations, nrow=self.options.batch_size_test)
                 del images_real, images_fake, images, images_source, landmarks_target

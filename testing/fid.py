@@ -7,10 +7,11 @@ from testing.inceptionv3 import InceptionNetwork
 from configs.options import Options
 
 class FrechetInceptionDistance():
-    def __init__(self, options: Options, device: str, data_loader_length):
+    def __init__(self, options: Options, device: str, data_loader_length, batch_size):
         self.options = options
         self.device = device
-        self.data_loader_length = data_loader_length * self.options.batch_size
+        self.batch_size = batch_size
+        self.data_loader_length = data_loader_length * batch_size
 
         self.inception_network = InceptionNetwork(self.options)
         self.inception_network.to(device)
@@ -24,8 +25,8 @@ class FrechetInceptionDistance():
         # Resize images to 299x299
         images_real = F.interpolate(images_real, size=299)
         images_fake = F.interpolate(images_fake, size=299)
-        start_idx = self.options.batch_size * batch_num if batch_num > 1 else 0
-        end_idx = self.options.batch_size * (batch_num + 1) if batch_num > 1 else self.options.batch_size
+        start_idx = self.batch_size * batch_num if batch_num > 1 else 0
+        end_idx = self.batch_size * (batch_num + 1) if batch_num > 1 else self.batch_size
 
         with torch.no_grad():
             activations_real = self.inception_network(images_real).detach().cpu().numpy()
