@@ -20,3 +20,5 @@ class LogsOptions(Options):
         self.parser.add_argument('--logs_dir', type=str, required=True, help='Path to the tensorboard events directory.')
 
         self.parser.add_argument('--plots', type=str, required=True, help='Path to the plots.json configuration file.')
+
+        self.parser.add_argument('--overwrite_logs', action='store_true')

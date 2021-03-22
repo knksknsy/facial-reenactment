@@ -2,22 +2,22 @@
 
 device: cuda
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 3                                    # >0: faster data loading, increased GPU usage
+num_workers: 4                                    # >0: faster data loading, increased GPU usage
 
 paths:
-  log_dir: /media/Alpha/facial-reenactment/logs
-  checkpoint_dir: /media/Alpha/facial-reenactment/checkpoints
-  gen_dir: /media/Alpha/facial-reenactment/generated_train
-  gen_test_dir: /media/Alpha/facial-reenactment/generated_test
-  output_dir: /media/Alpha/facial-reenactment/outputs
+  log_dir: /home/kaan/facial-reenactment/logs
+  checkpoint_dir: /home/kaan/facial-reenactment/checkpoints
+  gen_dir: /home/kaan/facial-reenactment/generated_train
+  gen_test_dir: /home/kaan/facial-reenactment/generated_test
+  output_dir: /home/kaan/facial-reenactment/outputs
 
 dataset:
-  dataset_train: /home/kaan/datasets/VoxCeleb2/CropPreprocessed/dev/
-  dataset_test: /home/kaan/datasets/VoxCeleb2/CropPreprocessed/test/
-  csv_train: ./dataset/dataset_crop_dev.csv
+  dataset_train: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/dev/
+  dataset_test: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/
+  csv_train: ./dataset/dataset_crop_ids_dev.csv
   csv_test: ./dataset/dataset_crop_test.csv
-  image_size: 64
-  channels: 1
+  image_size: 128
+  channels: 3
   normalize: [0.5,0.5]                            # input normalization: [mean:0.5,std:0.5] -> min:-1;max:1
   shuffle: true                                   # DataLoader: shuffle data
   augmentation:
@@ -30,10 +30,10 @@ train:
   continue_id: null
   seed: 57
   epochs: 30
-  batch_size: 32
-  iterations: 1250 #5,000/b_s                     # limit iterations per epoch; 0: no limit, >0: limit
+  batch_size: 8
+  iterations: 0                                   # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
-  log_freq: 100                                   # frequency [iterations] to log generated images
+  log_freq: 1000                                  # frequency [iterations] to log generated images
   landmark_type: boundary                         # 'boundary' or 'keypoint'
   vgg_type: vgg16                                 # vgg16 or vggface
   spec_norm: false                                # use spectral normalization
@@ -68,7 +68,7 @@ train:
     #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma
 
 test:
-  batch_size_test: 32
+  batch_size_test: 8
   shuffle_test: false                             # shuffle DataLoader during testing
 
 preprocessing:

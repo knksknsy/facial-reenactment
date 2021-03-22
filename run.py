@@ -43,7 +43,7 @@ def main():
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
             Train(logger, options)
             if options.plots is not None:
-                LogsExtractor(logger, options, options.log_dir)
+                LogsExtractor(logger, options, options.log_dir, after_train=True)
 
         elif mode == 'test':
             options = TestOptions(description=f'{description} Testing')
@@ -61,7 +61,7 @@ def main():
                 for model in models:
                     network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
                     Test(logger, options, network).test(network.continue_epoch)
-                # generate_images('/media/Alpha/experiments/gs_64', options, logger)
+                # generate_images(EXPERIMENTS_ROOT_DIR, options, logger)
 
         elif mode == 'infer':
             options = TestOptions(description=f'{description} Inference')

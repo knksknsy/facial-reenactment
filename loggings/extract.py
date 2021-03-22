@@ -13,24 +13,30 @@ from configs import LogsOptions
 from loggings.logger import Logger
 
 class LogsExtractor():
-    def __init__(self, logger: Logger, options: LogsOptions, experiments_path):
+    def __init__(self, logger: Logger, options: LogsOptions, experiments_path, after_train=False):
         self.logger = logger
         self.options = options
         self.experiments_path = experiments_path
+        self.after_train = after_train
+        self.overwrite = self.options.overwrite_logs
         self()
 
     def __call__(self):
-        experiment_paths = sorted([os.path.join(self.experiments_path, d) for d in os.listdir(self.experiments_path) if not d.startswith('.')])
-        experiment_names = sorted([d for d in os.listdir(self.experiments_path) if not d.startswith('.')])
+        if self.after_train:
+            experiment_paths = [os.path.sep.join(self.experiments_path.split(os.path.sep)[:-1])]
+            experiment_names = [self.experiments_path.split(os.path.sep)[-2]]
+        else:
+            experiment_paths = sorted([os.path.join(self.experiments_path, d) for d in os.listdir(self.experiments_path) if not d.startswith('.')])
+            experiment_names = sorted([d for d in os.listdir(self.experiments_path) if not d.startswith('.')])
         
         aggregations = self.get_meta_data(experiment_paths, experiment_names)
         for aggregation in aggregations:
             # Create CSVs
-            if not os.path.isdir(aggregation['csv_path']):
+            if self.overwrite or not os.path.isdir(aggregation['csv_path']):
                 self.aggregate_csv(**aggregation)
 
             # Create plots
-            if not os.path.isdir(aggregation['plot_path']):
+            if self.overwrite or not os.path.isdir(aggregation['plot_path']):
                 self.aggregate_plots(**aggregation)
 
 
@@ -49,6 +55,7 @@ class LogsExtractor():
 
 
     def aggregate_csv(self, name, event_paths, experiment_path, csv_path, plot_path):
+        self.logger.log_info(f'Creating CSVs for experiment "{name}"...')
         # Extract scalars from event files
         all_extracts = self.extract(event_paths)
         for extracts in all_extracts:
@@ -99,6 +106,7 @@ class LogsExtractor():
 
 
     def aggregate_plots(self, name, event_paths, experiment_path, csv_path, plot_path):
+        self.logger.log_info(f'Creating plots for experiment "{name}"...')
         plots_config = self.options.plots['config']
         plots = self.options.plots['plots']
         
@@ -116,11 +124,6 @@ class LogsExtractor():
 
         assert len(keys) == len(colors) == len(legends), 'Lists: keys, legends, and colors must have the same lengths!'
 
-        # Format scientific notation
-        formatter = ticker.ScalarFormatter(useMathText=True)
-        formatter.set_scientific(sci_ticks) 
-        formatter.set_powerlimits((-1,1)) 
-
         if concat:
             fig, axes = plt.subplots(1, len(keys), figsize=figsize, dpi=dpi, sharey=True, sharex=False)
 
@@ -129,13 +132,20 @@ class LogsExtractor():
             if ':' in key and len(key.split(':')) > 0:
                 agg_keys = key.split(':')[0:-1]
                 agg_op = key.split(':')[-1]
-                data_aggs = [self.get_data_frame(csv_path, ag_key) for ag_key in agg_keys]
+                data_aggs = []
+                for ag_key in agg_keys:
+                    d = self.get_data_frame(csv_path, ag_key)
+                    if d is None:
+                        return
+                    data_aggs.append(d)
                 data = pd.concat(data_aggs)
                 by_row_index = data.groupby(data.index)
                 data = getattr(by_row_index, agg_op)()
             # Process single CSV
             else:
                 data = self.get_data_frame(csv_path, key)
+                if data is None:
+                    return
 
             # Get outliers
             if ignore_outliers:
@@ -157,13 +167,17 @@ class LogsExtractor():
             else:
                 data.plot(color=color, ax=ax)
 
-            # Set labels
             ax.set_ylabel(ylabel)
             ax.set_xlabel(xlabel)
+            ax.grid(grid)
+            
+            # Format scientific notation
+            formatter = ticker.ScalarFormatter(useMathText=True)
+            formatter.set_scientific(sci_ticks)
+            formatter.set_powerlimits((-1,1))
             ax.yaxis.set_major_formatter(formatter)
             ax.xaxis.set_major_formatter(formatter)
-            ax.grid(grid)
-                
+
             # Add legend
             legend_handles.append(mpatches.Patch(color=color, label=legend))
             plt.legend(handles=legend_handles, loc='best')
@@ -183,7 +197,11 @@ class LogsExtractor():
 
 
     def get_data_frame(self, csv_path, key, format='.csv'):
-        df = pd.read_csv(os.path.join(csv_path, key+format), sep=r',', header=0, index_col='step')
+        if not os.path.isfile(os.path.join(csv_path, key+format)):
+            return None
+        df = pd.read_csv(os.path.join(csv_path, key+format), sep=r',', header=0, index_col=None)
+        df = df.drop_duplicates(subset='step', keep='last')
+        df = df.set_index('step')
         return df['value']
 
 

@@ -4,7 +4,7 @@
             500,
             500
         ],
-        "format": ".png",
+        "format": ".pdf",
         "grid": true,
         "sci_ticks": true,
         "ignore_outliers": true,

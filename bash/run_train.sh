@@ -22,8 +22,9 @@ while [ $DO -eq 1 ]
             
             # Add LATEST_CHECKPOINT to config.yaml
             sed -i "s/continue_id.*/continue_id: $LATEST_CHECKPOINT/" $CONFIG
+            sleep 60s
 
-            echo "Restart training with latest checkpoint_id: $LATEST_CHECKPOINT"
+            echo "Restart training in 60s with latest checkpoint_id: $LATEST_CHECKPOINT"
         
         # stdout
         # Exit while loop if training finished without exceptions
