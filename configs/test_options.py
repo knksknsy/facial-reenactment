@@ -35,4 +35,6 @@ class TestOptions(Options):
 
         self.parser.add_argument('--log_freq_test', type=int, default=self.config['test']['log_freq_test'])
 
+        self.parser.add_argument('--num_workers_test', type=int, default=self.config['test']['num_workers_test'])
+
         self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float, help='Image normalization: mean, std')        

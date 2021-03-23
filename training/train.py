@@ -45,7 +45,7 @@ class Train():
             ToTensor(self.options.channels, self.options.device, train_format),
             Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
         ]
-        compose = [t for t in transforms_list if t is not None]
+        transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_train = VoxCelebDataset(
             self.options.dataset_train,
@@ -53,7 +53,7 @@ class Train():
             self.options.image_size,
             self.options.channels,
             self.options.landmark_type,
-            transforms.Compose(compose),
+            transforms.Compose(transforms_list),
             train_format
         )
 

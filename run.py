@@ -49,7 +49,7 @@ def main():
             options = TestOptions(description=f'{description} Testing')
             logger = Logger(options)
             logger.init_writer()
-            if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
+            if options.num_workers_test > 0: torch.multiprocessing.set_start_method('spawn')
 
             # Test single model
             if options.model is not None:

@@ -29,7 +29,7 @@ class Test():
             ToTensor(self.options.channels, self.options.device, train_format),
             Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
         ]
-        compose = [t for t in transforms_list if t is not None]
+        transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_test = VoxCelebDataset(
             self.options.dataset_test,
@@ -37,7 +37,7 @@ class Test():
             self.options.image_size,
             self.options.channels,
             self.options.landmark_type,
-            transform=transforms.Compose(compose),
+            transform=transforms.Compose(transforms_list),
             train_format=train_format
         )
 
@@ -45,7 +45,7 @@ class Test():
             dataset_test,
             self.options.batch_size_test,
             self.options.shuffle_test,
-            num_workers=self.options.num_workers,
+            num_workers=self.options.num_workers_test,
             pin_memory=self.options.pin_memory,
             drop_last=True
         )

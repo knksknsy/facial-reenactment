@@ -27,7 +27,7 @@ dataset:
 train:
   test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
-  continue_id: null
+  continue_id: t20210323_0632_e005_i00109110.pth
   seed: 57
   epochs: 30
   batch_size: 8
@@ -71,6 +71,7 @@ test:
   batch_size_test: 32
   shuffle_test: false                             # shuffle DataLoader during testing
   log_freq_test: 10
+  num_workers_test: 2
 
 preprocessing:
   num_pairs: 3                                    # number of training pairs (frames) to extract from a video
