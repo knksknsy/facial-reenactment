@@ -2,11 +2,12 @@ import os
 import sys
 import torch
 
+from utils import Mode, Method
 from configs import TrainOptions, TestOptions, DatasetOptions, LogsOptions
 from training import Train
 from testing import Test
 from inference import Infer
-from dataset import Preprocess
+from dataset import PreprocessVoxCeleb, PreprocessFaceForensics
 from models import Network
 from loggings.logger import Logger
 from loggings.extract import LogsExtractor
@@ -22,30 +23,42 @@ def generate_images(experiments_root, options, logger):
             network = Network(logger, options, model_path=model_path)
             Test(logger, options, network).generate(gen_dir, epoch=network.continue_epoch)
 
-def main():
-    # mode: 'dataset', 'train', 'test', 'infer' or 'logs'
-    mode = sys.argv[1]
-    del sys.argv[1]
-    description = 'Facial Reenactment'
 
+def main(mode, method, description: str):
     try:
-        if mode == 'dataset':
-            options = DatasetOptions(description=f'{description} Dataset')
+        ##### DATASET PREPROCESSING #####
+        if mode == Mode.DATASET and method == Method.CREATION:
+            options = DatasetOptions(description=f'{description} Dataset', method=method)
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
-            Preprocess(logger, options).preprocess_dataset()
+            if hasattr(options, 'vox_ids'):
+                PreprocessVoxCeleb(logger, options).preprocess_by_ids(options.vox_ids)
+            else:
+                PreprocessVoxCeleb(logger, options).preprocess()
+        elif method == Method.DETECTION:
+            options = DatasetOptions(description=f'{description} Dataset', method=method)
+            logger = Logger(options)
+            logger.init_writer()
+            if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
+            # TODO: add option
+            method_list = ['Face2Face', 'NeuralTextures']
+            PreprocessFaceForensics(logger, options, method_list).preprocess()
 
-        elif mode == 'train':
+        ##### TRAINING #####
+        elif mode == Mode.TRAIN and method == Method.CREATION:
             options = TrainOptions(description=f'{description} Training')
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
             Train(logger, options)
             if options.plots is not None:
-                LogsExtractor(logger, options, options.log_dir)
+                LogsExtractor(logger, options, options.log_dir, after_train=True)
+        elif method == Method.DETECTION:
+            raise NotImplementedError()
 
-        elif mode == 'test':
+        ##### TESTING #####
+        elif mode == Mode.TEST and method == Method.CREATION:
             options = TestOptions(description=f'{description} Testing')
             logger = Logger(options)
             logger.init_writer()
@@ -63,8 +76,11 @@ def main():
                     network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
                     Test(logger, options, network).test(network.continue_epoch)
                 # generate_images(EXPERIMENTS_ROOT_DIR, options, logger)
+        elif method == Method.DETECTION:
+            raise NotImplementedError()
 
-        elif mode == 'infer':
+        ##### INFERENCE #####
+        elif mode == Mode.INFER and method == Method.CREATION:
             options = TestOptions(description=f'{description} Inference')
             logger = Logger(options)
             infer = Infer(logger, options, options.model_path)
@@ -73,12 +89,17 @@ def main():
                 infer.from_video()
             else:
                 infer.from_image()
+        elif method == Method.DETECTION:
+            raise NotImplementedError()
 
-        elif mode == 'logs':
+        ##### LOGGING #####
+        elif mode == Mode.LOGS and method == Method.CREATION:
             options = LogsOptions(description=f'{description} Logs-Extracting')
             logger = Logger(options)
             logger.init_writer()
             LogsExtractor(logger, options, options.logs_dir)
+        elif method == Method.DETECTION:
+            raise NotImplementedError()
 
         else:
             print('invalid command')
@@ -86,5 +107,12 @@ def main():
         print(f'Something went wrong: {e}')
         raise e
 
+# mode: 'dataset', 'train', 'test', 'infer' or 'logs'
+# method: 'creation', 'detection'
+# e.g.: $python run.py train creation [arguments]
 if __name__ == '__main__':
-    main()
+    mode = sys.argv[1].upper()
+    del sys.argv[1]
+    method = sys.argv[1].upper()
+    del sys.argv[1]
+    main(Mode[mode], Method[method], description='Facial Reenactment')

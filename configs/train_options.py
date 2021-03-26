@@ -2,8 +2,8 @@ import json
 from configs import Options
 
 class TrainOptions(Options):
-    def __init__(self, description):
-        super(TrainOptions, self).__init__(description)
+    def __init__(self, description: str, method):
+        super(TrainOptions, self).__init__(description, method)
         self._init_parser()
         self._parse_args()
         if self.plots is not None:

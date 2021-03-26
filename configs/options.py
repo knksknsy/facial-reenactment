@@ -6,8 +6,9 @@ import yaml
 from abc import ABC, abstractmethod
 
 class Options(ABC):
-    def __init__(self, description):
+    def __init__(self, description: str, method):
         self.description = description
+        self.method = method
         self.parser = argparse.ArgumentParser(description=self.description)
         self.config = self._load_config()
 

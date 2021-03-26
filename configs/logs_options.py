@@ -2,8 +2,8 @@ import json
 from configs import Options
 
 class LogsOptions(Options):
-    def __init__(self, description):
-        super(LogsOptions, self).__init__(description)
+    def __init__(self, description:str, method):
+        super(LogsOptions, self).__init__(description, method)
         self._init_parser()
         self._parse_args()
         self.plots = self._load_plots_config()
