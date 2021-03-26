@@ -5,4 +5,4 @@ python run.py dataset --source /media/Alpha/datasets/VoxCeleb2/Videos/test/ \
                       --num_videos 0 \
                       --num_frames 2 \
                       --device cuda \
-                      --config ./configs/config.yaml
+                      --config ./configs/config_creation.yaml

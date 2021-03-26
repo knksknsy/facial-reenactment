@@ -1,6 +1,6 @@
 #!/bin/sh
-CONFIG="./configs/config.yaml"
-PLOTS="./configs/plots.json"
+CONFIG="./configs/config_creation.yaml"
+PLOTS="./configs/plots_creation.json"
 
 CHECKPOINT_DIR="$(cat $CONFIG | grep checkpoint_dir)"
 CHECKPOINT_DIR="${CHECKPOINT_DIR#*": "}" # Remove yaml property; Keep value

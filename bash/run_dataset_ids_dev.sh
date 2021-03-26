@@ -4,7 +4,7 @@ python run.py dataset --source /media/Alpha/datasets/VoxCeleb2/Videos/dev/ \
                       --csv ./dataset/dataset_crop_ids_dev.csv \
                       --num_videos 0 \
                       --device cuda \
-                      --config ./configs/config.yaml \
+                      --config ./configs/config_creation.yaml \
                       --vox_ids     id02149 id08892 id08339 id04305 id05345 id07658 id08623 id02152 id02191 id01883 \
                                     id03037 id08290 id07151 id06838 id01081 id06848 id02081 id07306 id08804 id07335 \
                                     id04459 id04941 id05568 id05262 id00597 id03931 id06432 id04524 id09070 id06143 \
