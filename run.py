@@ -43,7 +43,7 @@ def main():
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
             Train(logger, options)
             if options.plots is not None:
-                LogsExtractor(logger, options, options.log_dir, after_train=True)
+                LogsExtractor(logger, options, options.log_dir)
 
         elif mode == 'test':
             options = TestOptions(description=f'{description} Testing')
@@ -53,7 +53,8 @@ def main():
 
             # Test single model
             if options.model is not None:
-                Test(logger, options, Network(logger, options, model_path=options.model)).test()
+                network = Network(logger, options, model_path=options.model)
+                Test(logger, options, network).test(network.continue_epoch)
 
             # Test multiple models
             else:

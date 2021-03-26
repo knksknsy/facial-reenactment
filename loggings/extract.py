@@ -13,16 +13,17 @@ from configs import LogsOptions
 from loggings.logger import Logger
 
 class LogsExtractor():
-    def __init__(self, logger: Logger, options: LogsOptions, experiments_path, after_train=False):
+    def __init__(self, logger: Logger, options: LogsOptions, experiments_path):
         self.logger = logger
         self.options = options
         self.experiments_path = experiments_path
-        self.after_train = after_train
-        self.overwrite = self.options.overwrite_logs
+        self.single_experiment = self.options.single_experiment
+        self.overwrite_csv = self.options.overwrite_csv
+        self.overwrite_plot = self.options.overwrite_plot
         self()
 
     def __call__(self):
-        if self.after_train:
+        if self.single_experiment:
             experiment_paths = [os.path.sep.join(self.experiments_path.split(os.path.sep)[:-1])]
             experiment_names = [self.experiments_path.split(os.path.sep)[-2]]
         else:
@@ -32,11 +33,11 @@ class LogsExtractor():
         aggregations = self.get_meta_data(experiment_paths, experiment_names)
         for aggregation in aggregations:
             # Create CSVs
-            if self.overwrite or not os.path.isdir(aggregation['csv_path']):
+            if self.overwrite_csv or not os.path.isdir(aggregation['csv_path']):
                 self.aggregate_csv(**aggregation)
 
             # Create plots
-            if self.overwrite or not os.path.isdir(aggregation['plot_path']):
+            if self.overwrite_plot or not os.path.isdir(aggregation['plot_path']):
                 self.aggregate_plots(**aggregation)
 
 
@@ -200,6 +201,7 @@ class LogsExtractor():
         if not os.path.isfile(os.path.join(csv_path, key+format)):
             return None
         df = pd.read_csv(os.path.join(csv_path, key+format), sep=r',', header=0, index_col=None)
+        df = df.sort_values(by='step', ascending=True)
         df = df.drop_duplicates(subset='step', keep='last')
         df = df.set_index('step')
         return df['value']

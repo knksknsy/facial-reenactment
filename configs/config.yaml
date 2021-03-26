@@ -27,11 +27,11 @@ dataset:
 train:
   test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
-  continue_id: t20210323_0632_e005_i00109110.pth
+  continue_id: null
   seed: 57
   epochs: 30
   batch_size: 8
-  iterations: 0                                   # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
+  iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   landmark_type: boundary                         # 'boundary' or 'keypoint'
@@ -72,6 +72,11 @@ test:
   shuffle_test: false                             # shuffle DataLoader during testing
   log_freq_test: 10
   num_workers_test: 2
+
+logs:
+  overwrite_csv: false
+  overwrite_plot: true
+  single_experiment: true
 
 preprocessing:
   num_pairs: 3                                    # number of training pairs (frames) to extract from a video

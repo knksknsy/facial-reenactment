@@ -21,4 +21,8 @@ class LogsOptions(Options):
 
         self.parser.add_argument('--plots', type=str, required=True, help='Path to the plots.json configuration file.')
 
-        self.parser.add_argument('--overwrite_logs', action='store_true')
+        self.parser.add_argument('--overwrite_csv', action='store_false' if self.config['logs']['overwrite_csv'] else 'store_true')
+
+        self.parser.add_argument('--overwrite_plot', action='store_false' if self.config['logs']['overwrite_plot'] else 'store_true')
+
+        self.parser.add_argument('--single_experiment', action='store_false' if self.config['logs']['single_experiment'] else 'store_true')

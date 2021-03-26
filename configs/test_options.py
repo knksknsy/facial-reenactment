@@ -21,6 +21,10 @@ class TestOptions(Options):
 
         self.parser.add_argument('--output_dir', type=str, default=self.config['paths']['output_dir'], help='Path where output will be saved.')
 
+        self.parser.add_argument('--dataset_test', type=str, default=self.config['dataset']['dataset_test'], help='Path to the pre-processed dataset for testing.')
+
+        self.parser.add_argument('--csv_test', type=str, default=self.config['dataset']['csv_test'], help='Path to CSV file needed for torch.utils.data.Dataset to load data for testing.')
+
         # ARGUMENTS: INPUTS
         self.parser.add_argument('--source', type=str, default=None, help='Path for source image (identity to be preserved).')
 
