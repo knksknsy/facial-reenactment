@@ -1,12 +1,10 @@
 import os
 import torch
 import cv2
-import math
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from torch._C import Value
 
 from torch.utils.data import Dataset
 
@@ -92,14 +90,90 @@ class VoxCelebDataset(Dataset):
 
         return sample
 
-def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
-    ratio = input_res / output_res
-    landmarks = landmarks/ratio
+
+def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res, method='pyplot'):
+    if method == 'pyplot':
+        return pyplot_landmarks(landmarks, landmark_type, channels, output_res, input_res)
+    elif method == 'cv2':
+        return cv2_landmarks(landmarks, landmark_type, channels, output_res, input_res)
+
+
+def cv2_landmarks(landmarks, landmark_type, channels, output_res, input_res):
+    if isinstance(output_res, int) and isinstance(input_res, int):
+        ratio = input_res / output_res
+        landmarks = landmarks / ratio
+    elif isinstance(output_res, tuple) and isinstance(input_res, tuple):
+        ratio_y = input_res[0] / output_res[0]
+        ratio_x = input_res[1] / output_res[1]
+        ratio = ratio_x / ratio_y
+        landmarks_y = landmarks[:,0] / ratio_y
+        landmarks_x = landmarks[:,1] / ratio_x
+        landmarks = np.stack((landmarks_y, landmarks_x), axis=1)
+
+    red = (255,0,0)
+    green = (0,255,0)
+    blue = (0,0,255)
+    white = (255,255,255)
+
+    groups = [
+        # Head
+        [np.arange(0,17,1), white if channels == 1 else red],
+        # Eyebrows
+        [np.arange(17,22,1), white if channels == 1 else green],
+        [np.arange(22,27,1), white if channels == 1 else green],
+        # Nose
+        [np.arange(27,31,1), white if channels == 1 else blue],
+        [np.arange(31,36,1), white if channels == 1 else blue],
+        # Eyes
+        [list(np.arange(36,42,1))+[36], white if channels == 1 else green],
+        [list(np.arange(42,48,1))+[42], white if channels == 1 else green],
+        # Mouth
+        [list(np.arange(48,60,1))+[48], white if channels == 1 else blue],
+        # Inner-Mouth
+        [list(np.arange(60,68,1))+[60], white if channels == 1 else blue]
+    ]
+
+    if isinstance(output_res, int):
+        image = np.zeros((output_res, output_res, channels), dtype=np.float32)
+    elif isinstance(output_res, tuple):
+        image = np.zeros((output_res[0], output_res[1], channels), dtype=np.float32)
+
+    for g in groups:
+        for i in range(len(g[0]) - 1):
+            if landmark_type == 'boundary':
+                s = int(landmarks[g[0][i]][0]), int(landmarks[g[0][i]][1])
+                e = int(landmarks[g[0][i+1]][0]), int(landmarks[g[0][i+1]][1])
+                cv2.line(image, s, e, g[1], 1)
+            elif landmark_type == 'keypoint':
+                c = int(landmarks[g[0][i]][0]), int(landmarks[g[0][i]][1])
+                cv2.circle(image, c, 1, g[1], -1)
+    return image
+
+
+def pyplot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
     dpi = 100
-    fig = plt.figure(figsize=(output_res / dpi, output_res / dpi), dpi=dpi)
+
+    if isinstance(output_res, int) and isinstance(input_res, int):
+        ratio = input_res / output_res
+        landmarks = landmarks / ratio
+        fig = plt.figure(figsize=(output_res / dpi, output_res / dpi), dpi=dpi)
+    elif isinstance(output_res, tuple) and isinstance(input_res, tuple):
+        ratio_y = input_res[0] / output_res[0]
+        ratio_x = input_res[1] / output_res[1]
+        ratio = ratio_x / ratio_y
+        landmarks_y = landmarks[:,0] / ratio_y
+        landmarks_x = landmarks[:,1] / ratio_x
+        landmarks = np.stack((landmarks_y, landmarks_x), axis=1)
+        fig = plt.figure(figsize=(output_res[0] / dpi, output_res[1] / dpi), dpi=dpi)
+
     ax = fig.add_subplot(111)
     ax.axis('off')
-    plt.imshow(np.zeros((output_res, output_res, channels)))
+
+    if isinstance(output_res, int):
+        plt.imshow(np.zeros((output_res, output_res, channels)))
+    elif isinstance(output_res, tuple):
+        plt.imshow(np.zeros((output_res[0], output_res[1], channels)))
+        
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
     red = (1,0,0)
@@ -152,43 +226,3 @@ def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
         data = data[:,:,1]
 
     return data
-
-
-# def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
-#     ratio = input_res / output_res
-#     landmarks = landmarks/ratio
-
-#     red = (255,0,0)
-#     green = (0,255,0)
-#     blue = (0,0,255)
-#     white = (255,255,255)
-
-#     groups = [
-#         # Head
-#         [np.arange(0,17,1), white if channels == 1 else red],
-#         # Eyebrows
-#         [np.arange(17,22,1), white if channels == 1 else green],
-#         [np.arange(22,27,1), white if channels == 1 else green],
-#         # Nose
-#         [np.arange(27,31,1), white if channels == 1 else blue],
-#         [np.arange(31,36,1), white if channels == 1 else blue],
-#         # Eyes
-#         [list(np.arange(36,42,1))+[36], white if channels == 1 else green],
-#         [list(np.arange(42,48,1))+[42], white if channels == 1 else green],
-#         # Mouth
-#         [list(np.arange(48,60,1))+[48], white if channels == 1 else blue],
-#         # Inner-Mouth
-#         [list(np.arange(60,68,1))+[60], white if channels == 1 else blue]
-#     ]
-
-#     image = np.zeros((output_res, output_res, channels), dtype=np.float32)
-#     for g in groups:
-#         for i in range(len(g[0]) - 1):
-#             if landmark_type == 'boundary':
-#                 s = int(landmarks[g[0][i]][0]), int(landmarks[g[0][i]][1])
-#                 e = int(landmarks[g[0][i+1]][0]), int(landmarks[g[0][i+1]][1])
-#                 cv2.line(image, s, e, g[1], 1)
-#             elif landmark_type == 'keypoint':
-#                 c = int(landmarks[g[0][i]][0]), int(landmarks[g[0][i]][1])
-#                 cv2.circle(image, c, 1, g[1], -1)
-#     return image
