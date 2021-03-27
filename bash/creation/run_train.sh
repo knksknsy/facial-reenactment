@@ -9,7 +9,7 @@ DO=1
 while [ $DO -eq 1 ]
     do
         # Start training
-        python run.py train --config $CONFIG --plots $PLOTS
+        python run.py train creation --config $CONFIG --plots $PLOTS
         # Get stdout and stderr
         RESULT=$?
 

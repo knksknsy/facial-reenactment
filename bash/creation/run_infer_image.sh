@@ -1,5 +1,6 @@
 #!/bin/sh
-python run.py infer --source ./inputs/a.png \
+python run.py infer creation \
+                    --source ./inputs/a.png \
                     --target ./inputs/b.png \
                     --model ./checkpoints/Generator.pth \
                     --device cuda \
