@@ -1,0 +1,70 @@
+# Default settings
+
+device: cuda
+pin_memory: false                                 # if true: 'device' must be set to 'cpu'
+num_workers: 4                                    # >0: faster data loading, increased GPU usage
+
+paths:
+  log_dir: /home/kaan/facial-reenactment/logs
+  checkpoint_dir: /home/kaan/facial-reenactment/checkpoints
+  gen_dir: /home/kaan/facial-reenactment/generated_train
+  gen_test_dir: /home/kaan/facial-reenactment/generated_test
+  output_dir: /home/kaan/facial-reenactment/outputs
+
+dataset:
+  dataset_train: /home/kaan/datasets/FaceForensics/Preprocessed/dev/
+  dataset_test: /home/kaan/datasets/FaceForensics/Preprocessed/test/
+  csv_train: ./dataset/faceforensics_dev.csv
+  csv_test: ./dataset/faceforensics_test.csv
+  image_size: 128
+  channels: 3
+  normalize: [0.5,0.5]                            # input normalization: [mean:0.5,std:0.5] -> min:-1;max:1
+  shuffle: true                                   # DataLoader: shuffle data
+  augmentation:
+    horizontal_flip: true                         # if true: randomly flip data
+    rotation_angle: 15                            # >0: randomly rotate data
+
+train:
+  test: true                                      # test model after each epoch
+  metrics: false                                  # calculate evaluation metrics during training
+  continue_id: null
+  seed: 57
+  epochs: 30
+  batch_size: 8
+  iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
+  checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
+  log_freq: 1000                                  # frequency [iterations] to log generated images
+  spec_norm: false                                # use spectral normalization
+  grad_clip: 1                                    # use gradient clipping
+  optimizer:
+    overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
+    lr: 1.0e-4
+    beta1: 0.5
+    beta2: 0.999
+    weight_decay: 5.0e-4
+    # lr_linear_decay:                              # linear learning rate schedule
+    #   epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
+    #   lr_end: 1.0e-6
+    # lr_step_decay:                                # step based learning rate schedule
+    #   step_size: 10                               # decay learning rate every epoch = step_size
+    #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma
+
+test:
+  batch_size_test: 32
+  shuffle_test: false                             # shuffle DataLoader during testing
+  log_freq_test: 10
+  num_workers_test: 2
+
+logs:
+  overwrite_csv: false
+  overwrite_plot: true
+  single_experiment: true
+
+preprocessing:
+  max_frames: 40                                  # number of max frames to extract from a video
+  num_videos: 0                                   # >0: number of videos to be preprocessed, =0: all videos
+  padding: 10
+  padding_color: [111, 108, 112]
+  image_size_db: 224
+  overwrite_videos: false
+  prune_videos: false
