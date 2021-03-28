@@ -427,15 +427,15 @@ class PreprocessFaceForensics():
 
             image_fake = crop_face(frame_fake, frames_fake_total, fa=_FA, padding=self.padding, padding_color=self.padding_color, output_res=self.output_res, method='cv2')
             self.save_frame(image_fake, os.path.join(output_path, output_fake_path), cur_filename_fake)
-           
+
             image_real = crop_face(frame_real, frames_real_total, fa=_FA, padding=self.padding, padding_color=self.padding_color, output_res=self.output_res, method='cv2')
             self.save_frame(image_real, os.path.join(output_path, output_real_path), cur_filename_real)
-            
+
             csv_line = [os.path.join(output_real_path, cur_filename_real), '1', id_real, os.path.join(output_fake_path, cur_filename_fake), '0', id_fake, method + '\n']
             with open(csv, 'a') as csv_file:
                 csv_file.write(','.join(csv_line))
 
-            self.logger.log_info(f'[{i+1}/{num_frames}] saved into: {os.path.join(output_fake_path, cur_filename_fake)}')
+            self.logger.log_info(f'\t[{i+1}/{num_frames}] saved into: {os.path.join(output_fake_path, cur_filename_fake)}')
 
 
     def save_frame(self, frame, dest_path, filename):
@@ -537,14 +537,14 @@ def crop_face(frame, frames_total, fa, padding, padding_color, output_res, metho
     if not face_detected:
         id_x = np.random.randint(len(frames_total))
         frame = frames_total[id_x]
-        crop_face(frame, frames_total, fa, padding, padding_color, output_res, method)
+        return crop_face(frame, frames_total, fa, padding, padding_color, output_res, method)
     else:
         landmarks = landmarks[0]
         frame = crop_frame(frame, landmarks, output_res, padding, method=method)
         if frame is None:
             id_x = np.random.randint(len(frames_total))
             frame = frames_total[id_x]
-            crop_face(frame, frames_total, fa, padding, padding_color, output_res, method)
+            return crop_face(frame, frames_total, fa, padding, padding_color, output_res, method)
         else:
             return frame
 
@@ -556,21 +556,21 @@ def detect_face(frame, frames_total, fa, padding, padding_color, output_res, met
     if not face_detected:
         id_x = np.random.randint(len(frames_total))
         frame = frames_total[id_x]
-        detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
+        return detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
     else:
         landmarks = landmarks[0]
         frame = crop_frame(frame, landmarks, output_res, padding, method=method)
         if frame is None:
             id_x = np.random.randint(len(frames_total))
             frame = frames_total[id_x]
-            detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
+            return detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
         else:
             landmarks = fa.get_landmarks_from_image(frame)
             face_detected = landmarks is not None
             if not face_detected:
                 id_x = np.random.randint(len(frames_total))
                 frame = frames_total[id_x]
-                detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
+                return detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
             else:
                 return frame, landmarks[0]
 
