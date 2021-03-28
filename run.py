@@ -47,7 +47,7 @@ def main(mode, method, description: str):
 
         ##### TRAINING #####
         elif mode == Mode.TRAIN and method == Method.CREATION:
-            options = TrainOptions(description=f'{description} Training')
+            options = TrainOptions(description=f'{description} Training', method=method)
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')

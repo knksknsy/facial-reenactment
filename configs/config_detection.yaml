@@ -61,7 +61,7 @@ logs:
   single_experiment: true
 
 preprocessing:
-  max_frames: 40                                  # number of max frames to extract from a video
+  max_frames: 20                                  # number of max frames to extract from a video
   num_videos: 0                                   # >0: number of videos to be preprocessed, =0: all videos
   padding: 10
   padding_color: [111, 108, 112]
