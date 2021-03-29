@@ -92,7 +92,7 @@ class RandomHorizontalFlip(object):
 
         else:
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
-                
+
             image1 = cv2.flip(image1, flipCode=1)
             image2 = cv2.flip(image2, flipCode=1)
             landmark2 = cv2.flip(landmark2, flipCode=1)
@@ -109,7 +109,12 @@ class RandomRotate(object):
 
 
     def __call__(self, sample):
+        rotate = np.random.rand(1)[0] > 0.5
+
         if self.train_format:
+            if not rotate:
+                return sample
+
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 
@@ -118,27 +123,30 @@ class RandomRotate(object):
                 angle_tmp = np.clip(np.random.rand(1) * (i + 1) * self.angle, -40.0, 40.0)
                 if i == 0:
                     image1 = self.affine_transform(image1, angle_tmp)
-                    landmark1 = self.affine_transform(landmark1, angle_tmp, border_black=True)
+                    landmark1 = self.affine_transform(landmark1, angle_tmp)
                 if i == 1:
                     image2 = self.affine_transform(image2, angle_tmp)
-                    landmark2 = self.affine_transform(landmark2, angle_tmp, border_black=True)
+                    landmark2 = self.affine_transform(landmark2, angle_tmp)
                 if i == 2:
                     image3 = self.affine_transform(image3, angle_tmp)
-                    landmark3 = self.affine_transform(landmark3, angle_tmp, border_black=True)
+                    landmark3 = self.affine_transform(landmark3, angle_tmp)
             
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
         else:
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
-            
+
+            if not rotate:
+                return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
+
             for i in range(2):
                 angle_tmp = np.clip(np.random.rand(1) * (i + 1) * self.angle, -40.0, 40.0)
                 if i == 0:
                     image1 = self.affine_transform(image1, angle_tmp)
                 if i == 1:
                     image2 = self.affine_transform(image2, angle_tmp)
-                    landmark2 = self.affine_transform(landmark2, angle_tmp, border_black=True)
-            
+                    landmark2 = self.affine_transform(landmark2, angle_tmp)
+
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
 
