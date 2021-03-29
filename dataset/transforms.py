@@ -118,13 +118,13 @@ class RandomRotate(object):
                 angle_tmp = np.clip(np.random.rand(1) * (i + 1) * self.angle, -40.0, 40.0)
                 if i == 0:
                     image1 = self.affine_transform(image1, angle_tmp)
-                    landmark1 = self.affine_transform(landmark1, angle_tmp)
+                    landmark1 = self.affine_transform(landmark1, angle_tmp, border_black=True)
                 if i == 1:
                     image2 = self.affine_transform(image2, angle_tmp)
-                    landmark2 = self.affine_transform(landmark2, angle_tmp)
+                    landmark2 = self.affine_transform(landmark2, angle_tmp, border_black=True)
                 if i == 2:
                     image3 = self.affine_transform(image3, angle_tmp)
-                    landmark3 = self.affine_transform(landmark3, angle_tmp)
+                    landmark3 = self.affine_transform(landmark3, angle_tmp, border_black=True)
             
             return {'image1': image1, 'image2': image2, 'image3': image3, 'landmark1': landmark1, 'landmark2': landmark2, 'landmark3': landmark3}
 
@@ -137,15 +137,18 @@ class RandomRotate(object):
                     image1 = self.affine_transform(image1, angle_tmp)
                 if i == 1:
                     image2 = self.affine_transform(image2, angle_tmp)
-                    landmark2 = self.affine_transform(landmark2, angle_tmp)
+                    landmark2 = self.affine_transform(landmark2, angle_tmp, border_black=True)
             
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
 
-    def affine_transform(self, image, angle):
+    def affine_transform(self, image, angle, border_black=False):
         image_center = tuple(np.array(image.shape[1::-1]) / 2)
         rot_mat = cv2.getRotationMatrix2D(image_center, angle.item(), scale=1.0)
-        image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR) # Gray Background: borderValue=(111, 108, 112)
+        if border_black:
+            image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
+        else:
+            image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR, borderValue=(111, 108, 112))
 
         return image
 
