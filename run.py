@@ -53,7 +53,7 @@ def main(mode, method, description: str):
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
             Train(logger, options)
             if options.plots is not None:
-                LogsExtractor(logger, options, options.log_dir, after_train=True)
+                LogsExtractor(logger, options, options.log_dir)
         elif method == Method.DETECTION:
             raise NotImplementedError()
 
@@ -94,7 +94,7 @@ def main(mode, method, description: str):
 
         ##### LOGGING #####
         elif mode == Mode.LOGS and method == Method.CREATION:
-            options = LogsOptions(description=f'{description} Logs-Extracting')
+            options = LogsOptions(description=f'{description} Logs-Extracting', method=method)
             logger = Logger(options)
             logger.init_writer()
             LogsExtractor(logger, options, options.logs_dir)
