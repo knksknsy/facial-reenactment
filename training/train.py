@@ -87,7 +87,11 @@ class Train():
             self._train(epoch)
 
             if self.options.test:
-                Test(self.logger, self.options, self.network).test(epoch)
+                fid_val = Test(self.logger, self.options, self.network).test(epoch)
+                # Decrease LR if FID stagnates
+                if 'lr_plateau_decay' in self.options.config['train']['optimizer']:
+                    self.network.scheduler_G.step(fid_val)
+                    self.network.scheduler_D.step(fid_val)
 
             # # Free unused memory
             # torch.cuda.empty_cache()

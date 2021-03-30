@@ -135,3 +135,15 @@ class TrainOptions(Options):
             self.parser.add_argument('--step_size', default=self.config['train']['optimizer']['lr_step_decay']['step_size'], type=int, help='Schedule to decrease learning rate every step_size.')
 
             self.parser.add_argument('--gamma', default=self.config['train']['optimizer']['lr_step_decay']['gamma'], type=float, help='Decrease learning rate by lr = lr * gamma')
+        
+        if 'lr_plateau_decay' in self.config['train']['optimizer']:
+            self.parser.add_argument('--plateau_mode', type=str, default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_mode'], help='mode: min | max')
+            self.check_error(self.config['train']['optimizer']['lr_plateau_decay'], 'plateau_mode', ['min', 'max'])
+
+            self.parser.add_argument('--plateau_factor', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_factor'], type=float)
+
+            self.parser.add_argument('--plateau_patience', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_patience'], type=int)
+
+            self.parser.add_argument('--plateau_min_lr_g', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr_g'], type=float)
+
+            self.parser.add_argument('--plateau_min_lr_d', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr_d'], type=float)
