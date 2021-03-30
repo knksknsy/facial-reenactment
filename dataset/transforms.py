@@ -109,12 +109,7 @@ class RandomRotate(object):
 
 
     def __call__(self, sample):
-        rotate = np.random.rand(1)[0] > 0.5
-
         if self.train_format:
-            if not rotate:
-                return sample
-
             image1, image2, image3 = sample['image1'], sample['image2'], sample['image3']
             landmark1, landmark2, landmark3 = sample['landmark1'], sample['landmark2'], sample['landmark3']
 
@@ -136,9 +131,6 @@ class RandomRotate(object):
         else:
             image1, image2, landmark2 = sample['image1'], sample['image2'], sample['landmark2']
 
-            if not rotate:
-                return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
-
             for i in range(2):
                 angle_tmp = np.clip(np.random.rand(1) * (i + 1) * self.angle, -40.0, 40.0)
                 if i == 0:
@@ -150,13 +142,10 @@ class RandomRotate(object):
             return {'image1': image1, 'image2': image2, 'landmark2': landmark2}
 
 
-    def affine_transform(self, image, angle, border_black=False):
+    def affine_transform(self, image, angle):
         image_center = tuple(np.array(image.shape[1::-1]) / 2)
         rot_mat = cv2.getRotationMatrix2D(image_center, angle.item(), scale=1.0)
-        if border_black:
-            image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
-        else:
-            image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR, borderValue=(111, 108, 112))
+        image = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
         return image
 
