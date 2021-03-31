@@ -31,11 +31,12 @@ train:
   seed: 57
   epochs: 30
   batch_size: 8
-  iterations: 1250                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
+  iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   landmark_type: boundary                         # 'boundary' or 'keypoint'
   vgg_type: vgg16                                 # vgg16 or vggface
+  conv_blocks_d: 4
   spec_norm: false                                # use spectral normalization
   update_strategy:
     d_iters: 5                                    # fixed update strategy: wgan-gp: d_iters=5, else: d_iters=2

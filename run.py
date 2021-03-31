@@ -57,7 +57,7 @@ def main(mode, method, description: str):
 
         ##### TESTING #####
         elif mode == Mode.TEST and method == Method.CREATION:
-            options = TestOptions(description=f'{description} Testing')
+            options = TestOptions(description=f'{description} Testing', method=method)
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers_test > 0: torch.multiprocessing.set_start_method('spawn')
@@ -79,9 +79,9 @@ def main(mode, method, description: str):
 
         ##### INFERENCE #####
         elif mode == Mode.INFER and method == Method.CREATION:
-            options = TestOptions(description=f'{description} Inference')
+            options = TestOptions(description=f'{description} Inference', method=method)
             logger = Logger(options)
-            infer = Infer(logger, options, options.model_path)
+            infer = Infer(logger, options, options.model)
 
             if options.target.endswith('.mp4'):
                 infer.from_video()

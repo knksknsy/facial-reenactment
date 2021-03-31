@@ -68,8 +68,11 @@ class Logger():
         self.writer.flush()
 
 
-    def save_image(self, path: str, filename: str, image, nrow=4, ext: str='.png', epoch: int=None, iteration: int=None):
+    def save_image(self, path: str, filename: str, image, nrow=4, ext: str='.png', epoch: int=None, iteration: int=None, ret_image=False):
         grid = self._get_grid(image, nrow=nrow, as_tensor=False)
+
+        if ret_image:
+            return grid
 
         if epoch is not None and iteration is not None:
             filename = f'{filename}_e_{str(epoch).zfill(3)}_b{str(iteration).zfill(8)}{ext}'
@@ -99,6 +102,6 @@ class Logger():
             grid = grid[[2, 1, 0],:]
         else:
             grid = grid.cpu().numpy().transpose(1, 2, 0) * 255.0
-            grid = grid.clip(0.0, 255.0).astype(np.int)
+            grid = grid.clip(0.0, 255.0).astype(np.uint8)
 
         return grid

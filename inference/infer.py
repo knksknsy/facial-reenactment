@@ -1,12 +1,14 @@
+import os
 import torch
 import cv2
 import numpy as np
 
 from datetime import datetime
-from torchvision import transforms
 from face_alignment import FaceAlignment, LandmarksType
 
+from dataset.preprocess import crop_frame, extract_frames
 from dataset.dataset import plot_landmarks
+from dataset.utils import normalize
 from loggings.logger import Logger
 from configs.options import Options
 from models.network import Network
@@ -16,63 +18,154 @@ class Infer():
         self.logger = logger
         self.options = options
         self.model_path = model_path
+
         self.network = Network(self.logger, self.options, self.model_path)
         self.network.eval()
 
+        self.fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
 
-    # TODO: outsource face-alignment code
+
     def from_image(self):
         self.logger.log_info(f'Source image: {self.options.source}')
         self.logger.log_info(f'Target image: {self.options.target}')
 
-        fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
+        source = cv2.imread(self.options.source, cv2.IMREAD_COLOR)
+        target = cv2.imread(self.options.target, cv2.IMREAD_COLOR)
+        
+        if self.options.channels == 1:
+            source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
+            target = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
 
-        source, bbox_s = self._get_image_and_bbox(self.options.source, fa)
-        target, bbox_t = self._get_image_and_bbox(self.options.target, fa)
+        self.logger.log_info('Cropping, resizing, and extracting landmarks from source and target images...')
+        source, source_landmark = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+        target, target_landmark = self.detect_crop_face(target, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
 
-        source = self._crop_and_resize(source, bbox_s, padding=20)
-        target = self._crop_and_resize(target, bbox_t, padding=20)
+        if (source is None and source_landmark is None) or (target is None and target_landmark is None):
+            self.logger.log_info('Could not find any faces!')
+            return
 
-        self.logger.log_info('Extracting facial landmarks from target image.')
-        target_landmarks = fa.get_landmarks_from_image(target)[0]
-        target_landmarks = plot_landmarks(target, target_landmarks, self.options.channels)
+        if self.options.channels == 1:
+            source, source_landmark = source[:,:,None], source_landmark[:,:,None]
+            target, target_landmark = target[:,:,None], target_landmark[:,:,None]
 
-        # TODO: use Normalize class from transforms.py
-        normalize = transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
-        source = torch.FloatTensor(np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))).to(self.options.device)
-        target_landmarks = torch.FloatTensor(np.ascontiguousarray(target_landmarks.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))).to(self.options.device)
-        source = normalize(source)
-        target_landmarks = normalize(target_landmarks)
+        source = np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        source = torch.from_numpy(source * (1.0 / 255.0)).to(self.options.device)
+        source = normalize(source, mean=self.options.normalize[0], std=self.options.normalize[1])
 
-        output, output_mask, output_color =  self.network(source, target_landmarks)
-        self.logger.save_image(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', output, nrow=self.options.batch_size)
+        target = np.ascontiguousarray(target.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        target = torch.from_numpy(target * (1.0 / 255.0)).to(self.options.device)
+        target = normalize(target, mean=self.options.normalize[0], std=self.options.normalize[1])
+
+        target_landmark = np.ascontiguousarray(target_landmark.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        target_landmark = torch.from_numpy(target_landmark * (1.0 / 255.0)).to(self.options.device)
+        target_landmark = normalize(target_landmark, mean=self.options.normalize[0], std=self.options.normalize[1])
+
+        self.logger.log_info('Applying facial reenactment...')
+        output =  self.network(source, target_landmark)
+        image = torch.cat((source, target, target_landmark, output), dim=0)
+        filename = f't_{datetime.now():%Y%m%d_%H%M%S}'
+        self.logger.save_image(self.options.output_dir, filename, image, nrow=self.options.batch_size)
+        self.logger.log_info(f'Facial reenactment done. Image saved in {os.path.join(self.options.output_dir, filename)}.')
 
 
-    # TODO: implement video inference
     def from_video(self):
-        pass
+        self.logger.log_info(f'Source image: {self.options.source}')
+        self.logger.log_info(f'Target video: {self.options.target}')
+
+        # SOURCE IMAGE PREPROCESSING
+        self.logger.log_info('Cropping, resizing, and extracting landmarks from source image...')
+        source = cv2.imread(self.options.source, cv2.IMREAD_COLOR)
+
+        if self.options.channels == 1:
+            source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
+        source, source_landmark = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+        if self.options.channels == 1:
+            source, source_landmark = source[:,:,None], source_landmark[:,:,None]
+
+        if source is None and source_landmark is None:
+            self.logger.log_info('Could not find any faces in source image!')
+            return
+
+        source = np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        source = torch.from_numpy(source * (1.0 / 255.0)).to(self.options.device)
+        source = normalize(source, mean=self.options.normalize[0], std=self.options.normalize[1])
+
+        # TARGET VIDEO PREPROCESSING
+        self.logger.log_info('Cropping, resizing, and extracting landmarks from target video...')
+        target_frames = np.concatenate([extract_frames(self.options.target)])
+        target_frames_filtered = []
+        target_landmarks = []
+        for i, target_frame in enumerate(target_frames):
+            if self.options.channels == 1:
+                target_frame = cv2.cvtColor(target_frame, cv2.COLOR_BGR2GRAY)
+            f, l = self.detect_crop_face(target_frame, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+            if self.options.channels == 1:
+                f, l = f[:,:,None], l[:,:,None]
+
+            if f is not None and l is not None:
+                if self.options.channels == 3:
+                    f = cv2.cvtColor(f, cv2.COLOR_RGB2BGR)
+                f = f.transpose(2, 0 ,1) * (1.0 / 255.0)
+                f = normalize(f, mean=self.options.normalize[0], std=self.options.normalize[1])
+                target_frames_filtered.append(f)
+                target_landmarks.append(l)
+                print(f'[{i + 1}/{len(target_frames)}] done', end='\r')
+
+        if len(target_landmarks) == 0:
+            self.logger.log_info('Could not find any faces in target video!')
+            return
+
+        self.logger.log_info('Applying facial reenactment...')
+        outputs = []
+        for i, target_landmark in enumerate(target_landmarks):
+            target_landmark = np.ascontiguousarray(target_landmark.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+            target_landmark = torch.from_numpy(target_landmark * (1.0 / 255.0)).to(self.options.device)
+            target_landmark = normalize(target_landmark, mean=self.options.normalize[0], std=self.options.normalize[1])
+
+            target_landmarks[i] = target_landmark.detach().cpu().numpy()[0, :, :, :]
+
+            output = self.network(source, target_landmark).detach().cpu().numpy()[0, :, :, :]
+            outputs.append(output)
+            print(f'[{i + 1}/{len(target_landmarks)}] done', end='\r')
+
+        # CONCAT IMAGES
+        self.logger.log_info('Processing video...')
+        outputs_cat = []
+        source = source.detach().cpu().numpy()[0, :, :, :]
+        for i, (t, l, o) in enumerate(zip(target_frames_filtered, target_landmarks, outputs)):
+            frame = torch.from_numpy(np.concatenate((source, t, l, o), axis=2)).to(self.options.device)
+            o = self.logger.save_image(path=None, filename=None, image=frame, ret_image=True)
+            outputs_cat.append(o)
+
+        # SAVE VIDEO
+        self.logger.log_info('Saving video...')
+        output_path = os.path.join(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}.mp4')
+        video_writer = cv2.VideoWriter(output_path, fourcc=cv2.VideoWriter_fourcc(*'mp4v'), fps=25.0, frameSize=outputs_cat[0].shape[:2][::-1])
+        for i, o in enumerate(outputs_cat):
+            video_writer.write(o)
+            print(f'[{i + 1}/{len(outputs)}] done', end='\r')
+        video_writer.release()
+        self.logger.log_info(f'Facial reenactment done. Video saved in {output_path}.')
 
 
-    def _get_image_and_bbox(self, path, face_alignment):
-        self.logger.log_info('Extracting bounding boxes from source and target images.')
-
-        image = cv2.imread(path, cv2.IMREAD_COLOR)
-        bboxes = face_alignment.face_detector.detect_from_image(image)
-        assert len(bboxes) != 0, f'No face detected in {path}'
-        
-        return image, bboxes[0]
-
-
-    def _crop_and_resize(self, image, bbox, padding):
-        self.logger.log_info('Cropping faces and resizing source and target images.')
-        height, width, _ = image.shape
-        bbox_x1, bbox_x2 = bbox[0], bbox[2]
-        bbox_y1, bbox_y2 = bbox[1], bbox[3]
-        
-        out_of_bounds = bbox_x1 < padding or bbox_y1 < padding or bbox_x2 >= width - padding or bbox_y2 >= height - padding
-        if out_of_bounds:
-            image = np.pad(image, padding)
-        image = image[bbox_y1 - padding: bbox_y2 + padding, bbox_x1 - padding: bbox_x2 + padding]
-        image = cv2.resize(image, (self.options.image_size, self.options.image_size), interpolation=cv2.INTER_LINEAR)
-
-        return image
+    def detect_crop_face(self, frame, channels, landmark_type, padding, output_res, face_alignment):
+        frame = cv2.copyMakeBorder(frame, padding, padding, padding, padding, cv2.BORDER_REPLICATE)
+        landmarks = face_alignment.get_landmarks_from_image(frame)
+        face_detected = landmarks is not None
+        if not face_detected:
+            return None, None
+        else:
+            landmarks = landmarks[0]
+            frame = crop_frame(frame, landmarks, (224,224), padding, method='cv2')
+            if frame is None:
+                return None, None
+            else:
+                landmarks = face_alignment.get_landmarks_from_image(frame)
+                face_detected = landmarks is not None
+                if not face_detected:
+                    return None, None
+                else:
+                    landmarks = plot_landmarks(landmarks[0], landmark_type=landmark_type, channels=channels, output_res=(frame.shape[0], frame.shape[1]), input_res=frame.shape[:2])
+                    landmarks = cv2.resize(landmarks, output_res)
+                    frame = cv2.resize(frame, output_res)
+                    return frame, landmarks

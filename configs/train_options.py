@@ -114,6 +114,8 @@ class TrainOptions(Options):
 
         self.parser.add_argument('--loss_coeff', default=self.config['train']['update_strategy']['loss_coeff'], type=int, help='Adaptive update interval of discriminator')
 
+        self.parser.add_argument('--conv_blocks_d', default=self.config['train']['conv_blocks_d'], type=int, help='Number of convolutional layers in discriminator: 4 | 6')
+
         # ARGUMENTS: OPTIMIZER
         self.parser.add_argument('--overwrite_optim', action='store_false' if self.config['train']['optimizer']['overwrite_optim'] else 'store_true', help='If flag is set, and training is continued from checkpoint, then the optimizer settings will be overwritten.')
 

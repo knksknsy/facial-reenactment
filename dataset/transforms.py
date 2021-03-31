@@ -1,7 +1,6 @@
 import torch
 import cv2
 import numpy as np
-from torch._C import Value
 
 from dataset.utils import normalize
 
