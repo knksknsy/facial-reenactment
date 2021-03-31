@@ -31,7 +31,7 @@ train:
   seed: 57
   epochs: 30
   batch_size: 8
-  iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
+  iterations: 50                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   landmark_type: boundary                         # 'boundary' or 'keypoint'
@@ -66,6 +66,12 @@ train:
     # lr_step_decay:                                # step based learning rate schedule
     #   step_size: 10                               # decay learning rate every epoch = step_size
     #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma
+    lr_plateau_decay:                             # plateau based learning rate schedule: see torch.optim.lr_scheduler.ReduceLROnPlateau
+      plateau_mode: 'min'
+      plateau_factor: 0.1
+      plateau_patience: 10
+      plateau_min_lr_g: 1.0e-6
+      plateau_min_lr_d: 1.0e-6
 
 test:
   batch_size_test: 32

@@ -109,10 +109,11 @@ class Test():
         fid_val = fid.calculate_fid()
         self.logger.log_info(f'FID = {fid_val:.4f}')
         self.logger.log_scalar('FID Validation', fid_val, epoch)
-        del fid_val
 
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
+
+        return fid_val
 
     def generate(self, gen_test_dir, epoch=None):
         run_start = datetime.now()

@@ -6,7 +6,7 @@ from typing import Tuple
 import torch
 from torch.nn import DataParallel
 from torch.optim import Adam
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torch.nn.modules.module import Module
 from torch.optim.optimizer import Optimizer
 
@@ -72,17 +72,36 @@ class Network():
                 weight_decay=self.options.weight_decay
             )
 
-            self.scheduler_G = StepLR(
-                optimizer=self.optimizer_G,
-                step_size=self.options.step_size,
-                gamma=self.options.gamma
-            ) if 'lr_step_decay' in self.options.config['train']['optimizer'] else None
-
-            self.scheduler_D = StepLR(
-                optimizer=self.optimizer_D,
-                step_size=self.options.step_size,
-                gamma=self.options.gamma
-            ) if 'lr_step_decay' in self.options.config['train']['optimizer'] else None
+            # Step based LR decay schedule
+            if 'lr_step_decay' in self.options.config['train']['optimizer']:
+                self.scheduler_G = StepLR(
+                    optimizer=self.optimizer_G,
+                    step_size=self.options.step_size,
+                    gamma=self.options.gamma
+                )
+                self.scheduler_D = StepLR(
+                    optimizer=self.optimizer_D,
+                    step_size=self.options.step_size,
+                    gamma=self.options.gamma
+                )
+            # Plateau based LR decay schedule
+            elif 'lr_plateau_decay' in self.options.config['train']['optimizer']:
+                self.scheduler_G = ReduceLROnPlateau(
+                    optimizer=self.optimizer_G,
+                    mode=self.options.plateau_mode,
+                    factor=self.options.plateau_factor,
+                    patience=self.options.plateau_patience,
+                    cooldown=2*self.options.plateau_patience,
+                    min_lr=self.options.plateau_min_lr_g
+                )
+                self.scheduler_D = ReduceLROnPlateau(
+                    optimizer=self.optimizer_D,
+                    mode=self.options.plateau_mode,
+                    factor=self.options.plateau_factor,
+                    patience=self.options.plateau_patience,
+                    cooldown=2*self.options.plateau_patience,
+                    min_lr=self.options.plateau_min_lr_d
+                )
 
             if self.options.continue_id is not None:
                 self.G, self.optimizer_G, self.scheduler_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.scheduler_G, self.options)
@@ -203,7 +222,7 @@ class Network():
             self.D.eval()
 
 
-    def load_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, options: Options) -> Tuple[Module, Optimizer, StepLR, str, str]:
+    def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
             filename = f'{type(model).__name__}_{options.continue_id}'
             state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
             model.load_state_dict(state_dict['model'])
@@ -223,7 +242,7 @@ class Network():
             return model, optimizer, scheduler, epoch, iteration
 
 
-    def save_model(self, model: Module, optimizer: Optimizer, scheduler: StepLR, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
+    def save_model(self, model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
         if time_for_name is None:
             time_for_name = datetime.now()
 
