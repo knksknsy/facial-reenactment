@@ -68,3 +68,4 @@ preprocessing:
   image_size_db: 224
   overwrite_videos: false
   prune_videos: false
+  methods: ['Face2Face', 'NeuralTextures']        # datasets in faceforensics++ to be processed

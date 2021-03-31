@@ -41,9 +41,7 @@ def main(mode, method, description: str):
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
-            # TODO: add option
-            method_list = ['Face2Face', 'NeuralTextures']
-            PreprocessFaceForensics(logger, options, method_list).preprocess()
+            PreprocessFaceForensics(logger, options, options.methods).preprocess()
 
         ##### TRAINING #####
         elif mode == Mode.TRAIN and method == Method.CREATION:

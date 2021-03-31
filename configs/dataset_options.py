@@ -42,3 +42,7 @@ class DatasetOptions(Options):
             self.parser.add_argument('--num_pairs', type=int, default=self.config['preprocessing']['num_pairs'], help='Number of training pairs (frames) to extract from a video.')
 
             self.parser.add_argument('--vox_ids', nargs='+', type=str, help='Voxceleb2 ids to be processes')
+
+        if self.method == Method.DETECTION:
+            self.parser.add_argument('--methods', type=str, default=self.config['device'], help='Datasets in FaceForensics++ to be processed: Face2Face | NeuralTextures | Deepfakes | FaceShifter | FaceSwap')
+            self.check_error(self.config['preprocessing'], 'methods', ['Face2Face', 'NeuralTextures', 'Deepfakes', 'FaceShifter', 'FaceSwap'])
