@@ -27,7 +27,7 @@ dataset:
 train:
   test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
-  continue_id: null
+  continue_id: t20210331_1910_e002_i00015000.pth
   seed: 57
   epochs: 30
   batch_size: 8
@@ -83,6 +83,9 @@ test:
 logs:
   overwrite_csv: false
   overwrite_plot: true
+  overwrite_video: true
+  v_img_source: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/id00017/5MkXgwdrmJw/1.png
+  v_vid_target: /home/kaan/datasets/VoxCeleb2/Videos/test/id01567/1Lx_ZqrK1bM/00001.mp4
   single_experiment: true
 
 preprocessing:

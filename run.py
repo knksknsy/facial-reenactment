@@ -81,7 +81,7 @@ def main(mode, method, description: str):
         elif mode == Mode.INFER and method == Method.CREATION:
             options = TestOptions(description=f'{description} Inference', method=method)
             logger = Logger(options)
-            infer = Infer(logger, options, options.model)
+            infer = Infer(logger, options, options.source, options.target, options.model)
 
             if options.target.endswith('.mp4'):
                 infer.from_video()

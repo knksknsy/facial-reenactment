@@ -25,4 +25,18 @@ class LogsOptions(Options):
 
         self.parser.add_argument('--overwrite_plot', action='store_false' if self.config['logs']['overwrite_plot'] else 'store_true')
 
+        self.parser.add_argument('--overwrite_video', action='store_false' if self.config['logs']['overwrite_video'] else 'store_true')
+
         self.parser.add_argument('--single_experiment', action='store_false' if self.config['logs']['single_experiment'] else 'store_true')
+
+        # ARGUMENTS: DATASET
+        self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float, help='Image normalization: mean, std')
+
+        self.parser.add_argument('--image_size', default=self.config['dataset']['image_size'], type=int, help='Image size')
+
+        self.parser.add_argument('--channels', default=self.config['dataset']['channels'], type=int, help='Image channels')
+
+        self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'], help='Facial landmark type: boundary | keypoint')
+        self.check_error(self.config['train'], 'landmark_type', ['boundary', 'keypoint'])
+
+        self.parser.add_argument('--padding', type=int, default=self.config['preprocessing']['padding'], help='Padding size')

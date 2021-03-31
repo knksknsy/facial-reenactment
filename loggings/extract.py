@@ -10,6 +10,7 @@ from matplotlib import ticker
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 from configs import LogsOptions
+from inference.infer import Infer
 from loggings.logger import Logger
 
 class LogsExtractor():
@@ -20,6 +21,7 @@ class LogsExtractor():
         self.single_experiment = self.options.single_experiment
         self.overwrite_csv = self.options.overwrite_csv
         self.overwrite_plot = self.options.overwrite_plot
+        self.overwrite_video = self.options.overwrite_video
         self()
 
     def __call__(self):
@@ -40,6 +42,10 @@ class LogsExtractor():
             if self.overwrite_plot or not os.path.isdir(aggregation['plot_path']):
                 self.aggregate_plots(**aggregation)
 
+            # Create video
+            if self.overwrite_video:
+                self.save_video(**aggregation)
+
 
     def get_meta_data(self, experiment_paths, names):
         aggregations = []
@@ -50,12 +56,13 @@ class LogsExtractor():
                 'experiment_path': ep,
                 'event_paths': sorted([os.path.join(logs_dir, log) for log in os.listdir(logs_dir) if 'tfevents' in log]),
                 'csv_path': os.path.join(ep, 'csv'),
-                'plot_path': os.path.join(ep, 'plots')
+                'plot_path': os.path.join(ep, 'plots'),
+                'checkpoints_path': os.path.join(ep, 'checkpoints')
             })
         return aggregations
 
 
-    def aggregate_csv(self, name, event_paths, experiment_path, csv_path, plot_path):
+    def aggregate_csv(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
         self.logger.log_info(f'Creating CSVs for experiment "{name}"...')
         # Extract scalars from event files
         all_extracts = self.extract(event_paths)
@@ -106,7 +113,7 @@ class LogsExtractor():
         df.to_csv(os.path.join(csv_path, filename), sep=',')
 
 
-    def aggregate_plots(self, name, event_paths, experiment_path, csv_path, plot_path):
+    def aggregate_plots(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
         self.logger.log_info(f'Creating plots for experiment "{name}"...')
         plots_config = self.options.plots['config']
         plots = self.options.plots['plots']
@@ -210,3 +217,11 @@ class LogsExtractor():
     def get_valid_filename(self, s):
         s = str(s).strip().replace(' ', '_')
         return re.sub(r'(?u)[^-\w.]', '', s)
+
+
+    def save_video(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
+        model_paths = os.listdir(checkpoints_path)
+        num_checkpoints = len(model_paths)//2
+        model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(num_checkpoints-1).zfill(3)}' in f and 'Generator_' in f][0]
+        infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
+        infer.from_video()

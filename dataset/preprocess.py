@@ -10,7 +10,7 @@ from face_alignment import FaceAlignment, LandmarksType
 
 from configs import DatasetOptions
 from loggings.logger import Logger
-from dataset.dataset import plot_landmarks
+from dataset.utils import crop_frame, extract_frames
 
 ##### START PreprocessVoxCeleb #####
 class PreprocessVoxCeleb():
@@ -447,19 +447,18 @@ class PreprocessFaceForensics():
 
 ##### END PreprocessFaceForensics #####
 
+def init_pool(face_alignment, output):
+    global _FA
+    _FA = face_alignment
+    global _OUT_DIR
+    _OUT_DIR = output
+
 
 def sanitize_csv(csv_path: str, sort_col: str):
     df = pd.read_csv(csv_path, sep=',', header=0)
     df = df.drop_duplicates(keep=False)
     df = df.sort_values(by=[sort_col], ascending=True)
     df.to_csv(csv_path, sep=',', index=False)
-
-
-def init_pool(face_alignment, output):
-    global _FA
-    _FA = face_alignment
-    global _OUT_DIR
-    _OUT_DIR = output
 
 
 def prune_videos(source, max_num_videos=None, max_bytes_videos=None):
@@ -504,25 +503,6 @@ def divide_chunks(l, n):
 
 def contains_only_videos(files, extension='.mp4'):
         return len([x for x in files if os.path.splitext(x)[1] != extension]) == 0
-
-
-def extract_frames(video):
-    cap = cv2.VideoCapture(video)
-
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    frames = np.empty((n_frames, h, w, 3), np.dtype('uint8'))
-
-    fn, ret = 0, True
-    while fn < n_frames and ret:
-        ret, img = cap.read()
-        frames[fn] = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        fn += 1
-
-    cap.release()
-    return frames
 
 
 def select_random_frames(frames, num_frames):
@@ -573,21 +553,3 @@ def detect_face(frame, frames_total, fa, padding, padding_color, output_res, met
                 return detect_face(frame, frames_total, fa, padding, padding_color, output_res, method)
             else:
                 return frame, landmarks[0]
-
-
-def crop_frame(frame, landmarks, dimension, padding, method='pyplot'):
-        heatmap = plot_landmarks(landmarks=landmarks, landmark_type='boundary', channels=3, output_res=(frame.shape[0], frame.shape[1]), input_res=(frame.shape[0], frame.shape[1]), method=method)
-
-        rows = np.any(heatmap, axis=1)
-        cols = np.any(heatmap, axis=0)
-        rmin, rmax = np.where(rows)[0][[0, -1]]
-        cmin, cmax = np.where(cols)[0][[0, -1]]
-
-        frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
-        
-        try:
-            frame = cv2.resize(frame, dimension)
-        except Exception as e:
-            return None
-
-        return frame

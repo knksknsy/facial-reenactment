@@ -6,17 +6,17 @@ import numpy as np
 from datetime import datetime
 from face_alignment import FaceAlignment, LandmarksType
 
-from dataset.preprocess import crop_frame, extract_frames
-from dataset.dataset import plot_landmarks
-from dataset.utils import normalize
+from dataset.utils import crop_frame, extract_frames, plot_landmarks, normalize
 from loggings.logger import Logger
 from configs.options import Options
 from models.network import Network
 
 class Infer():
-    def __init__(self, logger: Logger, options: Options, model_path: str):
+    def __init__(self, logger: Logger, options: Options, source: str, target: str, model_path: str):
         self.logger = logger
         self.options = options
+        self.source = source
+        self.target = target
         self.model_path = model_path
 
         self.network = Network(self.logger, self.options, self.model_path)
@@ -26,11 +26,11 @@ class Infer():
 
 
     def from_image(self):
-        self.logger.log_info(f'Source image: {self.options.source}')
-        self.logger.log_info(f'Target image: {self.options.target}')
+        self.logger.log_info(f'Source image: {self.source}')
+        self.logger.log_info(f'Target image: {self.target}')
 
-        source = cv2.imread(self.options.source, cv2.IMREAD_COLOR)
-        target = cv2.imread(self.options.target, cv2.IMREAD_COLOR)
+        source = cv2.imread(self.source, cv2.IMREAD_COLOR)
+        target = cv2.imread(self.target, cv2.IMREAD_COLOR)
         
         if self.options.channels == 1:
             source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
@@ -69,12 +69,12 @@ class Infer():
 
 
     def from_video(self):
-        self.logger.log_info(f'Source image: {self.options.source}')
-        self.logger.log_info(f'Target video: {self.options.target}')
+        self.logger.log_info(f'Source image: {self.source}')
+        self.logger.log_info(f'Target video: {self.target}')
 
         # SOURCE IMAGE PREPROCESSING
         self.logger.log_info('Cropping, resizing, and extracting landmarks from source image...')
-        source = cv2.imread(self.options.source, cv2.IMREAD_COLOR)
+        source = cv2.imread(self.source, cv2.IMREAD_COLOR)
 
         if self.options.channels == 1:
             source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
@@ -92,7 +92,7 @@ class Infer():
 
         # TARGET VIDEO PREPROCESSING
         self.logger.log_info('Cropping, resizing, and extracting landmarks from target video...')
-        target_frames = np.concatenate([extract_frames(self.options.target)])
+        target_frames = np.concatenate([extract_frames(self.target)])
         target_frames_filtered = []
         target_landmarks = []
         for i, target_frame in enumerate(target_frames):
