@@ -58,7 +58,6 @@ test:
 logs:
   overwrite_csv: false
   overwrite_plot: true
-  single_experiment: true
 
 preprocessing:
   max_frames: 20                                  # number of max frames to extract from a video

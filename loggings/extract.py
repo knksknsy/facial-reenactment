@@ -14,18 +14,19 @@ from inference.infer import Infer
 from loggings.logger import Logger
 
 class LogsExtractor():
-    def __init__(self, logger: Logger, options: LogsOptions, experiments_path):
+    def __init__(self, logger: Logger, options: LogsOptions, experiments_path:str, multiples: bool, video_per_model: bool):
         self.logger = logger
         self.options = options
         self.experiments_path = experiments_path
-        self.single_experiment = self.options.single_experiment
+        self.video_per_model = video_per_model
+        self.multiples = multiples
         self.overwrite_csv = self.options.overwrite_csv
         self.overwrite_plot = self.options.overwrite_plot
         self.overwrite_video = self.options.overwrite_video
         self()
 
     def __call__(self):
-        if self.single_experiment:
+        if not self.multiples:
             experiment_paths = [os.path.sep.join(self.experiments_path.split(os.path.sep)[:-1])]
             experiment_names = [self.experiments_path.split(os.path.sep)[-2]]
         else:
@@ -221,7 +222,26 @@ class LogsExtractor():
 
     def save_video(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
         model_paths = os.listdir(checkpoints_path)
+        
+        # Create video for each checkpoint
+        if self.video_per_model:
+            model_paths = sorted([os.path.join(checkpoints_path, f) for f in model_paths if 'Generator_' in f])
+            for i, m in enumerate(model_paths):
+                infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, m)
+                infer.from_video(filename=f'e{str(i).zfill(3)}')
+        
+        # Create video for latest and best checkpoint
+        # Latest checkpoint
         num_checkpoints = len(model_paths)//2
         model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(num_checkpoints-1).zfill(3)}' in f and 'Generator_' in f][0]
         infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
-        infer.from_video()
+        infer.from_video(filename=f'latest_e{str(num_checkpoints-1).zfill(3)}')
+
+        # Best checkpoint
+        df = pd.read_csv(os.path.join(csv_path, 'fid_validation.csv'), sep=r',', header=0, index_col=None)
+        df = df.sort_values(by='step', ascending=True)
+        df = df.drop_duplicates(subset='step', keep='last')
+        min_epoch = int(df.loc[df['value'].idxmin()]['step'])
+        model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(min_epoch).zfill(3)}' in f and 'Generator_' in f][0]
+        infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
+        infer.from_video(filename=f'best_e{str(min_epoch).zfill(3)}')

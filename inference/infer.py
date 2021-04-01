@@ -25,7 +25,7 @@ class Infer():
         self.fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
 
 
-    def from_image(self):
+    def from_image(self, filename: str = None):
         self.logger.log_info(f'Source image: {self.source}')
         self.logger.log_info(f'Target image: {self.target}')
 
@@ -63,12 +63,15 @@ class Infer():
         self.logger.log_info('Applying facial reenactment...')
         output =  self.network(source, target_landmark)
         image = torch.cat((source, target, target_landmark, output), dim=0)
-        filename = f't_{datetime.now():%Y%m%d_%H%M%S}'
+        if filename is None:
+            filename = f't_{datetime.now():%Y%m%d_%H%M%S}'
+        else:
+            filename = f'{filename}_t_{datetime.now():%Y%m%d_%H%M%S}'
         self.logger.save_image(self.options.output_dir, filename, image, nrow=self.options.batch_size)
         self.logger.log_info(f'Facial reenactment done. Image saved in {os.path.join(self.options.output_dir, filename)}.')
 
 
-    def from_video(self):
+    def from_video(self, filename: str = None):
         self.logger.log_info(f'Source image: {self.source}')
         self.logger.log_info(f'Target video: {self.target}')
 
@@ -139,7 +142,12 @@ class Infer():
 
         # SAVE VIDEO
         self.logger.log_info('Saving video...')
-        output_path = os.path.join(self.options.output_dir, f't_{datetime.now():%Y%m%d_%H%M%S}.mp4')
+        ext = '.mp4'
+        if filename is None:
+            filename = f't_{datetime.now():%Y%m%d_%H%M%S}{ext}'
+        else:
+            filename = f'{filename}_t_{datetime.now():%Y%m%d_%H%M%S}{ext}'
+        output_path = os.path.join(self.options.output_dir, filename)
         video_writer = cv2.VideoWriter(output_path, fourcc=cv2.VideoWriter_fourcc(*'mp4v'), fps=25.0, frameSize=outputs_cat[0].shape[:2][::-1])
         for i, o in enumerate(outputs_cat):
             video_writer.write(o)

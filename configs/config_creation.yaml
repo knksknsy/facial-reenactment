@@ -86,7 +86,6 @@ logs:
   overwrite_video: true
   v_img_source: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/id00017/5MkXgwdrmJw/1.png
   v_vid_target: /home/kaan/datasets/VoxCeleb2/Videos/test/id01567/1Lx_ZqrK1bM/00001.mp4
-  single_experiment: true
 
 preprocessing:
   num_pairs: 3                                    # number of training pairs (frames) to extract from a video

@@ -27,8 +27,6 @@ class LogsOptions(Options):
 
         self.parser.add_argument('--overwrite_video', action='store_false' if self.config['logs']['overwrite_video'] else 'store_true')
 
-        self.parser.add_argument('--single_experiment', action='store_false' if self.config['logs']['single_experiment'] else 'store_true')
-
         # ARGUMENTS: DATASET
         self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float, help='Image normalization: mean, std')
 
