@@ -19,6 +19,8 @@ class LogsOptions(Options):
         # ARGUMENTS: OPTIONS
         self.parser.add_argument('--logs_dir', type=str, required=True, help='Path to the tensorboard events directory.')
 
+        self.parser.add_argument('--output_dir', type=str, default=self.config['paths']['output_dir'], help='Path where output will be saved.')
+
         self.parser.add_argument('--plots', type=str, required=True, help='Path to the plots.json configuration file.')
 
         self.parser.add_argument('--overwrite_csv', action='store_false' if self.config['logs']['overwrite_csv'] else 'store_true')

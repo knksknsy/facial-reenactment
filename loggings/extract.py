@@ -58,12 +58,13 @@ class LogsExtractor():
                 'event_paths': sorted([os.path.join(logs_dir, log) for log in os.listdir(logs_dir) if 'tfevents' in log]),
                 'csv_path': os.path.join(ep, 'csv'),
                 'plot_path': os.path.join(ep, 'plots'),
-                'checkpoints_path': os.path.join(ep, 'checkpoints')
+                'checkpoints_path': os.path.join(ep, 'checkpoints'),
+                'video_path': os.path.join(ep, 'outputs')
             })
         return aggregations
 
 
-    def aggregate_csv(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
+    def aggregate_csv(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path, video_path):
         self.logger.log_info(f'Creating CSVs for experiment "{name}"...')
         # Extract scalars from event files
         all_extracts = self.extract(event_paths)
@@ -115,7 +116,7 @@ class LogsExtractor():
         df.to_csv(os.path.join(csv_path, filename), sep=',')
 
 
-    def aggregate_plots(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
+    def aggregate_plots(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path, video_path):
         self.logger.log_info(f'Creating plots for experiment "{name}"...')
         plots_config = self.options.plots['config']
         plots = self.options.plots['plots']
@@ -225,7 +226,10 @@ class LogsExtractor():
         return re.sub(r'(?u)[^-\w.]', '', s)
 
 
-    def save_video(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
+    def save_video(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path, video_path):
+        if not os.path.isdir(video_path):
+            os.makedirs(video_path)
+
         # Create video for each checkpoint
         model_paths = [f for f in os.listdir(checkpoints_path) if not f.startswith('.')]
         if self.video_per_model:
@@ -240,7 +244,7 @@ class LogsExtractor():
         latest_epoch = (len(model_paths)//2) - 1
         model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(latest_epoch).zfill(3)}' in f and 'Generator_' in f][0]
         infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
-        infer.from_video(filename=f'latest_e{str(latest_epoch).zfill(3)}')
+        infer.from_video(filename=f'latest_e{str(latest_epoch).zfill(3)}', output_path=video_path)
 
         # Best checkpoint
         df = pd.read_csv(os.path.join(csv_path, 'fid_validation.csv'), sep=r',', header=0, index_col=None)
@@ -249,4 +253,4 @@ class LogsExtractor():
         min_epoch = int(df.loc[df['value'].idxmin()]['step'])
         model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(min_epoch).zfill(3)}' in f and 'Generator_' in f][0]
         infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
-        infer.from_video(filename=f'best_e{str(min_epoch).zfill(3)}')
+        infer.from_video(filename=f'best_e{str(min_epoch).zfill(3)}', output_path=video_path)

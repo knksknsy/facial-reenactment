@@ -71,7 +71,7 @@ class Infer():
         self.logger.log_info(f'Facial reenactment done. Image saved in {os.path.join(self.options.output_dir, filename)}.')
 
 
-    def from_video(self, filename: str = None):
+    def from_video(self, filename: str = None, output_path: str = None):
         self.logger.log_info(f'Source image: {self.source}')
         self.logger.log_info(f'Target video: {self.target}')
 
@@ -147,13 +147,22 @@ class Infer():
             filename = f't_{datetime.now():%Y%m%d_%H%M%S}{ext}'
         else:
             filename = f'{filename}_t_{datetime.now():%Y%m%d_%H%M%S}{ext}'
-        output_path = os.path.join(self.options.output_dir, filename)
-        video_writer = cv2.VideoWriter(output_path, fourcc=cv2.VideoWriter_fourcc(*'mp4v'), fps=25.0, frameSize=outputs_cat[0].shape[:2][::-1])
+
+        if not os.path.isdir(self.options.output_dir):
+            os.makedirs(self.options.output_dir)
+
+        if output_path is None:
+            filename = os.path.join(self.options.output_dir, filename)
+        else:
+            filename = os.path.join(output_path, filename)
+
+        video_writer = cv2.VideoWriter(filename, fourcc=cv2.VideoWriter_fourcc(*'mp4v'), fps=25.0, frameSize=outputs_cat[0].shape[:2][::-1])
         for i, o in enumerate(outputs_cat):
             video_writer.write(o)
             print(f'[{i + 1}/{len(outputs)}] done', end='\r')
         video_writer.release()
-        self.logger.log_info(f'Facial reenactment done. Video saved in {output_path}.')
+
+        self.logger.log_info(f'Facial reenactment done. Video saved in {filename}.')
 
 
     def detect_crop_face(self, frame, channels, landmark_type, padding, output_res, face_alignment):
