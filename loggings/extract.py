@@ -71,6 +71,7 @@ class LogsExtractor():
             for key, values in extracts.items():
                 filename = f'{self.get_valid_filename(key.lower())}.csv'
                 self.write_csv(csv_path, filename, values)
+                self.logger.log_info(f'CSV {filename} created.')
 
         self.logger.log_info(f'CSVs created for experiment: "{name}" into: {experiment_path}')
 
@@ -121,11 +122,12 @@ class LogsExtractor():
         
         for plot in plots:
             self.write_plot(csv_path, plot_path, **plot, **plots_config)
+            self.logger.log_info(f'Plot {plot["filename"]} created.')
 
         self.logger.log_info(f'Plots created for experiment "{name}" into: {experiment_path}')
 
 
-    def write_plot(self, csv_path, plot_path, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, ignore_outliers=True, smooth={'rolling':15, 'alpha':0.33}, filename=None, format='.png'):
+    def write_plot(self, csv_path, plot_path, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, sci_format=None, ignore_outliers=True, smooth={'rolling':15, 'alpha':0.33}, filename=None, format='.png'):
         legend_handles, ylower, yupper = [], [], []
         dpi = 100
         figsize = (size[0] / dpi, size[1] / dpi)
@@ -182,7 +184,10 @@ class LogsExtractor():
             
             # Format scientific notation
             formatter = ticker.ScalarFormatter(useMathText=True)
-            formatter.set_scientific(sci_ticks)
+            if sci_format is None:
+                formatter.set_scientific(sci_ticks)
+            else:
+                formatter.set_scientific(sci_format)
             formatter.set_powerlimits((-1,1))
             ax.yaxis.set_major_formatter(formatter)
             ax.xaxis.set_major_formatter(formatter)
@@ -221,21 +226,21 @@ class LogsExtractor():
 
 
     def save_video(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path):
-        model_paths = os.listdir(checkpoints_path)
-        
         # Create video for each checkpoint
+        model_paths = [f for f in os.listdir(checkpoints_path) if not f.startswith('.')]
         if self.video_per_model:
-            model_paths = sorted([os.path.join(checkpoints_path, f) for f in model_paths if 'Generator_' in f])
+            model_paths = sorted([os.path.join(checkpoints_path, f) for f in model_paths if not f.startswith('.') and 'Generator_' in f])
             for i, m in enumerate(model_paths):
                 infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, m)
                 infer.from_video(filename=f'e{str(i).zfill(3)}')
         
         # Create video for latest and best checkpoint
         # Latest checkpoint
-        num_checkpoints = len(model_paths)//2
-        model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(num_checkpoints-1).zfill(3)}' in f and 'Generator_' in f][0]
+        model_paths = [f for f in os.listdir(checkpoints_path) if not f.startswith('.')]
+        latest_epoch = (len(model_paths)//2) - 1
+        model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(latest_epoch).zfill(3)}' in f and 'Generator_' in f][0]
         infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
-        infer.from_video(filename=f'latest_e{str(num_checkpoints-1).zfill(3)}')
+        infer.from_video(filename=f'latest_e{str(latest_epoch).zfill(3)}')
 
         # Best checkpoint
         df = pd.read_csv(os.path.join(csv_path, 'fid_validation.csv'), sep=r',', header=0, index_col=None)

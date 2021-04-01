@@ -27,7 +27,7 @@ dataset:
 train:
   test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
-  continue_id: t20210331_1910_e002_i00015000.pth
+  continue_id: null
   seed: 57
   epochs: 30
   batch_size: 8
@@ -36,7 +36,7 @@ train:
   log_freq: 1000                                  # frequency [iterations] to log generated images
   landmark_type: boundary                         # 'boundary' or 'keypoint'
   vgg_type: vgg16                                 # vgg16 or vggface
-  conv_blocks_d: 4
+  conv_blocks_d: 4                                # number of conv blocks in discriminator: 4 or 6
   spec_norm: false                                # use spectral normalization
   update_strategy:
     d_iters: 5                                    # fixed update strategy: wgan-gp: d_iters=5, else: d_iters=2

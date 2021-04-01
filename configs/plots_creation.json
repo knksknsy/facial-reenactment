@@ -212,6 +212,24 @@
         },
         {
             "keys": [
+                "lr_g",
+                "lr_d"
+            ],
+            "legends": [
+                "LR gen",
+                "LR dis"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "concat": true,
+            "xlabel": "Iteration",
+            "ylabel": "Learning Rates Schedules",
+            "filename": "learning_rates"
+        },
+        {
+            "keys": [
                 "fid_validation"
             ],
             "legends": [
@@ -220,6 +238,7 @@
             "colors": [
                 "#0000FF"
             ],
+            "sci_format": false,
             "xlabel": "Iteration",
             "ylabel": "FID",
             "filename": "fid_validation"
