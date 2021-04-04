@@ -8,12 +8,12 @@ from configs.options import Options
 from testing.fid import FrechetInceptionDistance
 from testing.ssim import calculate_ssim
 from dataset.dataset import VoxCelebDataset
-from dataset.transforms import Resize, GrayScale, ToTensor, Normalize
-from models.network import Network
+from dataset.voxceleb_transforms import Resize, GrayScale, ToTensor, Normalize
+from models.creation_network import NetworkCreation
 from loggings.logger import Logger
 
-class Test():
-    def __init__(self, logger: Logger, options: Options, network: Network):
+class TesterCreation():
+    def __init__(self, logger: Logger, options: Options, network: NetworkCreation):
         self.logger = logger
         self.options = options
         self.network = network

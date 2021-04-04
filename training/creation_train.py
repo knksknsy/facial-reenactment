@@ -5,17 +5,17 @@ from torch.utils.data import DataLoader
 from datetime import datetime
 
 from configs.train_options import TrainOptions
-from testing.test import Test
+from testing.creation_test import TesterCreation
 from testing.ssim import calculate_ssim
 from testing.fid import FrechetInceptionDistance
 from dataset.dataset import VoxCelebDataset
-from dataset.transforms import Resize, GrayScale, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
-from models.network import Network
+from dataset.voxceleb_transforms import Resize, GrayScale, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
+from models.creation_network import NetworkCreation
 from models.utils import lr_linear_schedule, init_seed_state
 from loggings.logger import Logger
 
 
-class Train():
+class TrainerCreation():
     def __init__(self, logger: Logger, options: TrainOptions):
         self.logger = logger
         self.options = options
@@ -25,7 +25,7 @@ class Train():
         init_seed_state(self.options)
 
         self.data_loader_train = self._get_data_loader(train_format=self.training)
-        self.network = Network(self.logger, self.options, model_path=None)
+        self.network = NetworkCreation(self.logger, self.options, model_path=None)
 
         if self.options.metrics:
             self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1, batch_size=self.options.batch_size)
@@ -87,7 +87,7 @@ class Train():
             self._train(epoch)
 
             if self.options.test:
-                fid_val = Test(self.logger, self.options, self.network).test(epoch)
+                fid_val = TesterCreation(self.logger, self.options, self.network).test(epoch)
                 # Decrease LR if FID stagnates
                 if 'lr_plateau_decay' in self.options.config['train']['optimizer']:
                     self.network.scheduler_G.step(fid_val)

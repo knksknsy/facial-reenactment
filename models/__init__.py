@@ -1,4 +1,4 @@
-from .network import Network
+from .creation_network import NetworkCreation
 from .utils import init_weights, lr_linear_schedule, init_seed_state
 from .generator import Generator, LossG
 from .discriminator import Discriminator, LossD

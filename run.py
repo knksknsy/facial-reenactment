@@ -4,11 +4,11 @@ import torch
 
 from utils import Mode, Method
 from configs import TrainOptions, TestOptions, DatasetOptions, LogsOptions
-from training import Train
-from testing import Test
+from training import TrainerCreation
+from testing import TesterCreation
 from inference import Infer
 from dataset import PreprocessVoxCeleb, PreprocessFaceForensics
-from models import Network
+from models import NetworkCreation
 from loggings.logger import Logger
 from loggings.extract import LogsExtractor
 
@@ -20,8 +20,8 @@ def generate_images(experiments_root, options, logger):
         models = sorted([f for f in os.listdir(checkpoint_dir) if 'Generator' in f])
         for model in models:
             model_path = os.path.join(checkpoint_dir, model)
-            network = Network(logger, options, model_path=model_path)
-            Test(logger, options, network).generate(gen_dir, epoch=network.continue_epoch)
+            network = NetworkCreation(logger, options, model_path=model_path)
+            TesterCreation(logger, options, network).generate(gen_dir, epoch=network.continue_epoch)
 
 
 def main(mode, method, description: str):
@@ -49,7 +49,7 @@ def main(mode, method, description: str):
             logger = Logger(options)
             logger.init_writer()
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
-            Train(logger, options)
+            TrainerCreation(logger, options)
             if options.plots is not None:
                 LogsExtractor(logger, options, options.log_dir, multiples=False, video_per_model=True)
         elif method == Method.DETECTION:
@@ -64,15 +64,15 @@ def main(mode, method, description: str):
 
             # Test single model
             if options.model is not None:
-                network = Network(logger, options, model_path=options.model)
-                Test(logger, options, network).test(network.continue_epoch)
+                network = NetworkCreation(logger, options, model_path=options.model)
+                TesterCreation(logger, options, network).test(network.continue_epoch)
 
             # Test multiple models
             else:
                 models = sorted([f for f in os.listdir(options.checkpoint_dir) if 'Generator' in f])
                 for model in models:
-                    network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
-                    Test(logger, options, network).test(network.continue_epoch)
+                    network = NetworkCreation(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
+                    TesterCreation(logger, options, network).test(network.continue_epoch)
                 # generate_images(EXPERIMENTS_ROOT_DIR, options, logger)
         elif method == Method.DETECTION:
             raise NotImplementedError()

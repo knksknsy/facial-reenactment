@@ -9,7 +9,7 @@ from face_alignment import FaceAlignment, LandmarksType
 from dataset.utils import crop_frame, extract_frames, plot_landmarks, normalize
 from loggings.logger import Logger
 from configs.options import Options
-from models.network import Network
+from models.creation_network import NetworkCreation
 
 class Infer():
     def __init__(self, logger: Logger, options: Options, source: str, target: str, model_path: str):
@@ -19,7 +19,7 @@ class Infer():
         self.target = target
         self.model_path = model_path
 
-        self.network = Network(self.logger, self.options, self.model_path)
+        self.network = NetworkCreation(self.logger, self.options, self.model_path)
         self.network.eval()
 
         self.fa = FaceAlignment(LandmarksType._2D, device=self.options.device)

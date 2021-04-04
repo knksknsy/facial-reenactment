@@ -15,7 +15,7 @@ from models.generator import Generator, LossG
 from models.discriminator import Discriminator, LossD
 from loggings.logger import Logger
 
-class Network():
+class NetworkCreation():
     def __init__(self, logger: Logger, options: Options, model_path=None):
         self.logger = logger
         self.model_path = model_path

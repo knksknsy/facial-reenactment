@@ -89,3 +89,61 @@ class VoxCelebDataset(Dataset):
             sample = self.transform(sample)
 
         return sample
+
+
+class FaceForensicsDataset(Dataset):
+    """Dataset object for accessing and pre-processing FaceForensics dataset"""
+
+    def __init__(self, dataset_path, csv_file, image_size, channels, transform=None):
+        """
+        Instantiate the Dataset.
+
+        :param dataset_path: Path to the folder where the pre-processed dataset is stored.
+        :param csv_file: CSV file containing the triplet data-pairs.
+        :param transform: Transformations to be done to triplet data-pairs.
+        """
+        self.dataset_path = dataset_path
+        self.data_frame = pd.read_csv(csv_file)
+        self.image_size = image_size
+        self.channels = channels
+        self.transform = transform
+
+    def __len__(self):
+        """Return the length of the dataset"""
+        return len(self.data_frame)
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        # CSV structure:
+        # 0             1               2
+        # image_real,   label_real,     id_real
+
+        # 3             4               5
+        # image_fake,   label_fake,     id_fake
+
+        # 6
+        # method
+
+        image_cols = [0, 3]
+        label_cols = [1, 4]
+        id_cols = [2, 5]
+        method = self.data_frame.iloc[idx, -1]
+
+        image_real_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, image_cols[0]])
+        image_real = cv2.imread(image_real_path, cv2.IMREAD_COLOR)
+        label_real = self.data_frame.iloc[idx, label_cols[0]]
+        id_real = self.data_frame.iloc[idx, id_cols[0]]
+
+        image_fake_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, image_cols[1]])
+        image_fake = cv2.imread(image_fake_path, cv2.IMREAD_COLOR)
+        label_fake = self.data_frame.iloc[idx, label_cols[1]]
+        id_fake = self.data_frame.iloc[idx, id_cols[1]]
+
+        sample = {'image_real': image_real, 'image_fake': image_fake, 'label_real': label_real, 'label_fake': label_fake}
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
