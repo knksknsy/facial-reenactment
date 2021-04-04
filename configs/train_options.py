@@ -1,4 +1,5 @@
 import json
+from utils.utils import Method
 from configs import Options
 
 class TrainOptions(Options):
@@ -64,12 +65,6 @@ class TrainOptions(Options):
 
         self.parser.add_argument('--iterations', default=self.config['train']['iterations'], type=int, help='Limit iteration per epoch; 0: no limit, >0: limit')
 
-        self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'], help='Facial landmark type: boundary | keypoint')
-        self.check_error(self.config['train'], 'landmark_type', ['boundary', 'keypoint'])
-
-        self.parser.add_argument('--vgg_type', type=str, default=self.config['train']['vgg_type'], help='Perceptual network: vgg16 | vggface')
-        self.check_error(self.config['train'], 'vgg_type', ['vgg16', 'vggface'])
-
         self.parser.add_argument('--spec_norm', action='store_false' if self.config['train']['spec_norm'] else 'store_true')
 
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
@@ -78,43 +73,12 @@ class TrainOptions(Options):
 
         self.parser.add_argument('--horizontal_flip', action='store_false' if self.config['dataset']['augmentation']['horizontal_flip'] else 'store_true', help='Random horizontal flip when loading data.')
 
-        # ARGUMENTS: LOSS WEIGHT
-        self.parser.add_argument('--l_adv', default=self.config['train']['loss_weights']['l_adv'], type=float, help='Adversarial loss')
-
-        self.parser.add_argument('--l_rec', default=self.config['train']['loss_weights']['l_rec'], type=float, help='Reconstruction loss')
-
-        self.parser.add_argument('--l_self', default=self.config['train']['loss_weights']['l_self'], type=float, help='Cycle consistency loss')
-
-        self.parser.add_argument('--l_triple', default=self.config['train']['loss_weights']['l_triple'], type=float, help='Triple consistency loss')
-
-        self.parser.add_argument('--l_id', default=self.config['train']['loss_weights']['l_id'], type=float, help='Identity loss')
-
-        self.parser.add_argument('--l_percep', default=self.config['train']['loss_weights']['l_percep'], type=float, help='Perceptual loss')
-
-        self.parser.add_argument('--l_fm', default=self.config['train']['loss_weights']['l_fm'], type=float, help='Feature Matching loss')
-
-        self.parser.add_argument('--l_tv', default=self.config['train']['loss_weights']['l_tv'], type=float, help='Total variation loss')
-
-        self.parser.add_argument('--l_gp', default=self.config['train']['loss_weights']['l_gp'], type=float, help='Gradient penalty loss')
-
-        self.parser.add_argument('--l_gc', default=self.config['train']['loss_weights']['l_gc'], type=float, help='Gradient clipping value')
-
         # ARGUMENTS: HYPERPARAMETERS
         self.parser.add_argument('--batch_size', default=self.config['train']['batch_size'], type=int, help='Batch size')
 
         self.parser.add_argument('--epochs', default=self.config['train']['epochs'], type=int, help='Epochs to train')
 
-        self.parser.add_argument('--lr_g', default=self.config['train']['optimizer']['lr_g'], type=float, help='Learning rate of generator')
-
-        self.parser.add_argument('--lr_d', default=self.config['train']['optimizer']['lr_d'], type=float, help='Learning rate of discriminator')
-
         self.parser.add_argument('--grad_clip', default=self.config['train']['grad_clip'], type=float, help='Use gradient clipping')
-
-        self.parser.add_argument('--d_iters', default=self.config['train']['update_strategy']['d_iters'], type=int, help='Fixed update interval of discriminator')
-
-        self.parser.add_argument('--loss_coeff', default=self.config['train']['update_strategy']['loss_coeff'], type=int, help='Adaptive update interval of discriminator')
-
-        self.parser.add_argument('--conv_blocks_d', default=self.config['train']['conv_blocks_d'], type=int, help='Number of convolutional layers in discriminator: 4 | 6')
 
         # ARGUMENTS: OPTIMIZER
         self.parser.add_argument('--overwrite_optim', action='store_false' if self.config['train']['optimizer']['overwrite_optim'] else 'store_true', help='If flag is set, and training is continued from checkpoint, then the optimizer settings will be overwritten.')
@@ -126,18 +90,21 @@ class TrainOptions(Options):
         self.parser.add_argument('--weight_decay', default=self.config['train']['optimizer']['weight_decay'], type=float, help='Weight decay of optimizer')
 
         # ARGUMENTS: SCHEDULER
-        if 'lr_linear_decay' in self.config['train']['optimizer']:
-            self.parser.add_argument('--epoch_range', nargs='+', default=self.config['train']['optimizer']['lr_linear_decay']['epoch_range'], type=int, help='Schedule to decrease learning rate from epoch_start to epoch_end.')
-
-            self.parser.add_argument('--lr_g_end', default=self.config['train']['optimizer']['lr_linear_decay']['lr_g_end'], type=float, help='Last learning rate of generator. If lr_end is reached, the learning rate will no longer be changed.')
-
-            self.parser.add_argument('--lr_d_end', default=self.config['train']['optimizer']['lr_linear_decay']['lr_d_end'], type=float, help='Last learning rate of discriminator. If lr_end is reached, the learning rate will no longer be changed.')
-
         if 'lr_step_decay' in self.config['train']['optimizer']:
             self.parser.add_argument('--step_size', default=self.config['train']['optimizer']['lr_step_decay']['step_size'], type=int, help='Schedule to decrease learning rate every step_size.')
 
             self.parser.add_argument('--gamma', default=self.config['train']['optimizer']['lr_step_decay']['gamma'], type=float, help='Decrease learning rate by lr = lr * gamma')
-        
+
+        if 'lr_linear_decay' in self.config['train']['optimizer']:
+            self.parser.add_argument('--epoch_range', nargs='+', default=self.config['train']['optimizer']['lr_linear_decay']['epoch_range'], type=int, help='Schedule to decrease learning rate from epoch_start to epoch_end.')
+
+            if self.method == Method.CREATION:
+                self.parser.add_argument('--lr_g_end', default=self.config['train']['optimizer']['lr_linear_decay']['lr_g_end'], type=float, help='Last learning rate of generator. If lr_end is reached, the learning rate will no longer be changed.')
+                self.parser.add_argument('--lr_d_end', default=self.config['train']['optimizer']['lr_linear_decay']['lr_d_end'], type=float, help='Last learning rate of discriminator. If lr_end is reached, the learning rate will no longer be changed.')
+
+            elif self.method == Method.DETECTION:
+                self.parser.add_argument('--lr_end', default=self.config['train']['optimizer']['lr_linear_decay']['lr_end'], type=float, help='Last learning rate. If lr_end is reached, the learning rate will no longer be changed.')
+
         if 'lr_plateau_decay' in self.config['train']['optimizer']:
             self.parser.add_argument('--plateau_mode', type=str, default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_mode'], help='mode: min | max')
             self.check_error(self.config['train']['optimizer']['lr_plateau_decay'], 'plateau_mode', ['min', 'max'])
@@ -146,6 +113,55 @@ class TrainOptions(Options):
 
             self.parser.add_argument('--plateau_patience', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_patience'], type=int)
 
-            self.parser.add_argument('--plateau_min_lr_g', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr_g'], type=float)
+            if self.method == Method.CREATION:
+                self.parser.add_argument('--plateau_min_lr_g', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr_g'], type=float)
+                self.parser.add_argument('--plateau_min_lr_d', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr_d'], type=float)
+            
+            elif self.method == Method.DETECTION:
+                self.parser.add_argument('--plateau_min_lr', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr'], type=float)
 
-            self.parser.add_argument('--plateau_min_lr_d', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr_d'], type=float)
+        ##### CREATION #####
+        if self.method == Method.CREATION:
+            # ARGUMENTS: DATASET
+            self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'], help='Facial landmark type: boundary | keypoint')
+            self.check_error(self.config['train'], 'landmark_type', ['boundary', 'keypoint'])
+
+            self.parser.add_argument('--vgg_type', type=str, default=self.config['train']['vgg_type'], help='Perceptual network: vgg16 | vggface')
+            self.check_error(self.config['train'], 'vgg_type', ['vgg16', 'vggface'])
+
+            # ARGUMENTS: HYPERPARAMETERS
+            self.parser.add_argument('--lr_g', default=self.config['train']['optimizer']['lr_g'], type=float, help='Learning rate of generator')
+
+            self.parser.add_argument('--lr_d', default=self.config['train']['optimizer']['lr_d'], type=float, help='Learning rate of discriminator')
+
+            self.parser.add_argument('--d_iters', default=self.config['train']['update_strategy']['d_iters'], type=int, help='Fixed update interval of discriminator')
+
+            self.parser.add_argument('--loss_coeff', default=self.config['train']['update_strategy']['loss_coeff'], type=int, help='Adaptive update interval of discriminator')
+
+            self.parser.add_argument('--conv_blocks_d', default=self.config['train']['conv_blocks_d'], type=int, help='Number of convolutional layers in discriminator: 4 | 6')
+
+            # ARGUMENTS: LOSS WEIGHT
+            self.parser.add_argument('--l_adv', default=self.config['train']['loss_weights']['l_adv'], type=float, help='Adversarial loss')
+
+            self.parser.add_argument('--l_rec', default=self.config['train']['loss_weights']['l_rec'], type=float, help='Reconstruction loss')
+
+            self.parser.add_argument('--l_self', default=self.config['train']['loss_weights']['l_self'], type=float, help='Cycle consistency loss')
+
+            self.parser.add_argument('--l_triple', default=self.config['train']['loss_weights']['l_triple'], type=float, help='Triple consistency loss')
+
+            self.parser.add_argument('--l_id', default=self.config['train']['loss_weights']['l_id'], type=float, help='Identity loss')
+
+            self.parser.add_argument('--l_percep', default=self.config['train']['loss_weights']['l_percep'], type=float, help='Perceptual loss')
+
+            self.parser.add_argument('--l_fm', default=self.config['train']['loss_weights']['l_fm'], type=float, help='Feature Matching loss')
+
+            self.parser.add_argument('--l_tv', default=self.config['train']['loss_weights']['l_tv'], type=float, help='Total variation loss')
+
+            self.parser.add_argument('--l_gp', default=self.config['train']['loss_weights']['l_gp'], type=float, help='Gradient penalty loss')
+
+            self.parser.add_argument('--l_gc', default=self.config['train']['loss_weights']['l_gc'], type=float, help='Gradient clipping value')
+
+        ##### DETECTION #####
+        if self.method == Method.DETECTION:
+            # ARGUMENTS: HYPERPARAMETERS
+            self.parser.add_argument('--lr', default=self.config['train']['optimizer']['lr'], type=float, help='Learning rate')

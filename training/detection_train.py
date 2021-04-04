@@ -23,8 +23,9 @@ class TrainerDetection():
         init_seed_state(self.options)
 
         self.data_loader_train = self._get_data_loader()
-        # TODO: implement
-        self.network = NetworkDetection(self.logger, self.options, model_path=None)
+        # TODO: implement architecture
+        self.network = None
+        # self.network = NetworkDetection(self.logger, self.options, model_path=None)
 
         # Start training
         self()
@@ -38,6 +39,7 @@ class TrainerDetection():
             RandomRotate(self.options.rotation_angle) if self.options.rotation_angle > 0 else None,
             ToTensor(self.options.channels, self.options.device),
             Normalize(self.options.normalize[0], self.options.normalize[1])
+
         ]
         transforms_list = [t for t in transforms_list if t is not None]
 
@@ -49,7 +51,6 @@ class TrainerDetection():
             transforms.Compose(transforms_list)
         )
 
-        # TODO: batch size / 2
         data_loader_train = DataLoader(
             dataset_train,
             self.options.batch_size,
@@ -65,16 +66,17 @@ class TrainerDetection():
     def __call__(self):
         self.run_start = datetime.now()
 
-        self.iterations = self.network.continue_iteration
+        self.iterations = 0
+        # self.iterations = self.network.continue_iteration
 
         self.logger.log_info('===== TRAINING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'----- OPTIONS -----')
         self.logger.log_info(self.options)
         self.logger.log_info(f'Epochs: {self.options.epochs} Batches/Iterations: {len(self.data_loader_train)} Batch Size: {self.options.batch_size}')
-        self.logger.log_info(f'Learning Rate = {self.network.optimizer.param_groups[0]["lr"]}')
+        # self.logger.log_info(f'Learning Rate = {self.network.optimizer.param_groups[0]["lr"]}')
 
-        for epoch in range(self.network.continue_epoch, self.options.epochs):
+        for epoch in range(self.options.epochs):#range(self.network.continue_epoch, self.options.epochs):
             epoch_start = datetime.now()
 
             self._train(epoch)
@@ -97,7 +99,7 @@ class TrainerDetection():
 
 
     def _train(self, epoch):
-        self.network.train()
+        # self.network.train()
 
         # TRAIN EPOCH
         self._train_epoch(epoch)
@@ -123,54 +125,52 @@ class TrainerDetection():
 
 
     def _train_epoch(self, epoch):
-        loss = None
-
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
 
-            d_iters = self.options.d_iters
-            preds, features, loss, losses_dict = self.network.forward(batch)
+            batch = self.random_cat(batch)
+            preds, features, loss, losses_dict = None, None, None, None
+            #preds, features, loss, losses_dict = self.network.forward(batch)
 
             batch_end = datetime.now()
 
             # LOG PROGRESS
-            if loss is not None and (batch_num + 1) % d_iters == 0:
-                cur_it = str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))
-                total_it = len(self.data_loader_train) if self.options.iterations == 0 else self.options.iterations
+            cur_it = str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))
+            total_it = len(self.data_loader_train) if self.options.iterations == 0 else self.options.iterations
 
-                self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
-                                    f'Time: {batch_end - batch_start} | '
-                                    f'Loss = {loss:.4f}')
+            self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
+                                f'Time: {batch_end - batch_start} | '
+                                f'Loss = {loss:.4f}')
 
-                # LOG LOSSES G AND D
-                self.logger.log_scalars(losses_dict, self.iterations)
+            # LOG LOSSES G AND D
+            self.logger.log_scalars(losses_dict, self.iterations)
 
-                # LOG LATEST FEATURES
-                images_real = batch['images_real'].detach().clone()
-                images_fake = batch['images_fake'].detach().clone()
-                images_features = features.detach().clone()
-                images = torch.cat((images_real, images_fake, images_features), dim=0)
-                self.logger.save_image(self.options.gen_dir, f'0_last_result', images, nrow=self.options.batch_size)
+            # LOG LATEST FEATURES
+            images_real = batch['images_real'].detach().clone()
+            images_fake = batch['images_fake'].detach().clone()
+            images_features = features.detach().clone()
+            images = torch.cat((images_real, images_fake, images_features), dim=0)
+            self.logger.save_image(self.options.gen_dir, f'0_last_result', images, nrow=self.options.batch_size)
 
-                # LOG FEATURES
-                if (batch_num + 1) % self.options.log_freq == 0:
-                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}',
-                                            images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
-                    self.logger.log_image('Train/Features', images, self.iterations, nrow=self.options.batch_size)
+            # LOG FEATURES
+            if (batch_num + 1) % self.options.log_freq == 0:
+                self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}',
+                                        images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
+                self.logger.log_image('Train/Features', images, self.iterations, nrow=self.options.batch_size)
 
-                    # LOG EVALUATION METRICS
-                    if self.options.metrics:
-                        # val_time_start = datetime.now()
-                        # ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, self.fid.device)
-                        # val_time_end = datetime.now()
-                        # self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
-                        # self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
-                        # self.logger.log_scalar('FID Train', fid_train, self.iterations)
-                        del images_real, images_fake, images#, ssim_train, fid_train
-                    else:
-                        del images_real, images_fake, images
+                # LOG EVALUATION METRICS
+                if self.options.metrics:
+                    # val_time_start = datetime.now()
+                    # ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, self.fid.device)
+                    # val_time_end = datetime.now()
+                    # self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
+                    # self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
+                    # self.logger.log_scalar('FID Train', fid_train, self.iterations)
+                    del images_real, images_fake, images#, ssim_train, fid_train
                 else:
                     del images_real, images_fake, images
+            else:
+                del images_real, images_fake, images
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -183,3 +183,17 @@ class TrainerDetection():
                 break
 
         del loss, losses_dict
+
+
+    def random_cat(self, batch):
+        image_real, image_fake = batch['image_real'], batch['image_fake']
+        label_real, label_fake = batch['label_real'], batch['label_fake']
+
+        images = torch.cat((image_real, image_fake), dim=0)
+        labels = torch.cat((label_real, label_fake), dim=0)
+
+        indexes = torch.randperm(images.shape[0])
+        images = images[indexes]
+        labels = labels[indexes]
+        
+        return {'images': images, 'labels': labels}

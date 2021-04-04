@@ -11,7 +11,7 @@ from loggings.logger import Logger
 from configs.options import Options
 from models.creation_network import NetworkCreation
 
-class Infer():
+class InferCreation():
     def __init__(self, logger: Logger, options: Options, source: str, target: str, model_path: str):
         self.logger = logger
         self.options = options

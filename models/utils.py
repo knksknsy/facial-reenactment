@@ -1,7 +1,12 @@
 import os
+from datetime import datetime
 import torch
 import torch.nn as nn
+from torch.nn import DataParallel
 import numpy as np
+from typing import Tuple
+from torch.nn.modules.module import Module
+from torch.optim.optimizer import Optimizer
 
 from configs.options import Options
 
@@ -58,3 +63,50 @@ def init_seed_state(options: Options, model_name: str = 'Generator'):
             torch.set_rng_state(torch_seed_state)
         if numpy_seed_state is not None:
             np.random.set_state(numpy_seed_state)
+
+
+def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
+        filename = f'{type(model).__name__}_{options.continue_id}'
+        state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
+        model.load_state_dict(state_dict['model'])
+        optimizer.load_state_dict(state_dict['optimizer'])
+        if 'scheduler' in state_dict and state_dict['scheduler'] is not None and scheduler is not None:
+            scheduler.load_state_dict(state_dict['scheduler'])
+        epoch = state_dict['epoch'] + 1
+        iteration = state_dict['iteration']
+
+        if options.overwrite_optim:
+            optimizer.param_groups[0]['lr'] = options.lr_g if type(model).__name__ == 'Generator' else options.lr_d
+            optimizer.param_groups[0]['betas'] = (options.beta1, options.beta2)
+            optimizer.param_groups[0]['weight_decay'] = options.weight_decay
+
+        return model, optimizer, scheduler, epoch, iteration
+
+
+def save_model(self, model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
+    if time_for_name is None:
+        time_for_name = datetime.now()
+
+    m = model.module if isinstance(model, DataParallel) else model
+    # o = optimizer.module if isinstance(optimizer, DataParallel) else optimizer
+
+    m.eval()
+    if options.device == 'cuda':
+        m.cpu()
+
+    filename = f'{type(m).__name__}_t{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(3)}_i{str(iteration).zfill(8)}{ext}'
+    torch.save({
+            'model': m.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'scheduler': scheduler.state_dict() if scheduler is not None else None,
+            'epoch': epoch,
+            'iteration': iteration,
+            'numpy_seed_state': np.random.get_state(),
+            'torch_seed_state': torch.random.get_rng_state()
+        },
+        os.path.join(options.checkpoint_dir, filename)
+    )
+
+    if options.device == 'cuda':
+        m.to(options.device)
+    m.train()
