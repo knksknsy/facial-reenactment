@@ -2,7 +2,7 @@
 
 device: cuda
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 4                                    # >0: faster data loading, increased GPU usage
+num_workers: 0                                    # >0: faster data loading, increased GPU usage
 
 paths:
   log_dir: /home/kaan/facial-reenactment/logs
@@ -17,6 +17,7 @@ dataset:
   csv_train: ./dataset/faceforensics_dev.csv
   csv_test: ./dataset/faceforensics_test.csv
   image_size: 128
+  mask_size: 64
   channels: 3
   normalize: [0.0,1.0]                            # input normalization: [mean:0.0,std:1.0] -> min:0;max:1
   shuffle: true                                   # DataLoader: shuffle data

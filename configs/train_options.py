@@ -165,3 +165,6 @@ class TrainOptions(Options):
         if self.method == Method.DETECTION:
             # ARGUMENTS: HYPERPARAMETERS
             self.parser.add_argument('--lr', default=self.config['train']['optimizer']['lr'], type=float, help='Learning rate')
+
+            # ARGUMENTS: DATASET
+            self.parser.add_argument('--mask_size', default=self.config['dataset']['mask_size'], type=int, help='Mask size')

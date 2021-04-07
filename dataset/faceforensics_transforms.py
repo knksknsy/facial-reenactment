@@ -7,17 +7,21 @@ from dataset.utils import normalize
 class Resize(object):
     """Resize images and landmarks to given dimension."""
 
-    def __init__(self, size):
-        self.size = size
+    def __init__(self, image_size, mask_size):
+        self.image_size = image_size
+        self.mask_size = mask_size
 
 
     def __call__(self, sample):
         image_real, image_fake = sample['image_real'], sample['image_fake']
+        mask_real, mask_fake = sample['mask_real'], sample['mask_fake']
         
-        image_real = cv2.resize(image_real, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
-        image_fake = cv2.resize(image_fake, (self.size, self.size), interpolation=cv2.INTER_LINEAR)
+        image_real = cv2.resize(image_real, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+        image_fake = cv2.resize(image_fake, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+        mask_real = cv2.resize(mask_real, (self.mask_size, self.mask_size), interpolation=cv2.INTER_LINEAR)
+        mask_fake = cv2.resize(mask_fake, (self.mask_size, self.mask_size), interpolation=cv2.INTER_LINEAR)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
 
 
 class GrayScale(object):
@@ -29,7 +33,7 @@ class GrayScale(object):
         image_real = cv2.cvtColor(image_real, cv2.COLOR_BGR2GRAY)
         image_fake = cv2.cvtColor(image_fake, cv2.COLOR_BGR2GRAY)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': sample['mask_real'], 'mask_fake': sample['mask_fake'], 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
 
 
 class RandomHorizontalFlip(object):
@@ -41,11 +45,13 @@ class RandomHorizontalFlip(object):
             return sample
 
         image_real, image_fake = sample['image_real'], sample['image_fake']
+        mask_fake = sample['mask_fake']
             
         image_real = cv2.flip(image_real, flipCode=1)
         image_fake = cv2.flip(image_fake, flipCode=1)
+        mask_fake = cv2.flip(mask_fake, flipCode=1)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': sample['mask_real'], 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
 
 
 class RandomRotate(object):
@@ -57,12 +63,14 @@ class RandomRotate(object):
 
     def __call__(self, sample):
         image_real, image_fake = sample['image_real'], sample['image_fake']
+        mask_fake = sample['mask_fake']
 
         angle_tmp = np.clip(np.random.rand(1) * self.angle, -40.0, 40.0)
         image_real = self.affine_transform(image_real, angle_tmp)
         image_fake = self.affine_transform(image_fake, angle_tmp)
+        mask_fake = self.affine_transform(mask_fake, angle_tmp)
         
-        return {'image_real': image_real, 'image_fake': image_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': sample['mask_real'], 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
 
 
     def affine_transform(self, image, angle):
@@ -84,13 +92,18 @@ class ToTensor(object):
     def __call__(self, sample):
         image_real, image_fake = sample['image_real'], sample['image_fake']
         label_real, label_fake = sample['label_real'], sample['label_fake']
+        mask_real, mask_fake = sample['mask_real'], sample['mask_fake']
 
         if self.channels == 1:
             image_real, image_fake = image_real[:,:,None], image_fake[:,:,None]
+            
+        mask_real, mask_fake = mask_real[:,:,None], mask_fake[:,:,None]
 
         # Convert BGR to RGB
         image_real = np.ascontiguousarray(image_real.transpose(2, 0, 1).astype(np.float32))
         image_fake = np.ascontiguousarray(image_fake.transpose(2, 0, 1).astype(np.float32))
+        mask_real = np.ascontiguousarray(mask_real.transpose(2, 0, 1).astype(np.float32))
+        mask_fake = np.ascontiguousarray(mask_fake.transpose(2, 0, 1).astype(np.float32))
 
         label_real = np.ascontiguousarray(label_real).astype(np.float32)
         label_fake = np.ascontiguousarray(label_fake).astype(np.float32)
@@ -98,11 +111,13 @@ class ToTensor(object):
         # Convert to Tensor
         image_real = torch.from_numpy(image_real * (1.0 / 255.0)).to(self.device)
         image_fake = torch.from_numpy(image_fake * (1.0 / 255.0)).to(self.device)
+        mask_real = torch.from_numpy(mask_real * (1.0 / 255.0)).to(self.device)
+        mask_fake = torch.from_numpy(mask_fake * (1.0 / 255.0)).to(self.device)
         
         label_real = torch.from_numpy(label_real).to(self.device)
         label_fake = torch.from_numpy(label_fake).to(self.device)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'label_real': label_real, 'label_fake': label_fake}
+        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': label_real, 'label_fake': label_fake}
 
 
 class Normalize(object):
@@ -114,8 +129,11 @@ class Normalize(object):
 
     def __call__(self, sample):
         image_real, image_fake = sample['image_real'], sample['image_fake']
+        mask_real, mask_fake = sample['mask_real'], sample['mask_fake']
 
         image_real = normalize(image_real, self.mean, self.std)
         image_fake = normalize(image_fake, self.mean, self.std)
+        mask_real = normalize(mask_real, self.mean, self.std)
+        mask_fake = normalize(mask_fake, self.mean, self.std)
         
-        return {'image_real': image_real, 'image_fake': image_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}

@@ -29,8 +29,13 @@ class Options(ABC):
 
     
     def check_error(self, config, arg, choices):
-        if config[arg] not in choices:
-            self.parser.error(f'Ilegal value for --{arg}={config[arg]}! Allowed choices: {choices}')
+        if not isinstance(config[arg], list):
+            if config[arg] not in choices:
+                self.parser.error(f'Ilegal value for --{arg}={config[arg]}! Allowed choices: {choices}')
+        else:
+            for a in config[arg]:
+                if a not in choices:
+                    self.parser.error(f'Ilegal value for --{arg}={a}! Allowed choices: {choices}')
 
 
     def _load_config(self):

@@ -20,12 +20,12 @@ class TesterDetection():
         self.network.eval()
 
 
-    def _get_data_loader(self, train_format):
+    def _get_data_loader(self):
         transforms_list = [
-            Resize(self.options.image_size, train_format),
-            GrayScale(train_format) if self.options.channels <= 1 else None,
-            ToTensor(self.options.channels, self.options.device, train_format),
-            Normalize(self.options.normalize[0], self.options.normalize[1], train_format)
+            Resize(self.options.image_size, self.options.mask_size),
+            GrayScale() if self.options.channels <= 1 else None,
+            ToTensor(self.options.channels, self.options.device),
+            Normalize(self.options.normalize[0], self.options.normalize[1])
         ]
         transforms_list = [t for t in transforms_list if t is not None]
 

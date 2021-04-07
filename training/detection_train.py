@@ -33,7 +33,7 @@ class TrainerDetection():
 
     def _get_data_loader(self):
         transforms_list = [
-            Resize(self.options.image_size),
+            Resize(self.options.image_size, self.options.mask_size),
             GrayScale() if self.options.channels <= 1 else None,
             RandomHorizontalFlip() if self.options.horizontal_flip else None,
             RandomRotate(self.options.rotation_angle) if self.options.rotation_angle > 0 else None,
@@ -129,8 +129,7 @@ class TrainerDetection():
             batch_start = datetime.now()
 
             batch = self.random_cat(batch)
-            preds, features, loss, losses_dict = None, None, None, None
-            #preds, features, loss, losses_dict = self.network.forward(batch)
+            preds, features, loss, losses_dict = self.network.forward(batch)
 
             batch_end = datetime.now()
 
@@ -146,6 +145,7 @@ class TrainerDetection():
             self.logger.log_scalars(losses_dict, self.iterations)
 
             # LOG LATEST FEATURES
+            # x = torch.cat((x,)*3, dim=1) for masks
             images_real = batch['images_real'].detach().clone()
             images_fake = batch['images_fake'].detach().clone()
             images_features = features.detach().clone()
@@ -187,13 +187,16 @@ class TrainerDetection():
 
     def random_cat(self, batch):
         image_real, image_fake = batch['image_real'], batch['image_fake']
+        mask_real, mask_fake = batch['mask_real'], batch['mask_fake']
         label_real, label_fake = batch['label_real'], batch['label_fake']
 
         images = torch.cat((image_real, image_fake), dim=0)
+        masks = torch.cat((mask_real, mask_fake), dim=0)
         labels = torch.cat((label_real, label_fake), dim=0)
 
         indexes = torch.randperm(images.shape[0])
         images = images[indexes]
+        masks = masks[indexes]
         labels = labels[indexes]
         
-        return {'images': images, 'labels': labels}
+        return {'images': images, 'masks': masks, 'labels': labels}

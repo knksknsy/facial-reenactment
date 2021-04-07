@@ -184,3 +184,35 @@ def pyplot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
         data = data[:,:,1]
 
     return data
+
+
+def plot_mask(landmarks, output_res, input_res):
+    if isinstance(output_res, int) and isinstance(input_res, int):
+        ratio = input_res / output_res
+        landmarks = landmarks / ratio
+    elif isinstance(output_res, tuple) and isinstance(input_res, tuple):
+        ratio_y = input_res[0] / output_res[0]
+        ratio_x = input_res[1] / output_res[1]
+        ratio = ratio_x / ratio_y
+        landmarks_y = landmarks[:,0] / ratio_y
+        landmarks_x = landmarks[:,1] / ratio_x
+        landmarks = np.stack((landmarks_y, landmarks_x), axis=1)
+
+    white = (255,255,255)
+    head_pts = list(np.arange(0,17,1))+[0]
+
+    if isinstance(output_res, int):
+        image = np.zeros((output_res, output_res, 1), dtype=np.float32)
+    elif isinstance(output_res, tuple):
+        image = np.zeros((output_res[0], output_res[1], 1), dtype=np.float32)
+
+    shape_pts = []
+    for i in range(len(head_pts) - 1):
+        pt = [int(landmarks[head_pts[i]][0]), int(landmarks[head_pts[i]][1])]
+        shape_pts.append(pt)
+
+    shape_pts = np.asarray(shape_pts, dtype=np.int32)[None,:,:]
+    image = cv2.fillPoly(image, shape_pts, white)
+    image = cv2.GaussianBlur(image, (5,5), 0)
+
+    return image

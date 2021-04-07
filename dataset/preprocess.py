@@ -10,7 +10,7 @@ from face_alignment import FaceAlignment, LandmarksType
 
 from configs import DatasetOptions
 from loggings.logger import Logger
-from dataset.utils import crop_frame, extract_frames
+from dataset.utils import crop_frame, extract_frames, plot_landmarks
 
 ##### START PreprocessVoxCeleb #####
 class PreprocessVoxCeleb():
@@ -351,7 +351,7 @@ class PreprocessFaceForensics():
         if not os.path.isfile(csv_path):
             self.logger.log_info(f'Creating CSV file {csv_path}.')
 
-            header = ['image_real', 'label_real', 'id_real', 'image_fake', 'label_fake', 'id_fake', 'method\n']
+            header = ['image_real', 'label_real', 'id_real', 'image_fake', 'label_fake', 'id_fake', 'landmark_fake', 'method\n']
             with open(csv_path, 'a') as csv_file:
                 csv_file.write(','.join(header))
         else:
@@ -424,14 +424,16 @@ class PreprocessFaceForensics():
         for i, (frame_fake, frame_real) in enumerate(zip(frames_fake, frames_real)):
             cur_filename_fake = filename_fake.replace('.mp4', f'_{i}.png')
             cur_filename_real = filename_real.replace('.mp4', f'_{i}.png')
+            cur_filename_landmark = filename_fake.replace('.mp4', f'_{i}.npy')
 
-            image_fake = crop_face(frame_fake, frames_fake_total, fa=_FA, padding=self.padding, padding_color=self.padding_color, output_res=self.output_res, method='cv2')
+            image_fake, landmark_fake = detect_face(frame_fake, frames_fake_total, fa=_FA, padding=self.padding, padding_color=self.padding_color, output_res=self.output_res, method='cv2')
             self.save_frame(image_fake, os.path.join(output_path, output_fake_path), cur_filename_fake)
+            np.save(os.path.join(output_path, output_fake_path, cur_filename_landmark), landmark_fake)
 
             image_real = crop_face(frame_real, frames_real_total, fa=_FA, padding=self.padding, padding_color=self.padding_color, output_res=self.output_res, method='cv2')
             self.save_frame(image_real, os.path.join(output_path, output_real_path), cur_filename_real)
 
-            csv_line = [os.path.join(output_real_path, cur_filename_real), '1', id_real, os.path.join(output_fake_path, cur_filename_fake), '0', id_fake, method + '\n']
+            csv_line = [os.path.join(output_real_path, cur_filename_real), '1', id_real, os.path.join(output_fake_path, cur_filename_fake), '0', id_fake, os.path.join(output_fake_path, cur_filename_landmark), method + '\n']
             with open(csv, 'a') as csv_file:
                 csv_file.write(','.join(csv_line))
 

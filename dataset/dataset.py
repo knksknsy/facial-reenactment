@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 from torch.utils.data import Dataset
-from dataset.utils import plot_landmarks
+from dataset.utils import plot_landmarks, plot_mask
 
 class VoxCelebDataset(Dataset):
     """Dataset object for accessing and pre-processing VoxCeleb2 dataset"""
@@ -123,25 +123,28 @@ class FaceForensicsDataset(Dataset):
         # 3             4               5
         # image_fake,   label_fake,     id_fake
 
-        # 6
-        # method
+        # 6             7
+        # landmark_fake method
 
         image_cols = [0, 3]
         label_cols = [1, 4]
         id_cols = [2, 5]
+        landmark_fake_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, -2])
         method = self.data_frame.iloc[idx, -1]
 
         image_real_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, image_cols[0]])
         image_real = cv2.imread(image_real_path, cv2.IMREAD_COLOR)
+        mask_real = np.zeros((self.image_size, self.image_size, 1), dtype=np.float32)
         label_real = self.data_frame.iloc[idx, label_cols[0]]
         id_real = self.data_frame.iloc[idx, id_cols[0]]
 
         image_fake_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, image_cols[1]])
         image_fake = cv2.imread(image_fake_path, cv2.IMREAD_COLOR)
+        mask_fake = plot_mask(landmarks=np.load(landmark_fake_path), output_res=self.image_size, input_res=image_fake.shape[0])
         label_fake = self.data_frame.iloc[idx, label_cols[1]]
         id_fake = self.data_frame.iloc[idx, id_cols[1]]
 
-        sample = {'image_real': image_real, 'image_fake': image_fake, 'label_real': label_real, 'label_fake': label_fake}
+        sample = {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': label_real, 'label_fake': label_fake}
 
         if self.transform:
             sample = self.transform(sample)
