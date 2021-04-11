@@ -1,6 +1,6 @@
 #!/bin/sh
-CONFIG="./configs/config_creation.yaml"
-PLOTS="./configs/plots_creation.json"
+CONFIG="./configs/config_detection.yaml"
+#PLOTS="./configs/plots_detection.json"
 
 CHECKPOINT_DIR="$(cat $CONFIG | grep checkpoint_dir)"
 CHECKPOINT_DIR="${CHECKPOINT_DIR#*": "}" # Remove yaml property; Keep value
@@ -9,7 +9,7 @@ DO=1
 while [ $DO -eq 1 ]
     do
         # Start training
-        python run.py train creation --config $CONFIG --plots $PLOTS
+        python run.py train detection --config $CONFIG #--plots $PLOTS
         # Get stdout and stderr
         RESULT=$?
 
@@ -18,7 +18,7 @@ while [ $DO -eq 1 ]
         if [ $RESULT -ne 0 ]; then
             # Get latest checkpoint
             LATEST_CHECKPOINT="$(ls -t $CHECKPOINT_DIR | head -n 1)"
-            LATEST_CHECKPOINT="${LATEST_CHECKPOINT#"Discriminator_"}"
+            LATEST_CHECKPOINT="${LATEST_CHECKPOINT#"SiameseResNet_"}"
             
             # Add LATEST_CHECKPOINT to config.yaml
             sed -i "s/continue_id.*/continue_id: $LATEST_CHECKPOINT/" $CONFIG

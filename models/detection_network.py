@@ -11,8 +11,10 @@ from torch.optim.optimizer import Optimizer
 from configs import Options
 from loggings.logger import Logger
 from models.utils import load_model, save_model
+from models.siamese_resnet import LossSiamese, SiameseResNet
+from dataset.dataset import get_pair_classification, get_pair_contrastive
 
-class NetworkDetection(nn.Module):
+class NetworkDetection():
     def __init__(self, logger: Logger, options: Options, model_path=None):
         super(NetworkDetection, self).__init__()
         self.logger = logger
@@ -24,26 +26,29 @@ class NetworkDetection(nn.Module):
 
         # Testing mode
         if self.model_path is not None:
+            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature)
             state_dict = torch.load(self.model_path)
-            self.load_state_dict(state_dict['model'])
+            self.siamese_net.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
 
-            self.criterion = LossDetection(self.logger, self.options)
+            self.criterion = LossSiamese(self.logger, margin=self.options.margin)
 
         # Training mode
         else:
+            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature)
+
             # Print model summaries
-            self.logger.log_info('===== DETECTOR ARCHITECTURE =====')
-            self.logger.log_info(self)
+            self.logger.log_info('===== SIAMESE NETWORK ARCHITECTURE =====')
+            self.logger.log_info(self.siamese_net)
 
             # Load networks into multiple GPUs
             if torch.cuda.device_count() > 1:
-                self = DataParallel(self)
+                self = DataParallel(self.siamese_net)
 
-            self.criterion = LossDetection(self.logger, self.options)
+            self.criterion = LossSiamese(self.options, margin=self.options.margin)
 
             self.optimizer = Adam(
-                params=self.parameters(),
+                params=self.siamese_net.parameters(),
                 lr=self.options.lr,
                 betas=(self.options.beta1, self.options.beta2),
                 weight_decay=self.options.weight_decay
@@ -64,31 +69,39 @@ class NetworkDetection(nn.Module):
                     mode=self.options.plateau_mode,
                     factor=self.options.plateau_factor,
                     patience=self.options.plateau_patience,
-                    cooldown=2*self.options.plateau_patience,
                     min_lr=self.options.plateau_min_lr
                 )
 
             if self.options.continue_id is not None:
-                self.optimizer, self.scheduler, self.continue_epoch, self.continue_iteration = self.load_model(self.optimizer, self.scheduler, self.options)
+                self.optimizer, self.scheduler, self.continue_epoch, self.continue_iteration = self.load_model(self.siamese_net, self.optimizer, self.scheduler, self.options)
 
 
-    def __call__(self, images_real, images_fake, labels_real, labels_fake, batch = None, calc_loss: bool = True):
+    def __call__(self, images, labels=None):
         # During inference
-        if not calc_loss:
+        if labels is not None:
             with torch.no_grad():
-                return self.forward(batch)
+                return self.siamese_net.forward_preds(images)
         # During testing
         else:
-            preds, features, loss, losses_dict = self.get_loss(images_real, images_fake, labels_real, labels_fake)
-            return preds, features, loss, losses_dict
+            preds = self.siamese_net.forward_preds(images)
+            loss = self.criterion.bce_loss(preds, labels)
+            preds, loss
 
 
-    def forward(self, batch):
-        self.zero_grad()
+    def forward(self, batch, batch_num: int, epoch: int):
+        self.siamese_net.zero_grad()
 
-        # Forward
+        if epoch > self.options.epochs_contrastive:
+            pairs1, pairs2, labels = get_pair_contrastive(batch, real_pair=(batch_num % 2 == 1), device=self.options.device)
+            vec1, vec2 = self.siamese_net.forward_feats(pairs1, pairs2)
+            loss = self.criterion.contrastive_loss(vec1, vec2, labels)
 
-        loss, losses_dict = self.criterion()
+        # Train classifier
+        else:
+            images, labels = get_pair_classification(batch)
+            preds = self.siamese_net.forward_preds(images)
+            loss = self.criterion.bce_loss(preds, labels)
+
         loss.backward()
 
         if self.options.grad_clip:
@@ -96,15 +109,15 @@ class NetworkDetection(nn.Module):
 
         self.optimizer.step()
 
-        return None
+        return loss.detach().item()
 
 
-    def get_loss(self, batch):
-        with torch.no_grad():
-            # Forward
+    def train(self):
+        self.siamese_net.train()
 
-            loss, losses_dict = self.criterion_G()
-            return None
+
+    def eval(self):
+        self.siamese_net.eval()
 
 
     def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
@@ -117,16 +130,3 @@ class NetworkDetection(nn.Module):
         filename = f'{type(model).__name__}_t{time_for_name:%Y%m%d_%H%M}_e{str(epoch).zfill(3)}_i{str(iteration).zfill(8)}{ext}'
         save_model(model, optimizer, scheduler, epoch, iteration, options, ext, time_for_name)
         self.logger.log_info(f'Model saved: {filename}')
-
-
-class LossDetection(nn.Module):
-    def __init__(self, logger: Logger, options: Options):
-        super(LossDetection, self).__init__()
-        self.logger = logger
-        self.options = options
-
-        self.to(self.options.device)
-
-
-    def forward():
-        pass

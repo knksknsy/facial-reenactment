@@ -55,7 +55,7 @@ def main(mode, method, description: str):
                     LogsExtractor(logger, options, options.log_dir, multiples=False, video_per_model=True)
 
             elif method == Method.DETECTION:
-                options.batch_size, options.batch_size_test = options.batch_size // 2, options.batch_size_test // 2
+                # options.batch_size, options.batch_size_test = options.batch_size // 2, options.batch_size_test // 2
                 TrainerDetection(logger, options)
 
         ##### TESTING #####

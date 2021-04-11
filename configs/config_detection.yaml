@@ -26,17 +26,19 @@ dataset:
     rotation_angle: 15                            # >0: randomly rotate data
 
 train:
-  test: true                                      # test model after each epoch
+  test: false                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
-  continue_id: null
+  continue_id: 
   seed: 57
-  epochs: 30
+  epochs: 20
+  epochs_contrastive: 5                           # Two-step pairwise learning strategy: Number of epochs to learn features first then learn classification
   batch_size: 8
-  iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
+  len_feature: 128                                # Length of feature vector
+  iterations: 1250                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
   checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
-  spec_norm: false                                # use spectral normalization
-  grad_clip: 1                                    # use gradient clipping
+  margin: 0.5
+  grad_clip: 0                                    # use gradient clipping
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
     lr: 1.0e-4
@@ -49,11 +51,11 @@ train:
     # lr_step_decay:                                # step based learning rate schedule
     #   step_size: 10                               # decay learning rate every epoch = step_size
     #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma
-    # lr_plateau_decay:                             # plateau based learning rate schedule: see torch.optim.lr_scheduler.ReduceLROnPlateau
-    #   plateau_mode: 'min'
-    #   plateau_factor: 0.1
-    #   plateau_patience: 10
-    #   plateau_min_lr: 1.0e-6
+    lr_plateau_decay:                             # plateau based learning rate schedule: see torch.optim.lr_scheduler.ReduceLROnPlateau
+      plateau_mode: 'min'
+      plateau_factor: 0.1
+      plateau_patience: 10
+      plateau_min_lr: 1.0e-6
 
 test:
   batch_size_test: 32

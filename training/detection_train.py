@@ -1,3 +1,4 @@
+from math import e
 import torch
 
 from torchvision import transforms
@@ -6,7 +7,7 @@ from datetime import datetime
 
 from configs.train_options import TrainOptions
 from testing.detection_test import TesterDetection
-from dataset.dataset import FaceForensicsDataset
+from dataset.dataset import FaceForensicsDataset, get_pair_classification, get_pair_contrastive
 from dataset.faceforensics_transforms import Resize, GrayScale, RandomHorizontalFlip, RandomRotate, ToTensor, Normalize
 from models.detection_network import NetworkDetection
 from models.utils import lr_linear_schedule, init_seed_state
@@ -23,9 +24,7 @@ class TrainerDetection():
         init_seed_state(self.options)
 
         self.data_loader_train = self._get_data_loader()
-        # TODO: implement architecture
-        self.network = None
-        # self.network = NetworkDetection(self.logger, self.options, model_path=None)
+        self.network = NetworkDetection(self.logger, self.options, model_path=None)
 
         # Start training
         self()
@@ -44,6 +43,7 @@ class TrainerDetection():
         transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_train = FaceForensicsDataset(
+            self.options.max_frames,
             self.options.dataset_train,
             self.options.csv_train,
             self.options.image_size,
@@ -66,22 +66,21 @@ class TrainerDetection():
     def __call__(self):
         self.run_start = datetime.now()
 
-        self.iterations = 0
-        # self.iterations = self.network.continue_iteration
+        self.iterations = self.network.continue_iteration
 
         self.logger.log_info('===== TRAINING =====')
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
         self.logger.log_info(f'----- OPTIONS -----')
         self.logger.log_info(self.options)
         self.logger.log_info(f'Epochs: {self.options.epochs} Batches/Iterations: {len(self.data_loader_train)} Batch Size: {self.options.batch_size}')
-        # self.logger.log_info(f'Learning Rate = {self.network.optimizer.param_groups[0]["lr"]}')
+        self.logger.log_info(f'Learning Rate = {self.network.optimizer.param_groups[0]["lr"]}')
 
-        for epoch in range(self.options.epochs):#range(self.network.continue_epoch, self.options.epochs):
+        for epoch in range(self.network.continue_epoch, self.options.epochs):
             epoch_start = datetime.now()
 
             self._train(epoch)
 
-            if self.options.test:
+            if self.options.test and epoch >= self.options.epochs_contrastive:
                 # TODO: implement
                 monitor_val = TesterDetection(self.logger, self.options, self.network).test(epoch)
                 # Decrease LR if monitor_val stagnates
@@ -99,7 +98,7 @@ class TrainerDetection():
 
 
     def _train(self, epoch):
-        # self.network.train()
+        self.network.train()
 
         # TRAIN EPOCH
         self._train_epoch(epoch)
@@ -127,50 +126,37 @@ class TrainerDetection():
     def _train_epoch(self, epoch):
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
-
-            batch = self.random_cat(batch)
-            preds, features, loss, losses_dict = self.network.forward(batch)
-
+            loss = self.network.forward(batch, batch_num, epoch)
             batch_end = datetime.now()
 
             # LOG PROGRESS
             cur_it = str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))
             total_it = len(self.data_loader_train) if self.options.iterations == 0 else self.options.iterations
 
-            self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
+            # LOG LOSS
+            if epoch < self.options.epochs_contrastive:
+                self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
                                 f'Time: {batch_end - batch_start} | '
-                                f'Loss = {loss:.4f}')
+                                f'Loss (Contrastive) = {loss:.4f}')
+                self.logger.log_scalar('Loss_Contrastive', loss, self.iterations)
+            else:
+                self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
+                                f'Time: {batch_end - batch_start} | '
+                                f'Loss (BCE) = {loss:.4f}')
+                self.logger.log_scalar('Loss_BCE', loss, self.iterations)
 
-            # LOG LOSSES G AND D
-            self.logger.log_scalars(losses_dict, self.iterations)
-
-            # LOG LATEST FEATURES
-            # x = torch.cat((x,)*3, dim=1) for masks
-            images_real = batch['images_real'].detach().clone()
-            images_fake = batch['images_fake'].detach().clone()
-            images_features = features.detach().clone()
-            images = torch.cat((images_real, images_fake, images_features), dim=0)
-            self.logger.save_image(self.options.gen_dir, f'0_last_result', images, nrow=self.options.batch_size)
-
-            # LOG FEATURES
+            # LOG EVALUATION
             if (batch_num + 1) % self.options.log_freq == 0:
-                self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}',
-                                        images, epoch=epoch, iteration=self.iterations, nrow=self.options.batch_size)
-                self.logger.log_image('Train/Features', images, self.iterations, nrow=self.options.batch_size)
-
-                # LOG EVALUATION METRICS
                 if self.options.metrics:
+                    # TODO
+                    print(True)
                     # val_time_start = datetime.now()
                     # ssim_train, fid_train = self.evaluate_metrics(images_real, images_fake, self.fid.device)
                     # val_time_end = datetime.now()
                     # self.logger.log_info(f'Validation: Time: {val_time_end - val_time_start} | SSIM = {ssim_train:.4f} | FID = {fid_train:.4f}')
                     # self.logger.log_scalar('SSIM Train', ssim_train, self.iterations)
                     # self.logger.log_scalar('FID Train', fid_train, self.iterations)
-                    del images_real, images_fake, images#, ssim_train, fid_train
-                else:
-                    del images_real, images_fake, images
-            else:
-                del images_real, images_fake, images
+                    #, ssim_train, fid_train
 
             # # SAVE MODEL
             # if (batch_num + 1) % self.options.checkpoint_freq == 0:
@@ -182,21 +168,4 @@ class TrainerDetection():
             if self.options.iterations > 0 and (batch_num + 1) % self.options.iterations == 0:
                 break
 
-        del loss, losses_dict
-
-
-    def random_cat(self, batch):
-        image_real, image_fake = batch['image_real'], batch['image_fake']
-        mask_real, mask_fake = batch['mask_real'], batch['mask_fake']
-        label_real, label_fake = batch['label_real'], batch['label_fake']
-
-        images = torch.cat((image_real, image_fake), dim=0)
-        masks = torch.cat((mask_real, mask_fake), dim=0)
-        labels = torch.cat((label_real, label_fake), dim=0)
-
-        indexes = torch.randperm(images.shape[0])
-        images = images[indexes]
-        masks = masks[indexes]
-        labels = labels[indexes]
-        
-        return {'images': images, 'masks': masks, 'labels': labels}
+        del loss

@@ -30,6 +30,7 @@ class TesterDetection():
         transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_test = FaceForensicsDataset(
+            self.options.max_frames,
             self.options.dataset_test,
             self.options.csv_test,
             self.options.image_size,

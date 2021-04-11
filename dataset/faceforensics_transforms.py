@@ -13,27 +13,52 @@ class Resize(object):
 
 
     def __call__(self, sample):
-        image_real, image_fake = sample['image_real'], sample['image_fake']
-        mask_real, mask_fake = sample['mask_real'], sample['mask_fake']
+        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
         
-        image_real = cv2.resize(image_real, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+        # anchor = cv2.resize(anchor, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+        # positive = cv2.resize(positive, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+        # negative = cv2.resize(negative, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+
+        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
+        image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
+        mask_real1, mask_real2, mask_fake = sample['mask_real1'], sample['mask_real2'], sample['mask_fake']
+        
+        image_real1 = cv2.resize(image_real1, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+        image_real2 = cv2.resize(image_real2, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
         image_fake = cv2.resize(image_fake, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
-        mask_real = cv2.resize(mask_real, (self.mask_size, self.mask_size), interpolation=cv2.INTER_LINEAR)
+        mask_real1 = cv2.resize(mask_real1, (self.mask_size, self.mask_size), interpolation=cv2.INTER_LINEAR)
+        mask_real2 = cv2.resize(mask_real2, (self.mask_size, self.mask_size), interpolation=cv2.INTER_LINEAR)
         mask_fake = cv2.resize(mask_fake, (self.mask_size, self.mask_size), interpolation=cv2.INTER_LINEAR)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {
+            'image_real1': image_real1, 'image_real2': image_real2, 'image_fake': image_fake,
+            'mask_real1': mask_real1, 'mask_real2': mask_real2, 'mask_fake': mask_fake,
+            'label_real1': sample['label_real1'], 'label_real2': sample['label_real2'], 'label_fake': sample['label_fake']
+        }
 
 
 class GrayScale(object):
     """Convert RGB tensor to grayscale"""
 
     def __call__(self, sample):
-        image_real, image_fake = sample['image_real'], sample['image_fake']
+        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
+        
+        # anchor = cv2.cvtColor(anchor, cv2.COLOR_BGR2GRAY)
+        # positive = cv2.cvtColor(positive, cv2.COLOR_BGR2GRAY)
+        # negative = cv2.cvtColor(negative, cv2.COLOR_BGR2GRAY)
 
-        image_real = cv2.cvtColor(image_real, cv2.COLOR_BGR2GRAY)
+        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
+        image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
+
+        image_real1 = cv2.cvtColor(image_real1, cv2.COLOR_BGR2GRAY)
+        image_real2 = cv2.cvtColor(image_real2, cv2.COLOR_BGR2GRAY)
         image_fake = cv2.cvtColor(image_fake, cv2.COLOR_BGR2GRAY)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': sample['mask_real'], 'mask_fake': sample['mask_fake'], 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {
+            'image_real1': image_real1, 'image_real2': image_real2, 'image_fake': image_fake,
+            'mask_real1': sample['mask_real1'], 'mask_real2': sample['mask_real2'], 'mask_fake': sample['mask_fake'],
+            'label_real1': sample['label_real1'], 'label_real2': sample['label_real2'], 'label_fake': sample['label_fake']
+        }
 
 
 class RandomHorizontalFlip(object):
@@ -44,14 +69,26 @@ class RandomHorizontalFlip(object):
         if not flip:
             return sample
 
-        image_real, image_fake = sample['image_real'], sample['image_fake']
+        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
+        
+        # anchor = cv2.flip(anchor, flipCode=1)
+        # positive = cv2.flip(positive, flipCode=1)
+        # negative = cv2.flip(negative, flipCode=1)
+
+        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
+        image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         mask_fake = sample['mask_fake']
             
-        image_real = cv2.flip(image_real, flipCode=1)
+        image_real1 = cv2.flip(image_real1, flipCode=1)
+        image_real2 = cv2.flip(image_real2, flipCode=1)
         image_fake = cv2.flip(image_fake, flipCode=1)
         mask_fake = cv2.flip(mask_fake, flipCode=1)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': sample['mask_real'], 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {
+            'image_real1': image_real1, 'image_real2': image_real2, 'image_fake': image_fake,
+            'mask_real1': sample['mask_real1'], 'mask_real2': sample['mask_real2'], 'mask_fake': mask_fake,
+            'label_real1': sample['label_real1'], 'label_real2': sample['label_real2'], 'label_fake': sample['label_fake']
+        }
 
 
 class RandomRotate(object):
@@ -62,15 +99,27 @@ class RandomRotate(object):
 
 
     def __call__(self, sample):
-        image_real, image_fake = sample['image_real'], sample['image_fake']
+        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
+        
+        # anchor = self.affine_transform(anchor, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
+        # positive = self.affine_transform(positive, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
+        # negative = self.affine_transform(negative, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
+
+        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
+        image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         mask_fake = sample['mask_fake']
 
         angle_tmp = np.clip(np.random.rand(1) * self.angle, -40.0, 40.0)
-        image_real = self.affine_transform(image_real, angle_tmp)
+        image_real1 = self.affine_transform(image_real1, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
+        image_real2 = self.affine_transform(image_real2, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
         image_fake = self.affine_transform(image_fake, angle_tmp)
         mask_fake = self.affine_transform(mask_fake, angle_tmp)
         
-        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': sample['mask_real'], 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+        return {
+            'image_real1': image_real1, 'image_real2': image_real2, 'image_fake': image_fake,
+            'mask_real1': sample['mask_real1'], 'mask_real2': sample['mask_real2'], 'mask_fake': mask_fake,
+            'label_real1': sample['label_real1'], 'label_real2': sample['label_real2'], 'label_fake': sample['label_fake']
+        }
 
 
     def affine_transform(self, image, angle):
@@ -90,34 +139,61 @@ class ToTensor(object):
 
 
     def __call__(self, sample):
-        image_real, image_fake = sample['image_real'], sample['image_fake']
-        label_real, label_fake = sample['label_real'], sample['label_fake']
-        mask_real, mask_fake = sample['mask_real'], sample['mask_fake']
+        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
+
+        # if self.channels == 1:
+        #     anchor, positive, negative = anchor[:,:,None], positive[:,:,None], negative[:,:,None]
+
+        # # Convert BGR to RGB
+        # anchor = np.ascontiguousarray(anchor.transpose(2, 0, 1).astype(np.float32))
+        # positive = np.ascontiguousarray(positive.transpose(2, 0, 1).astype(np.float32))
+        # negative = np.ascontiguousarray(negative.transpose(2, 0, 1).astype(np.float32))
+        
+        # # Convert to Tensor
+        # anchor = torch.from_numpy(anchor * (1.0 / 255.0)).to(self.device)
+        # positive = torch.from_numpy(positive * (1.0 / 255.0)).to(self.device)
+        # negative = torch.from_numpy(negative * (1.0 / 255.0)).to(self.device)
+
+        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
+
+        image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
+        label_real1, label_real2, label_fake = sample['label_real1'], sample['label_real2'], sample['label_fake']
+        mask_real1, mask_real2, mask_fake = sample['mask_real1'], sample['mask_real2'], sample['mask_fake']
 
         if self.channels == 1:
-            image_real, image_fake = image_real[:,:,None], image_fake[:,:,None]
+            image_real1, image_real2, image_fake = image_real1[:,:,None], image_real2[:,:,None], image_fake[:,:,None]
             
-        mask_real, mask_fake = mask_real[:,:,None], mask_fake[:,:,None]
+        mask_real1, mask_real2, mask_fake = mask_real1[:,:,None], mask_real2[:,:,None],  mask_fake[:,:,None]
 
         # Convert BGR to RGB
-        image_real = np.ascontiguousarray(image_real.transpose(2, 0, 1).astype(np.float32))
+        image_real1 = np.ascontiguousarray(image_real1.transpose(2, 0, 1).astype(np.float32))
+        image_real2 = np.ascontiguousarray(image_real2.transpose(2, 0, 1).astype(np.float32))
         image_fake = np.ascontiguousarray(image_fake.transpose(2, 0, 1).astype(np.float32))
-        mask_real = np.ascontiguousarray(mask_real.transpose(2, 0, 1).astype(np.float32))
+        mask_real1 = np.ascontiguousarray(mask_real1.transpose(2, 0, 1).astype(np.float32))
+        mask_real2 = np.ascontiguousarray(mask_real2.transpose(2, 0, 1).astype(np.float32))
         mask_fake = np.ascontiguousarray(mask_fake.transpose(2, 0, 1).astype(np.float32))
 
-        label_real = np.ascontiguousarray(label_real).astype(np.float32)
+        label_real1 = np.ascontiguousarray(label_real1).astype(np.float32)
+        label_real2 = np.ascontiguousarray(label_real2).astype(np.float32)
         label_fake = np.ascontiguousarray(label_fake).astype(np.float32)
         
         # Convert to Tensor
-        image_real = torch.from_numpy(image_real * (1.0 / 255.0)).to(self.device)
+        image_real1 = torch.from_numpy(image_real1 * (1.0 / 255.0)).to(self.device)
+        image_real2 = torch.from_numpy(image_real2 * (1.0 / 255.0)).to(self.device)
         image_fake = torch.from_numpy(image_fake * (1.0 / 255.0)).to(self.device)
-        mask_real = torch.from_numpy(mask_real * (1.0 / 255.0)).to(self.device)
+        mask_real1 = torch.from_numpy(mask_real1 * (1.0 / 255.0)).to(self.device)
+        mask_real2 = torch.from_numpy(mask_real2 * (1.0 / 255.0)).to(self.device)
         mask_fake = torch.from_numpy(mask_fake * (1.0 / 255.0)).to(self.device)
         
-        label_real = torch.from_numpy(label_real).to(self.device)
+        label_real1 = torch.from_numpy(label_real1).to(self.device)
+        label_real2 = torch.from_numpy(label_real2).to(self.device)
         label_fake = torch.from_numpy(label_fake).to(self.device)
 
-        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': label_real, 'label_fake': label_fake}
+        return {
+            'image_real1': image_real1, 'image_real2': image_real2, 'image_fake': image_fake,
+            'mask_real1': mask_real1, 'mask_real2': mask_real2, 'mask_fake': mask_fake,
+            'label_real1': label_real1, 'label_real2': label_real2, 'label_fake': label_fake
+        }
 
 
 class Normalize(object):
@@ -128,12 +204,26 @@ class Normalize(object):
 
 
     def __call__(self, sample):
-        image_real, image_fake = sample['image_real'], sample['image_fake']
-        mask_real, mask_fake = sample['mask_real'], sample['mask_fake']
+        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
 
-        image_real = normalize(image_real, self.mean, self.std)
+        # anchor = normalize(anchor, self.mean, self.std)
+        # positive = normalize(positive, self.mean, self.std)
+        # negative = normalize(negative, self.mean, self.std)
+
+        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
+
+        image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
+        mask_real1, mask_real2, mask_fake = sample['mask_real1'], sample['mask_real2'], sample['mask_fake']
+
+        image_real1 = normalize(image_real1, self.mean, self.std)
+        image_real2 = normalize(image_real2, self.mean, self.std)
         image_fake = normalize(image_fake, self.mean, self.std)
-        mask_real = normalize(mask_real, self.mean, self.std)
+        mask_real1 = normalize(mask_real1, self.mean, self.std)
+        mask_real2 = normalize(mask_real2, self.mean, self.std)
         mask_fake = normalize(mask_fake, self.mean, self.std)
-        
-        return {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': sample['label_real'], 'label_fake': sample['label_fake']}
+
+        return {
+            'image_real1': image_real1, 'image_real2': image_real2, 'image_fake': image_fake,
+            'mask_real1': mask_real1, 'mask_real2': mask_real2, 'mask_fake': mask_fake,
+            'label_real1': sample['label_real1'], 'label_real2': sample['label_real2'], 'label_fake': sample['label_fake']
+        }

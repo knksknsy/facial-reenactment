@@ -6,3 +6,6 @@ from .discriminator import Discriminator, LossD
 from .vgg import VGG16
 from .lightcnn import LightCNN
 from .components import ConvBlock, DownSamplingBlock, UpSamplingBlock, ResidualBlock
+from .resnet import ResNet
+from .siamese_resnet import SiameseResNet, LossSiamese
+from .densenet import DenseNet

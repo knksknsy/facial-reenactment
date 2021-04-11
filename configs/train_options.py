@@ -7,8 +7,14 @@ class TrainOptions(Options):
         super(TrainOptions, self).__init__(description, method)
         self._init_parser()
         self._parse_args()
+
         if self.plots is not None:
             self.plots = self._load_plots_config()
+
+        if self.method == Method.DETECTION:
+            assert self.batch_size % 2 == 0, 'Batch size must be an even integer'
+            self.batch_size = self.batch_size // 2
+
 
     def _load_plots_config(self):
         with open(self.plots) as f:
@@ -64,8 +70,6 @@ class TrainOptions(Options):
         self.parser.add_argument('--normalize', nargs='+', default=self.config['dataset']['normalize'], type=float, help='Image normalization: mean, std')
 
         self.parser.add_argument('--iterations', default=self.config['train']['iterations'], type=int, help='Limit iteration per epoch; 0: no limit, >0: limit')
-
-        self.parser.add_argument('--spec_norm', action='store_false' if self.config['train']['spec_norm'] else 'store_true')
 
         self.parser.add_argument('--shuffle', action='store_false' if self.config['dataset']['shuffle'] else 'store_true')
 
@@ -129,6 +133,8 @@ class TrainOptions(Options):
             self.parser.add_argument('--vgg_type', type=str, default=self.config['train']['vgg_type'], help='Perceptual network: vgg16 | vggface')
             self.check_error(self.config['train'], 'vgg_type', ['vgg16', 'vggface'])
 
+            self.parser.add_argument('--spec_norm', action='store_false' if self.config['train']['spec_norm'] else 'store_true')
+
             # ARGUMENTS: HYPERPARAMETERS
             self.parser.add_argument('--lr_g', default=self.config['train']['optimizer']['lr_g'], type=float, help='Learning rate of generator')
 
@@ -165,6 +171,12 @@ class TrainOptions(Options):
         if self.method == Method.DETECTION:
             # ARGUMENTS: HYPERPARAMETERS
             self.parser.add_argument('--lr', default=self.config['train']['optimizer']['lr'], type=float, help='Learning rate')
+
+            self.parser.add_argument('--margin', default=self.config['train']['margin'], type=float, help='Threshold m for contrastive loss.')
+
+            self.parser.add_argument('--epochs_contrastive', default=self.config['train']['epochs_contrastive'], type=int, help='Number of epochs to train features.')
+
+            self.parser.add_argument('--len_feature', default=self.config['train']['len_feature'], type=int, help='Length of feature vector.')
 
             # ARGUMENTS: DATASET
             self.parser.add_argument('--mask_size', default=self.config['dataset']['mask_size'], type=int, help='Mask size')

@@ -12,7 +12,7 @@ class LightCNN(nn.Module):
         self.options = options
         self.output_count = 2
         layers = [1, 2, 3, 4]
-        num_classes=79077
+        num_classes = 79077
 
         self.conv1  = mfm(1, 48, 5, 1, 2)
         self.pool1  = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
