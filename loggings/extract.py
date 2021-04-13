@@ -10,16 +10,17 @@ from matplotlib import ticker
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 from configs import LogsOptions
-from inference import InferCreation
+from utils.utils import Method
 from loggings.logger import Logger
 
 class LogsExtractor():
-    def __init__(self, logger: Logger, options: LogsOptions, experiments_path:str, multiples: bool, video_per_model: bool):
+    def __init__(self, logger: Logger, options: LogsOptions, experiments_path:str, multiples: bool, video_per_model: bool, method: Method):
         self.logger = logger
         self.options = options
         self.experiments_path = experiments_path
         self.video_per_model = video_per_model
         self.multiples = multiples
+        self.method = method
         self.overwrite_csv = self.options.overwrite_csv
         self.overwrite_plot = self.options.overwrite_plot
         self.overwrite_video = self.options.overwrite_video
@@ -226,6 +227,11 @@ class LogsExtractor():
 
 
     def save_video(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path, video_path):
+        if self.method == Method.CREATION:
+            from creation.inference import Infer
+        elif self.method == Method.DETECTION:
+            from detection.inference import Infer
+
         if not os.path.isdir(video_path):
             os.makedirs(video_path)
 
@@ -234,7 +240,7 @@ class LogsExtractor():
         if self.video_per_model:
             model_paths = sorted([os.path.join(checkpoints_path, f) for f in model_paths if not f.startswith('.') and 'Generator_' in f])
             for i, m in enumerate(model_paths):
-                infer = InferCreation(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, m)
+                infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, m)
                 infer.from_video(filename=f'e{str(i).zfill(3)}')
         
         # Create video for latest and best checkpoint
@@ -242,7 +248,7 @@ class LogsExtractor():
         model_paths = [f for f in os.listdir(checkpoints_path) if not f.startswith('.')]
         latest_epoch = (len(model_paths)//2) - 1
         model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(latest_epoch).zfill(3)}' in f and 'Generator_' in f][0]
-        infer = InferCreation(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
+        infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
         infer.from_video(filename=f'latest_e{str(latest_epoch).zfill(3)}', output_path=video_path)
 
         # Best checkpoint
@@ -251,5 +257,5 @@ class LogsExtractor():
         df = df.drop_duplicates(subset='step', keep='last')
         min_epoch = int(df.loc[df['value'].idxmin()]['step'])
         model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(min_epoch).zfill(3)}' in f and 'Generator_' in f][0]
-        infer = InferCreation(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
+        infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
         infer.from_video(filename=f'best_e{str(min_epoch).zfill(3)}', output_path=video_path)

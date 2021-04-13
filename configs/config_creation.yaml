@@ -14,8 +14,8 @@ paths:
 dataset:
   dataset_train: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/dev/
   dataset_test: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/
-  csv_train: ./dataset/dataset_crop_ids_dev.csv
-  csv_test: ./dataset/dataset_crop_test.csv
+  csv_train: ./csv/voxceleb_crop_ids_dev.csv
+  csv_test: ./csv/voxceleb_crop_test.csv
   image_size: 128
   channels: 3
   normalize: [0.5,0.5]                            # input normalization: [mean:0.5,std:0.5] -> min:-1;max:1

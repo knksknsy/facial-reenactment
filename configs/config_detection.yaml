@@ -14,8 +14,8 @@ paths:
 dataset:
   dataset_train: /home/kaan/datasets/FaceForensics/Preprocessed/dev/
   dataset_test: /home/kaan/datasets/FaceForensics/Preprocessed/test/
-  csv_train: ./dataset/faceforensics_dev.csv
-  csv_test: ./dataset/faceforensics_test.csv
+  csv_train: ./csv/faceforensics_dev.csv
+  csv_test: ./csv/faceforensics_test.csv
   image_size: 128
   mask_size: 64
   channels: 3

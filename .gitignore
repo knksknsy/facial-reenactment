@@ -6,7 +6,8 @@ generated_train/
 generated_test/
 outputs/
 inputs/
-models/pretrained/
+creation/models/pretrained/
+csv/
 
 # VS Code
 .vscode/

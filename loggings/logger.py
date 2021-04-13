@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 
 from configs.options import Options
-from dataset.utils import denormalize
+from utils.transforms import denormalize
 
 class Logger():
     def __init__(self, options: Options):
