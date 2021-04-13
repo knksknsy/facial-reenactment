@@ -50,13 +50,12 @@ def main(mode, method, description: str):
             if options.num_workers > 0: torch.multiprocessing.set_start_method('spawn')
 
             if method == Method.CREATION:
-                TrainerCreation(logger, options)
+                TrainerCreation(logger, options).start()
                 if options.plots is not None:
-                    LogsExtractor(logger, options, options.log_dir, multiples=False, video_per_model=True)
+                    LogsExtractor(logger, options, options.log_dir, multiples=False, video_per_model=True).start()
 
             elif method == Method.DETECTION:
-                # options.batch_size, options.batch_size_test = options.batch_size // 2, options.batch_size_test // 2
-                TrainerDetection(logger, options)
+                TrainerDetection(logger, options).start()
 
         ##### TESTING #####
         elif mode == Mode.TEST:
@@ -103,7 +102,7 @@ def main(mode, method, description: str):
             logger.init_writer()
 
             if method == Method.CREATION:            
-                LogsExtractor(logger, options, options.logs_dir, multiples=True, video_per_model=False)
+                LogsExtractor(logger, options, options.logs_dir, multiples=True, video_per_model=False).start()
             elif method == Method.DETECTION:
                 raise NotImplementedError()
 

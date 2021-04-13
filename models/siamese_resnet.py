@@ -1,4 +1,3 @@
-from models.components import ConvBlock
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -37,17 +36,17 @@ class SiameseResNet(nn.Module):
 
 
     # Siamese mode: get 2 feature vecs
-    def forward_feats(self, x1, x2):
+    def forward_feature(self, x1, x2):
         x1, _ = self.resnet(x1)
         x2, _ = self.resnet(x2)
         return x1, x2
 
 
     # Get prediction for single feature vec
-    def forward_preds(self, x):
+    def forward_classification(self, x):
         x, _ = self.resnet(x)
         x = self.classifier(x)
-        x = F.sigmoid(x)
+        x = torch.sigmoid(x)
         return x
 
 
@@ -76,11 +75,15 @@ class Unsqueeze(nn.Module):
 
 
 class LossSiamese(nn.Module):
-    def __init__(self, options: Options, margin: float):
+    def __init__(self, options: Options, type: str, margin: float):
         super(LossSiamese, self).__init__()
         self.options = options
-        self.contrastive_loss = ContrastiveLoss(margin)
         self.bce_loss = nn.BCELoss()
+
+        if type == 'contrastive':
+            self.loss = ContrastiveLoss(margin)
+        elif type == 'triplet':
+            self.loss = TripletLoss(margin)
 
         self.to(self.options.device)
 
@@ -91,7 +94,19 @@ class ContrastiveLoss(nn.Module):
         self.margin = margin
 
 
+    # TODO check implementation and paper
     def forward(self, vec1, vec2, label):
         distance = F.mse_loss(vec1, vec2, reduction='none')
         loss = torch.mean(0.5 * (label * distance.pow(2)) + (1 - label) * F.relu(self.margin - distance).pow(2))
+        return loss
+
+
+class TripletLoss(nn.Module):
+    def __init__(self, margin):
+        super(TripletLoss, self).__init__()
+        self.margin = margin
+
+
+    def forward(self, anchor, positive, negative):
+        loss = torch.mean(F.relu(F.mse_loss(anchor, positive, reduction='none') - F.mse_loss(anchor, negative, reduction='none') + self.margin))
         return loss

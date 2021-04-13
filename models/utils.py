@@ -65,7 +65,7 @@ def init_seed_state(options: Options, model_name: str = 'Generator'):
             np.random.set_state(numpy_seed_state)
 
 
-def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
+def load_model(model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
         filename = f'{type(model).__name__}_{options.continue_id}'
         state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
         model.load_state_dict(state_dict['model'])
@@ -83,7 +83,7 @@ def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, opt
         return model, optimizer, scheduler, epoch, iteration
 
 
-def save_model(self, model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
+def save_model(model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):
     if time_for_name is None:
         time_for_name = datetime.now()
 

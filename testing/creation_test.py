@@ -11,6 +11,7 @@ from dataset.dataset import VoxCelebDataset
 from dataset.voxceleb_transforms import Resize, GrayScale, ToTensor, Normalize
 from models.creation_network import NetworkCreation
 from loggings.logger import Logger
+from utils.utils import get_progress
 
 class TesterCreation():
     def __init__(self, logger: Logger, options: Options, network: NetworkCreation):
@@ -80,12 +81,15 @@ class TesterCreation():
 
             # LOG PROGRESS
             if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start}'
+                progress = get_progress(batch_num, len(self.data_loader_test))
+                message = f'{progress} | Time: {batch_end - batch_start}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
-                self.logger.log_info(f'{message} | '
-                                    f'SSIM = {ssim_val.mean().item():.4f} | '
-                                    f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}')
+                self.logger.log_info(
+                    f'{message} | '
+                    f'SSIM = {ssim_val.mean().item():.4f} | '
+                    f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}'
+                )
                 self.logger.log_scalar('SSIM Validation', ssim_val.mean().item(), iterations)
                 self.logger.log_scalars(losses_G_dict, iterations, tag_prefix='Test')
                 self.logger.log_scalars(losses_D_dict, iterations, tag_prefix='Test')
@@ -136,7 +140,8 @@ class TesterCreation():
 
             # LOG PROGRESS
             if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start} | Experiment: {gen_test_dir}'
+                progress = get_progress(batch_num, len(self.data_loader_test))
+                message = f'[{progress}] | Time: {batch_end - batch_start} | Experiment: {gen_test_dir}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
                 self.logger.log_info(message)

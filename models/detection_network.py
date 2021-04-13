@@ -12,7 +12,7 @@ from configs import Options
 from loggings.logger import Logger
 from models.utils import load_model, save_model
 from models.siamese_resnet import LossSiamese, SiameseResNet
-from dataset.dataset import get_pair_classification, get_pair_contrastive
+from dataset.dataset import get_pair_classification, get_pair_feature
 
 class NetworkDetection():
     def __init__(self, logger: Logger, options: Options, model_path=None):
@@ -31,7 +31,7 @@ class NetworkDetection():
             self.siamese_net.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
 
-            self.criterion = LossSiamese(self.logger, margin=self.options.margin)
+            self.criterion = LossSiamese(self.logger, type=self.options.loss_type, margin=self.options.margin)
 
         # Training mode
         else:
@@ -45,7 +45,7 @@ class NetworkDetection():
             if torch.cuda.device_count() > 1:
                 self = DataParallel(self.siamese_net)
 
-            self.criterion = LossSiamese(self.options, margin=self.options.margin)
+            self.criterion = LossSiamese(self.options, type=self.options.loss_type, margin=self.options.margin)
 
             self.optimizer = Adam(
                 params=self.siamese_net.parameters(),
@@ -80,35 +80,35 @@ class NetworkDetection():
         # During inference
         if labels is not None:
             with torch.no_grad():
-                return self.siamese_net.forward_preds(images)
+                return self.siamese_net.forward_classification(images)
         # During testing
         else:
-            preds = self.siamese_net.forward_preds(images)
+            preds = self.siamese_net.forward_classification(images)
             loss = self.criterion.bce_loss(preds, labels)
             preds, loss
 
 
-    def forward(self, batch, batch_num: int, epoch: int):
+    def forward_feature(self, x1, x2, target):
         self.siamese_net.zero_grad()
+        x1, x2 = self.siamese_net.forward_feature(x1, x2)
+        loss = self.criterion.loss(x1, x2, target)
+        return self.backward(loss)
 
-        if epoch > self.options.epochs_contrastive:
-            pairs1, pairs2, labels = get_pair_contrastive(batch, real_pair=(batch_num % 2 == 1), device=self.options.device)
-            vec1, vec2 = self.siamese_net.forward_feats(pairs1, pairs2)
-            loss = self.criterion.contrastive_loss(vec1, vec2, labels)
 
-        # Train classifier
-        else:
-            images, labels = get_pair_classification(batch)
-            preds = self.siamese_net.forward_preds(images)
-            loss = self.criterion.bce_loss(preds, labels)
+    def forward_classification(self, x, target):
+        self.siamese_net.zero_grad()
+        prediction = self.siamese_net.forward_classification(x)
+        loss = self.criterion.bce_loss(prediction, target)
+        return self.backward(loss), prediction
 
+
+    def backward(self, loss):
         loss.backward()
 
         if self.options.grad_clip:
             torch.nn.utils.clip_grad_norm_(self.parameters(), self.options.grad_clip, norm_type=2)
 
         self.optimizer.step()
-
         return loss.detach().item()
 
 

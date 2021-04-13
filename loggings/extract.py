@@ -23,9 +23,8 @@ class LogsExtractor():
         self.overwrite_csv = self.options.overwrite_csv
         self.overwrite_plot = self.options.overwrite_plot
         self.overwrite_video = self.options.overwrite_video
-        self()
 
-    def __call__(self):
+    def start(self):
         if not self.multiples:
             experiment_paths = [os.path.sep.join(self.experiments_path.split(os.path.sep)[:-1])]
             experiment_names = [self.experiments_path.split(os.path.sep)[-2]]

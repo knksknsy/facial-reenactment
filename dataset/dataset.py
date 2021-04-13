@@ -174,26 +174,25 @@ class FaceForensicsDataset(Dataset):
         return sample
 
 
-def get_pair_contrastive(batch, real_pair: bool, device: str):
-    batch_size = batch['image_real1'].shape[0]
-    assert batch_size % 2 == 0, 'batch_size must be even'
+def get_pair_feature(sample, real_pair: bool, device: str):
+    batch_size = sample['image_real1'].shape[0]
 
     if real_pair:
-        pair1 = batch['image_real1']
-        pair2 = batch['image_real2']
+        pair1 = sample['image_real1']
+        pair2 = sample['image_real2']
         labels = torch.ones((batch_size, 1)).to(device)
     else:
-        pair1 = batch['image_real1']
-        pair2 = batch['image_fake']
+        pair1 = sample['image_real1']
+        pair2 = sample['image_fake']
         labels = torch.zeros((batch_size, 1)).to(device)
 
     return pair1, pair2, labels
 
 
-def get_pair_classification(batch):
-    image_real, image_fake = batch['image_real1'], batch['image_fake']
-    mask_real, mask_fake = batch['mask_real1'], batch['mask_fake']
-    label_real, label_fake = batch['label_real1'], batch['label_fake']
+def get_pair_classification(sample):
+    image_real, image_fake = sample['image_real1'], sample['image_fake']
+    mask_real, mask_fake = sample['mask_real1'], sample['mask_fake']
+    label_real, label_fake = sample['label_real1'], sample['label_fake']
 
     images = torch.cat((image_real, image_fake), dim=0)
     masks = torch.cat((mask_real, mask_fake), dim=0)
@@ -207,56 +206,19 @@ def get_pair_classification(batch):
     return images, labels
 
 
-    # # For triple loss
-    # def __getitem__(self, idx):
-    #     if torch.is_tensor(idx):
-    #         idx = idx.tolist()
-        
-    #     # CSV structure:
-    #     # 0               1               2
-    #     # image_real,     label_real,     id_real
+# def get_triplet_feature(sample, real_pair: bool):
+#     batch_size = sample['image_real1'].shape[0]
+#     assert batch_size % 2 == 0, 'batch_size must be an even integer.'
 
-    #     # 3               4               5
-    #     # image_fake,     label_fake,     id_fake
+#     anchor1 = sample['image_real1'][:batch_size//2]
+#     positive1 = sample['image_real2'][:batch_size//2]
+#     negative1 = sample['image_fake'][:batch_size//2]
 
-    #     # 6               7
-    #     # landmark_fake   method
+#     anchor2 = sample['image_real1'][batch_size//2:]
+#     positive2 = sample['image_real2'][batch_size//2:]
+#     negative2 = sample['image_fake'][batch_size//2:]
 
-    #     image_cols = [0, 3]
-    #     label_cols = [1, 4]
-    #     id_cols = [2, 5]
-    #     method = self.data_frame.iloc[idx, -1]
+#     pair1 = {'anchor': anchor1, 'positive': positive1, 'negative': negative1}
+#     pair2 = {'anchor': anchor2, 'positive': positive2, 'negative': negative2}
 
-    #     # Anchor
-    #     image_anchor_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, image_cols[0]])
-    #     image_anchor = cv2.imread(image_anchor_path, cv2.IMREAD_COLOR)
-    #     mask_anchor = np.zeros((self.image_size, self.image_size, 1), dtype=np.float32)
-    #     label_anchor = self.data_frame.iloc[idx, label_cols[0]]
-    #     id_anchor = self.data_frame.iloc[idx, id_cols[0]]
-
-    #     # Positive
-    #     # Randomly select different frame of the same identity (from anchor)
-    #     anchor_num = int(re.search(r'_(.*?).png', image_anchor_path.split('/')[-1]).group(1))
-    #     idx_choice = list(range(self.num_images_per_identity))
-    #     idx_choice.remove(anchor_num)
-    #     image_pos_path = '/'.join(image_anchor_path.split('/')[:-1]) + '/' + id_anchor.replace('id', '') + '_' + str(np.random.choice(idx_choice, 1)[0]) + '.png'
-    #     image_pos = cv2.imread(image_pos_path, cv2.IMREAD_COLOR)
-    #     mask_pos = np.zeros((self.image_size, self.image_size, 1), dtype=np.float32)
-    #     label_pos = self.data_frame.iloc[idx, label_cols[0]]
-    #     id_pos = self.data_frame.iloc[idx, id_cols[0]]
-
-    #     # Negative
-    #     image_neg_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, image_cols[1]])
-    #     image_neg = cv2.imread(image_neg_path, cv2.IMREAD_COLOR)
-    #     landmark_neg_path = os.path.join(self.dataset_path, self.data_frame.iloc[idx, -2])
-    #     mask_neg = plot_mask(landmarks=np.load(landmark_neg_path), output_res=self.image_size, input_res=image_neg.shape[0])
-    #     label_neg = self.data_frame.iloc[idx, label_cols[1]]
-    #     id_neg = self.data_frame.iloc[idx, id_cols[1]]
-
-    #     sample = {'anchor': image_anchor, 'positive': image_pos, 'negative': image_neg}
-    #     # sample = {'image_real': image_real, 'image_fake': image_fake, 'mask_real': mask_real, 'mask_fake': mask_fake, 'label_real': label_real, 'label_fake': label_fake}
-
-    #     if self.transform:
-    #         sample = self.transform(sample)
-
-    #     return sample
+#     return pair1, pair2

@@ -13,13 +13,6 @@ class Resize(object):
 
 
     def __call__(self, sample):
-        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
-        
-        # anchor = cv2.resize(anchor, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
-        # positive = cv2.resize(positive, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
-        # negative = cv2.resize(negative, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
-
-        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
         image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         mask_real1, mask_real2, mask_fake = sample['mask_real1'], sample['mask_real2'], sample['mask_fake']
         
@@ -41,13 +34,6 @@ class GrayScale(object):
     """Convert RGB tensor to grayscale"""
 
     def __call__(self, sample):
-        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
-        
-        # anchor = cv2.cvtColor(anchor, cv2.COLOR_BGR2GRAY)
-        # positive = cv2.cvtColor(positive, cv2.COLOR_BGR2GRAY)
-        # negative = cv2.cvtColor(negative, cv2.COLOR_BGR2GRAY)
-
-        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
         image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
 
         image_real1 = cv2.cvtColor(image_real1, cv2.COLOR_BGR2GRAY)
@@ -69,13 +55,6 @@ class RandomHorizontalFlip(object):
         if not flip:
             return sample
 
-        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
-        
-        # anchor = cv2.flip(anchor, flipCode=1)
-        # positive = cv2.flip(positive, flipCode=1)
-        # negative = cv2.flip(negative, flipCode=1)
-
-        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
         image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         mask_fake = sample['mask_fake']
             
@@ -99,13 +78,6 @@ class RandomRotate(object):
 
 
     def __call__(self, sample):
-        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
-        
-        # anchor = self.affine_transform(anchor, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
-        # positive = self.affine_transform(positive, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
-        # negative = self.affine_transform(negative, np.clip(np.random.rand(1) * self.angle, -40.0, 40.0))
-
-        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
         image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         mask_fake = sample['mask_fake']
 
@@ -139,23 +111,6 @@ class ToTensor(object):
 
 
     def __call__(self, sample):
-        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
-
-        # if self.channels == 1:
-        #     anchor, positive, negative = anchor[:,:,None], positive[:,:,None], negative[:,:,None]
-
-        # # Convert BGR to RGB
-        # anchor = np.ascontiguousarray(anchor.transpose(2, 0, 1).astype(np.float32))
-        # positive = np.ascontiguousarray(positive.transpose(2, 0, 1).astype(np.float32))
-        # negative = np.ascontiguousarray(negative.transpose(2, 0, 1).astype(np.float32))
-        
-        # # Convert to Tensor
-        # anchor = torch.from_numpy(anchor * (1.0 / 255.0)).to(self.device)
-        # positive = torch.from_numpy(positive * (1.0 / 255.0)).to(self.device)
-        # negative = torch.from_numpy(negative * (1.0 / 255.0)).to(self.device)
-
-        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
-
         image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         label_real1, label_real2, label_fake = sample['label_real1'], sample['label_real2'], sample['label_fake']
         mask_real1, mask_real2, mask_fake = sample['mask_real1'], sample['mask_real2'], sample['mask_fake']
@@ -204,14 +159,6 @@ class Normalize(object):
 
 
     def __call__(self, sample):
-        # anchor, positive, negative = sample['anchor'], sample['positive'], sample['negative']
-
-        # anchor = normalize(anchor, self.mean, self.std)
-        # positive = normalize(positive, self.mean, self.std)
-        # negative = normalize(negative, self.mean, self.std)
-
-        # return {'anchor': anchor, 'positive': positive, 'negative': negative}
-
         image_real1, image_real2, image_fake = sample['image_real1'], sample['image_real2'], sample['image_fake']
         mask_real1, mask_real2, mask_fake = sample['mask_real1'], sample['mask_real2'], sample['mask_fake']
 

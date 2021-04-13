@@ -9,6 +9,7 @@ from dataset.dataset import FaceForensicsDataset
 from dataset.faceforensics_transforms import Resize, GrayScale, ToTensor, Normalize
 from models.detection_network import NetworkDetection
 from loggings.logger import Logger
+from utils.utils import get_progress
 
 class TesterDetection():
     def __init__(self, logger: Logger, options: Options, network: NetworkDetection):
@@ -76,12 +77,15 @@ class TesterDetection():
 
             # LOG PROGRESS
             if (batch_num + 1) % 1 == 0 or batch_num == 0:
-                message = f'[{batch_num + 1}/{len(self.data_loader_test)}] | Time: {batch_end - batch_start}'
+                progress = get_progress(batch_num, len(self.data_loader_test))
+                message = f'[{progress}] | Time: {batch_end - batch_start}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
-                self.logger.log_info(f'{message} | '
-                                    f'METRIC = {0:.4f} | '
-                                    f'Loss = {loss:.4f}')
+                self.logger.log_info(
+                    f'{message} | '
+                    f'METRIC = {0:.4f} | '
+                    f'Loss = {loss:.4f}'
+                )
                 self.logger.log_scalar('METRIC Validation', 0, iterations)
                 self.logger.log_scalars(losses_dict, iterations, tag_prefix='Test')
                 del loss, losses_dict

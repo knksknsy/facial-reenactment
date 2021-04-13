@@ -11,9 +11,10 @@ class TrainOptions(Options):
         if self.plots is not None:
             self.plots = self._load_plots_config()
 
-        if self.method == Method.DETECTION:
-            assert self.batch_size % 2 == 0, 'Batch size must be an even integer'
-            self.batch_size = self.batch_size // 2
+        # TODO: remove
+        # if self.method == Method.DETECTION:
+        #     assert self.batch_size % 2 == 0, 'Batch size must be an even integer'
+        #     self.batch_size = self.batch_size // 2
 
 
     def _load_plots_config(self):
@@ -31,8 +32,6 @@ class TrainOptions(Options):
         self.parser.add_argument('--num_workers', type=int, default=self.config['num_workers'])
 
         self.parser.add_argument('--continue_id', type=str, default=self.config['train']['continue_id'], help='Id of the models to continue training.')
-
-        self.parser.add_argument('--checkpoint_freq', type=int, default=self.config['train']['checkpoint_freq'], help='Frequency in which model checkpoints will be saved')
 
         self.parser.add_argument('--log_freq', type=int, default=self.config['train']['log_freq'], help='Frequency in which logs will be saved')
 
@@ -174,9 +173,12 @@ class TrainOptions(Options):
 
             self.parser.add_argument('--margin', default=self.config['train']['margin'], type=float, help='Threshold m for contrastive loss.')
 
-            self.parser.add_argument('--epochs_contrastive', default=self.config['train']['epochs_contrastive'], type=int, help='Number of epochs to train features.')
+            self.parser.add_argument('--epochs_feature', default=self.config['train']['epochs_feature'], type=int, help='Number of epochs to train features.')
 
             self.parser.add_argument('--len_feature', default=self.config['train']['len_feature'], type=int, help='Length of feature vector.')
+
+            self.parser.add_argument('--loss_type', type=str, default=self.config['train']['loss_type'], help='Loss type for feature extraction: contrastive | triplet')
+            self.check_error(self.config['train'], 'loss_type', ['contrastive', 'triplet'])
 
             # ARGUMENTS: DATASET
             self.parser.add_argument('--mask_size', default=self.config['dataset']['mask_size'], type=int, help='Mask size')

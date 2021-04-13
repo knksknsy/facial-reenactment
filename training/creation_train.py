@@ -13,6 +13,7 @@ from dataset.voxceleb_transforms import Resize, GrayScale, RandomHorizontalFlip,
 from models.creation_network import NetworkCreation
 from models.utils import lr_linear_schedule, init_seed_state
 from loggings.logger import Logger
+from utils.utils import get_progress
 
 
 class TrainerCreation():
@@ -31,9 +32,6 @@ class TrainerCreation():
             self.fid = FrechetInceptionDistance(self.options, device=self.options.device, data_loader_length=1, batch_size=self.options.batch_size)
         else:
             self.fid = None
-
-        # Start training
-        self()
 
 
     def _get_data_loader(self, train_format):
@@ -69,7 +67,7 @@ class TrainerCreation():
         return data_loader_train
 
 
-    def __call__(self):
+    def start(self):
         self.run_start = datetime.now()
 
         self.iterations = self.network.continue_iteration
@@ -92,9 +90,6 @@ class TrainerCreation():
                 if 'lr_plateau_decay' in self.options.config['train']['optimizer']:
                     self.network.scheduler_G.step(fid_val)
                     self.network.scheduler_D.step(fid_val)
-
-            # # Free unused memory
-            # torch.cuda.empty_cache()
 
             # Create new tensorboard event for each epoch
             self.logger.init_writer(filename_suffix=f'.{str(epoch+1)}')
@@ -203,12 +198,12 @@ class TrainerCreation():
 
             # LOG PROGRESS
             if loss_G is not None and loss_D is not None and (batch_num + 1) % d_iters == 0:
-                cur_it = str(batch_num + 1).zfill(len(str(len(self.data_loader_train))))
-                total_it = len(self.data_loader_train) if self.options.iterations == 0 else self.options.iterations
-
-                self.logger.log_info(f'Epoch {epoch + 1}: [{cur_it}/{total_it}] | '
-                                    f'Time: {batch_end - batch_start} | '
-                                    f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}')
+                progress = get_progress(batch_num, len(self.data_loader_train), limit=self.options.iterations if self.options.iterations > 0 else None)
+                self.logger.log_info(
+                    f'Epoch {epoch + 1}: {progress} | '
+                    f'Time: {batch_end - batch_start} | '
+                    f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}'
+                )
 
                 # LOG LOSSES G AND D
                 self.logger.log_scalars(losses_G_dict, self.iterations)
@@ -241,11 +236,6 @@ class TrainerCreation():
                         del images_generated, images_real, images_fake, images, images_source, landmarks_target
                 else:
                     del images_generated, images_real, images_fake, images, images_source, landmarks_target
-
-            # # SAVE MODEL
-            # if (batch_num + 1) % self.options.checkpoint_freq == 0:
-            #     self.network.save_model(self.network.G, self.network.optimizer_G, epoch, self.iterations, self.options, self.run_start)
-            #     self.network.save_model(self.network.D, self.network.optimizer_D, epoch, self.iterations, self.options, self.run_start)
 
             self.iterations += 1
 

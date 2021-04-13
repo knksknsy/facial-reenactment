@@ -32,7 +32,6 @@ train:
   epochs: 30
   batch_size: 8
   iterations: 5000                                # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
-  checkpoint_freq: 5000                           # frequency [iterations] to save checkpoints
   log_freq: 1000                                  # frequency [iterations] to log generated images
   landmark_type: boundary                         # 'boundary' or 'keypoint'
   vgg_type: vgg16                                 # vgg16 or vggface
