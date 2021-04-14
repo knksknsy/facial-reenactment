@@ -11,11 +11,6 @@ class TrainOptions(Options):
         if self.plots is not None:
             self.plots = self._load_plots_config()
 
-        # TODO: remove
-        # if self.method == Method.DETECTION:
-        #     assert self.batch_size % 2 == 0, 'Batch size must be an even integer'
-        #     self.batch_size = self.batch_size // 2
-
 
     def _load_plots_config(self):
         with open(self.plots) as f:
@@ -176,6 +171,8 @@ class TrainOptions(Options):
             self.parser.add_argument('--epochs_feature', default=self.config['train']['epochs_feature'], type=int, help='Number of epochs to train features.')
 
             self.parser.add_argument('--len_feature', default=self.config['train']['len_feature'], type=int, help='Length of feature vector.')
+
+            self.parser.add_argument('--hidden_layer_num_features', default=self.config['train']['hidden_layer_num_features'], type=int, help='Length of hidden layer of classifier.')
 
             self.parser.add_argument('--loss_type', type=str, default=self.config['train']['loss_type'], help='Loss type for feature extraction: contrastive | triplet')
             self.check_error(self.config['train'], 'loss_type', ['contrastive', 'triplet'])

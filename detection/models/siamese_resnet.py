@@ -14,11 +14,9 @@ class SiameseResNet(nn.Module):
     def __init__(self, options: Options, len_feature: int):
         super(SiameseResNet, self).__init__()
         self.options = options
+        num_feature = self.options.hidden_layer_num_features
 
         self.resnet = ResNet(BasicBlock, [2, 2, 2, 2], len_feature=len_feature)
-
-        # TODO: add to options
-        num_feature = 256
 
         classifier = []
         classifier.append(Unsqueeze(1))
@@ -94,7 +92,6 @@ class ContrastiveLoss(nn.Module):
         self.margin = margin
 
 
-    # TODO check implementation and paper
     def forward(self, vec1, vec2, label):
         distance = F.mse_loss(vec1, vec2, reduction='none')
         loss = torch.mean(0.5 * (label * distance.pow(2)) + (1 - label) * F.relu(self.margin - distance).pow(2))

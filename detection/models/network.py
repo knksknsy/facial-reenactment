@@ -86,17 +86,25 @@ class Network():
             preds, loss
 
 
-    def forward_feature(self, x1, x2, target):
+    def forward_feature(self, x1, x2, target, backward: bool = True):
         self.siamese_net.zero_grad()
         x1, x2 = self.siamese_net.forward_feature(x1, x2)
         loss = self.criterion.loss(x1, x2, target)
+
+        if not backward:
+            return loss.detach().item()
+
         return self.backward(loss)
 
 
-    def forward_classification(self, x, target):
+    def forward_classification(self, x, target, backward: bool = True):
         self.siamese_net.zero_grad()
         prediction = self.siamese_net.forward_classification(x)
         loss = self.criterion.bce_loss(prediction, target)
+
+        if not backward:
+            return loss.detach().item(), prediction
+
         return self.backward(loss), prediction
 
 

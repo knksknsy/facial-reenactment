@@ -2,7 +2,7 @@
 
 device: cuda
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 0                                    # >0: faster data loading, increased GPU usage
+num_workers: 4                                    # >0: faster data loading, increased GPU usage
 
 paths:
   log_dir: /home/kaan/facial-reenactment/logs
@@ -26,17 +26,18 @@ dataset:
     rotation_angle: 15                            # >0: randomly rotate data
 
 train:
-  test: false                                      # test model after each epoch
+  test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
   continue_id: 
   seed: 57
   epochs: 20
   epochs_feature: 5                           # Two-step pairwise learning strategy: Number of epochs to learn features first then learn classification
   loss_type: 'contrastive'                        # Loss type for feature extraction: contrastive | triplet
-  batch_size: 8
-  len_feature: 128                                # Length of feature vector
+  batch_size: 128
+  len_feature: 128                                # Length of feature vector of feature extractor
+  hidden_layer_num_features: 128                  # Length of feature vector of classifier
   iterations: 0                                   # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
-  log_freq: 50                                    # frequency [iterations] to log generated images
+  log_freq: 5                                    # frequency [iterations] to log generated images
   margin: 0.5
   grad_clip: 0                                    # use gradient clipping
   optimizer:
@@ -58,9 +59,9 @@ train:
       plateau_min_lr: 1.0e-6
 
 test:
-  batch_size_test: 32
+  batch_size_test: 2
   shuffle_test: false                             # shuffle DataLoader during testing
-  log_freq_test: 10
+  log_freq_test: 100
   num_workers_test: 2
 
 logs:
