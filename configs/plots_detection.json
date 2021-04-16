@@ -1,0 +1,183 @@
+{
+    "config": {
+        "size": [
+            500,
+            500
+        ],
+        "format": ".pdf",
+        "grid": true,
+        "sci_ticks": true,
+        "ignore_outliers": false,
+        "smooth": {
+            "rolling": 15,
+            "alpha": 0.33
+        }
+    },
+    "plots": [
+        {
+            "keys": [
+                "loss_contr_real",
+                "loss_contr_fake",
+                "loss_contr"
+            ],
+            "legends": [
+                "real",
+                "fake",
+                "sum"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF",
+                "#000000"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Contrastive Loss",
+            "filename": "loss_contrastive"
+        },
+        {
+            "keys": [
+                "test_loss_contr_real",
+                "test_loss_contr_fake",
+                "test_loss_contr"
+            ],
+            "legends": [
+                "real (val)",
+                "fake (val)",
+                "sum (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF",
+                "#000000"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Contrastive Loss",
+            "filename": "test_loss_contrastive"
+        },
+        {
+            "keys": [
+                "loss_feature",
+                "test_loss_feature"
+            ],
+            "legends": [
+                "total",
+                "total (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Total Loss Feature",
+            "filename": "loss_feature"
+        },
+        {
+            "keys": [
+                "loss_bce",
+                "test_loss_bce"
+            ],
+            "legends": [
+                "loss",
+                "loss (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Binary Cross Entropy Loss",
+            "filename": "loss_bce"
+        },
+        {
+            "keys": [
+                "loss_class",
+                "test_loss_class"
+            ],
+            "legends": [
+                "total",
+                "total (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Total Loss Classification",
+            "filename": "loss_class"
+        },
+        {
+            "keys": [
+                "loss_mask",
+                "test_loss_mask"
+            ],
+            "legends": [
+                "mask",
+                "mask (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Mask Loss",
+            "filename": "loss_mask"
+        },
+        {
+            "keys": [
+                "accuracy",
+                "test_accuracy"
+            ],
+            "legends": [
+                "acc",
+                "acc (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Accuracy",
+            "filename": "accuracy"
+        },
+        {
+            "keys": [
+                "auc",
+                "test_auc"
+            ],
+            "legends": [
+                "auc",
+                "auc (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "AUC",
+            "filename": "auc"
+        },
+        {
+            "keys": [
+                "lr"
+            ],
+            "legends": [
+                "LR"
+            ],
+            "colors": [
+                "#FF0000"
+            ],
+            "smoothing": false,
+            "xlabel": "Epoch",
+            "ylabel": "Learning Rate Schedules",
+            "filename": "learning_rate"
+        }
+    ]
+}

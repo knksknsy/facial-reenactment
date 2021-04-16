@@ -8,7 +8,7 @@ from sklearn.metrics import roc_curve, auc
 from configs.train_options import TrainOptions
 from utils.models import lr_linear_schedule, init_seed_state
 from loggings.logger import Logger
-from utils.utils import get_progress
+from utils.utils import add_losses, avg_losses, get_progress, init_class_losses, init_feature_losses
 
 from ..testing.test import Tester
 from ..dataset.dataset import FaceForensicsDataset, get_pair_classification, get_pair_feature
@@ -23,7 +23,7 @@ class Trainer():
         self.training = True
 
         torch.backends.cudnn.benchmark = True
-        init_seed_state(self.options)
+        init_seed_state(self.options, model_name='SiameseResNet')
 
         self.network = Network(self.logger, self.options, model_path=None)
 
@@ -79,15 +79,15 @@ class Trainer():
             if self.options.test:
                 test = Tester(self.logger, self.options, self.network)
                 # Test feature extraction
+                if epoch < self.options.epochs_feature:
+                    test.test_feature(epoch)
+
+                # Test classification
                 if epoch >= self.options.epochs_feature:
                     accuracy = test.test_classification(epoch)
                     # Decrease LR if accuracy stagnates
                     if 'lr_plateau_decay' in self.options.config['train']['optimizer']:
                         self.network.scheduler.step(accuracy)
-
-                # Test classification
-                if epoch < self.options.epochs_feature:
-                    test.test_feature(epoch)
 
             # Create new tensorboard event for each epoch
             self.logger.init_writer(filename_suffix=f'.{str(epoch+1)}')
@@ -104,10 +104,10 @@ class Trainer():
 
         # Train feature extractor for epochs_feature epochs
         if epoch < self.options.epochs_feature:
-            self._train_feature(self.network.continue_epoch)
+            self._train_feature(epoch)
         # Train classification for remaining epochs (epochs - epochs_feature)
         else:
-            self._train_classification(self.network.continue_epoch)
+            self._train_classification(epoch)
 
         # Schedule learning rate
         if 'lr_linear_decay' in self.options.config['train']['optimizer']:
@@ -137,39 +137,33 @@ class Trainer():
 
     def _train_feature(self, epoch: int):
         self.data_loader_train = self._get_data_loader()
-        epoch_loss, epoch_loss_real, epoch_loss_fake = 0.0, 0.0, 0.0
-        run_loss, run_loss_real, run_loss_fake = 0.0, 0.0, 0.0
+        batch_size = self.options.batch_size
+
+        run_loss = init_feature_losses()
+        epoch_loss = init_feature_losses()
 
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
             real_pair = (batch_num + 1) % 2 == 1
-            x1, x2, target = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
-            loss = self.network.forward_feature(x1, x2, target)
+            loss, losses_dict, mask1, mask2 = self.network.forward_feature(batch, real_pair=real_pair)
             batch_end = datetime.now()
 
             # LOSS
-            run_loss += loss
-            epoch_loss += x1.shape[0] * loss
-
-            if real_pair:
-                run_loss_real += loss
-                epoch_loss_real += x1.shape[0] * loss
-            else:
-                run_loss_fake += loss
-                epoch_loss_fake += x1.shape[0] * loss
+            run_loss = add_losses(run_loss, losses_dict)
+            epoch_loss = add_losses(epoch_loss, losses_dict, batch_size)
 
             # LOG RUN LOSS
             if (batch_num + 1) % self.options.log_freq == 0:
                 progress = get_progress(batch_num, len(self.data_loader_train), limit=self.options.iterations if self.options.iterations > 0 else None)
-                self.logger.log_info(
-                    f'Epoch {epoch + 1}: {progress} | '
-                    f'Time: {batch_end - batch_start} | '
-                    f'Loss (Contrastive): '
-                    f'Total = {(run_loss / self.options.log_freq):.8f} '
-                    f'Real = {(run_loss_real / self.options.log_freq / 2):.8f} '
-                    f'Fake = {(run_loss_fake / self.options.log_freq / 2):.8f} '
-                )
-                run_loss, run_loss_real, run_loss_fake = 0.0, 0.0, 0.0
+                self.logger.log_info(f'Epoch {epoch + 1}: {progress} | Time: {batch_end - batch_start}')
+                run_loss = avg_losses(run_loss, self.options.log_freq)
+                self.logger.log_infos(run_loss)
+                run_loss = init_feature_losses()
+                # LOG MASK
+                _, _, _, m1, m2, = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
+                images = torch.cat((mask1.detach().clone(), m1.detach().clone(), mask2.detach().clone(), m2.detach().clone()), dim=0)
+                self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
+                self.logger.log_image('Train_Mask_Feature', images, self.iterations, nrow=batch_size)
 
             # Limit iterations per epoch
             self.iterations += 1
@@ -177,21 +171,20 @@ class Trainer():
                 break
 
         # LOG EPOCH LOSS
-        epoch_loss = epoch_loss / (self.iterations * self.options.batch_size)
-        epoch_loss_real = epoch_loss_real / (self.iterations * self.options.batch_size / 2)
-        epoch_loss_fake = epoch_loss_fake / (self.iterations * self.options.batch_size / 2)
-        self.logger.log_info(f'Epoch {epoch + 1}: Loss (Contrastive): Total = {epoch_loss} Real = {epoch_loss_real} Fake = {epoch_loss_fake}')
-        self.logger.log_scalar('Loss_Contrastive', epoch_loss, epoch)
-        self.logger.log_scalar('Loss_Contrastive_Real', epoch_loss_real, epoch)
-        self.logger.log_scalar('Loss_Contrastive_Fake', epoch_loss_fake, epoch)
+        epoch_loss = avg_losses(epoch_loss, self.iterations * batch_size)
+        self.logger.log_info(f'End of Epoch {epoch + 1}')
+        self.logger.log_infos(epoch_loss)
+        self.logger.log_scalars(epoch_loss, epoch)
 
 
     def _train_classification(self, epoch: int):
         self.data_loader_train = self._get_data_loader(batch_size=self.options.batch_size // 2)
+        batch_size = self.options.batch_size
 
-        epoch_loss, run_loss = 0.0, 0.0
+        run_loss = init_class_losses()
+        epoch_loss = init_class_losses()
         epoch_correct, run_correct = 0, 0
-        run_total = 0
+        run_total, epoch_total = 0, 0
 
         fpr = dict()
         tpr = dict()
@@ -201,17 +194,17 @@ class Trainer():
 
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
-            x, target = get_pair_classification(batch)
-            loss, output = self.network.forward_classification(x, target)
+            loss, losses_dict, target, output, mask = self.network.forward_classification(batch)
             batch_end = datetime.now()
 
             # LOSS
-            run_loss += loss
-            epoch_loss += x.shape[0] * loss
+            run_loss = add_losses(run_loss, losses_dict)
+            epoch_loss = add_losses(epoch_loss, losses_dict)
             # ACCURACY
             prediction, _ = torch.max(torch.round(output), 1)
             prediction_prob, _ = torch.max(output, 1)
-            run_total += x.shape[0]
+            run_total += batch_size
+            epoch_total += batch_size
             run_correct += (prediction == target.squeeze()).sum().item()
             epoch_correct += (prediction == target.squeeze()).sum().item()
             # ROC + AUC
@@ -226,12 +219,18 @@ class Trainer():
             if (batch_num + 1) % self.options.log_freq == 0:
                 progress = get_progress(batch_num, len(self.data_loader_train), limit=self.options.iterations if self.options.iterations > 0 else None)
                 self.logger.log_info(
-                    f'Epoch {epoch + 1}: {progress} | '
-                    f'Time: {batch_end - batch_start} | '
-                    f'Loss (BCE) = {(run_loss / self.options.log_freq):.8f} | '
-                    f'Accuracy = {(run_correct / run_total):.4f}'
+                    f'Epoch {epoch + 1}: {progress} | Time: {batch_end - batch_start} | '
+                    f'Accuracy = {(run_correct / run_total):.4f}'    
                 )
-                run_loss, run_total, run_correct = 0.0, 0, 0
+                run_loss = avg_losses(run_loss, self.options.log_freq)
+                self.logger.log_infos(run_loss)
+                run_loss = init_class_losses()
+                run_total, run_correct = 0, 0
+                # LOG MASK
+                _, _, m, = get_pair_classification(batch)
+                images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
+                self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
+                self.logger.log_image('Train_Mask_Class', images, self.iterations, nrow=batch_size)
 
             # Limit iterations per epoch
             self.iterations += 1
@@ -239,9 +238,9 @@ class Trainer():
                 break
 
         # LOG EPOCH LOSS
-        epoch_loss = epoch_loss / (self.iterations * self.options.batch_size)
-        epoch_accuracy = epoch_correct / (self.iterations * self.options.batch_size)
-        self.logger.log_scalar('Loss_BCE', epoch_loss, epoch)
+        epoch_loss = avg_losses(epoch_loss, self.iterations * batch_size)
+        epoch_accuracy = epoch_correct / epoch_total
+        self.logger.log_scalars(epoch_loss, epoch)
         self.logger.log_scalar('Accuracy', epoch_accuracy, epoch)
 
         # LOG AUC
@@ -251,4 +250,8 @@ class Trainer():
         roc_auc = auc(fpr, tpr)
         self.logger.log_scalar('AUC', roc_auc, epoch)
 
-        self.logger.log_info(f'Epoch {epoch + 1}: Loss (BCE) = {epoch_loss:.8f} | Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}')
+        self.logger.log_info(
+            f'End of Epoch {epoch + 1}: | '
+            f'Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}'
+        )
+        self.logger.log_infos(epoch_loss)

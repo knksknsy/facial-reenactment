@@ -17,7 +17,7 @@ dataset:
   csv_train: ./csv/faceforensics_dev.csv
   csv_test: ./csv/faceforensics_test.csv
   image_size: 128
-  mask_size: 64
+  mask_size: 32
   channels: 3
   normalize: [0.0,1.0]                            # input normalization: [mean:0.0,std:1.0] -> min:0;max:1
   shuffle: true                                   # DataLoader: shuffle data
@@ -28,7 +28,7 @@ dataset:
 train:
   test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
-  continue_id: 
+  continue_id: null
   seed: 57
   epochs: 20
   epochs_feature: 5                           # Two-step pairwise learning strategy: Number of epochs to learn features first then learn classification
@@ -37,15 +37,17 @@ train:
   len_feature: 128                                # Length of feature vector of feature extractor
   hidden_layer_num_features: 128                  # Length of feature vector of classifier
   iterations: 0                                   # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
-  log_freq: 5                                    # frequency [iterations] to log generated images
+  log_freq: 10                                    # frequency [iterations] to log generated images
   margin: 0.5
   grad_clip: 0                                    # use gradient clipping
+  loss_weights:
+    l_mask: 1
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
     lr: 1.0e-4
-    beta1: 0.5
+    beta1: 0.9
     beta2: 0.999
-    weight_decay: 5.0e-4
+    weight_decay: 0
     # lr_linear_decay:                              # linear learning rate schedule
     #   epoch_range: [0, 19]                        # modify learning rate from epoch 1 to 20
     #   lr_end: 1.0e-6
@@ -67,6 +69,7 @@ test:
 logs:
   overwrite_csv: false
   overwrite_plot: true
+  overwrite_video: true
 
 preprocessing:
   max_frames: 20                                  # number of max frames to extract from a video

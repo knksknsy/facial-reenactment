@@ -99,12 +99,16 @@ def get_pair_feature(sample, real_pair: bool, device: str):
         pair1 = sample['image_real1']
         pair2 = sample['image_real2']
         labels = torch.ones((batch_size, 1)).to(device)
+        mask1 = sample['mask_real1']
+        mask2 = sample['mask_real2']
     else:
         pair1 = sample['image_real1']
         pair2 = sample['image_fake']
         labels = torch.zeros((batch_size, 1)).to(device)
+        mask1 = sample['mask_real1']
+        mask2 = sample['mask_fake']
 
-    return pair1, pair2, labels
+    return pair1, pair2, labels, mask1, mask2
 
 
 def get_pair_classification(sample):
@@ -121,7 +125,7 @@ def get_pair_classification(sample):
     masks = masks[indexes]
     labels = labels[indexes]
 
-    return images, labels
+    return images, labels, masks
 
 
 # def get_triplet_feature(sample, real_pair: bool):

@@ -10,6 +10,7 @@ from torch.optim.optimizer import Optimizer
 from configs import Options
 from loggings.logger import Logger
 from utils.models import load_model, save_model
+from detection.dataset import get_pair_feature, get_pair_classification
 from ..models.siamese_resnet import LossSiamese, SiameseResNet
 
 class Network():
@@ -24,7 +25,7 @@ class Network():
 
         # Testing mode
         if self.model_path is not None:
-            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature)
+            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature, mask_loss=self.options.l_mask > 0)
             state_dict = torch.load(self.model_path)
             self.siamese_net.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
@@ -33,7 +34,7 @@ class Network():
 
         # Training mode
         else:
-            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature)
+            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature, mask_loss=self.options.l_mask > 0)
 
             # Print model summaries
             self.logger.log_info('===== SIAMESE NETWORK ARCHITECTURE =====')
@@ -71,7 +72,7 @@ class Network():
                 )
 
             if self.options.continue_id is not None:
-                self.optimizer, self.scheduler, self.continue_epoch, self.continue_iteration = self.load_model(self.siamese_net, self.optimizer, self.scheduler, self.options)
+                self.siamese_net, self.optimizer, self.scheduler, self.continue_epoch, self.continue_iteration = self.load_model(self.siamese_net, self.optimizer, self.scheduler, self.options)
 
 
     def __call__(self, images, labels=None):
@@ -86,26 +87,30 @@ class Network():
             preds, loss
 
 
-    def forward_feature(self, x1, x2, target, backward: bool = True):
+    def forward_feature(self, batch, real_pair: bool = None, backward: bool = True):
+        x1, x2, target, mask1, mask2 = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
+
         self.siamese_net.zero_grad()
-        x1, x2 = self.siamese_net.forward_feature(x1, x2)
-        loss = self.criterion.loss(x1, x2, target)
+        x1, x2, m1, m2 = self.siamese_net.forward_feature(x1, x2)
+        loss, losses = self.criterion.forward_feature(x1, x2, target, m1, m2, mask1, mask2, real_pair=real_pair)
 
         if not backward:
-            return loss.detach().item()
+            return loss.detach().item(), losses, m1, m2
 
-        return self.backward(loss)
+        return self.backward(loss), losses, m1, m2
 
 
-    def forward_classification(self, x, target, backward: bool = True):
+    def forward_classification(self, batch, backward: bool = True):
+        x, target, mask = get_pair_classification(batch)
+
         self.siamese_net.zero_grad()
-        prediction = self.siamese_net.forward_classification(x)
-        loss = self.criterion.bce_loss(prediction, target)
+        prediction, msk = self.siamese_net.forward_classification(x)
+        loss, losses = self.criterion.forward_classification(prediction, target, msk, mask)
 
         if not backward:
-            return loss.detach().item(), prediction
+            return loss.detach().item(), losses, target, prediction, msk
 
-        return self.backward(loss), prediction
+        return self.backward(loss), losses, target, prediction, msk
 
 
     def backward(self, loss):
@@ -128,8 +133,8 @@ class Network():
 
     def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
         filename = f'{type(model).__name__}_{options.continue_id}'
-        load_model(model, optimizer, scheduler, options)
         self.logger.log_info(f'Model loaded: {filename}')
+        return load_model(model, optimizer, scheduler, options)
 
 
     def save_model(self, model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):

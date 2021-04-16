@@ -41,7 +41,7 @@ class Logger():
     def log_infos(self, infos: dict):
         messages = []
         for key, value in infos.items():
-            messages.append(f'{key} = {value:.4f}')
+            messages.append(f'{key} = {value:.6f}')
         message = ' | '.join(messages)
         logging.info(message)
 

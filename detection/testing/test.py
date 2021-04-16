@@ -2,7 +2,7 @@ import torch
 
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from datetime import datetime
+from datetime import date, datetime
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 import os
@@ -12,7 +12,7 @@ import numpy as np
 
 from configs.options import Options
 from loggings.logger import Logger
-from utils.utils import get_progress
+from utils.utils import add_losses, avg_losses, get_progress, init_class_losses, init_feature_losses
 from ..dataset.dataset import FaceForensicsDataset, get_pair_classification, get_pair_feature
 from ..dataset.transforms import Resize, GrayScale, ToTensor, Normalize
 from ..models.network import Network
@@ -65,55 +65,46 @@ class Tester():
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
 
         self.data_loader_test = self._get_data_loader()
+        batch_size = self.options.batch_size_test
         iterations = epoch * len(self.data_loader_test) if while_train else 0
 
-        epoch_loss, epoch_loss_real, epoch_loss_fake = 0.0, 0.0, 0.0
-        run_loss, run_loss_real, run_loss_fake = 0.0, 0.0, 0.0
+        run_loss = init_feature_losses()
+        epoch_loss = init_feature_losses()
 
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
             real_pair = (batch_num + 1) % 2 == 1
-            x1, x2, target = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
             with torch.no_grad():
-                loss = self.network.forward_feature(x1, x2, target, backward=False)
+                loss, losses_dict, mask1, mask2 = self.network.forward_feature(batch, real_pair=real_pair, backward=False)
             batch_end = datetime.now()
 
             # LOSS
-            run_loss += loss
-            epoch_loss += x1.shape[0] * loss
-
-            if real_pair:
-                run_loss_real += loss
-                epoch_loss_real += x1.shape[0] * loss
-            else:
-                run_loss_fake += loss
-                epoch_loss_fake += x1.shape[0] * loss
+            run_loss = add_losses(run_loss, losses_dict)
+            epoch_loss = add_losses(epoch_loss, losses_dict, batch_size)
 
             # LOG RUN LOSS
-            if (batch_num + 1) % 1 == 0 or batch_num == 0:
+            if (batch_num + 1) % self.options.log_freq_test == 0:
                 progress = get_progress(batch_num, len(self.data_loader_test))
                 message = f'[{progress}] | Time: {batch_end - batch_start}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
-                self.logger.log_info(
-                    f'{message} | '
-                    f'Loss (Contrastive): '
-                    f'Total = {(run_loss / self.options.log_freq):.8f} '
-                    f'Real = {(run_loss_real / self.options.log_freq / 2):.8f} '
-                    f'Fake = {(run_loss_fake / self.options.log_freq / 2):.8f} '
-                )
-                run_loss, run_loss_real, run_loss_fake = 0.0, 0.0, 0.0
+                self.logger.log_info(message)
+                run_loss = avg_losses(run_loss, self.options.log_freq_test)
+                self.logger.log_infos(run_loss)
+                run_loss = init_feature_losses()
+                # LOG MASK
+                _, _, _, m1, m2, = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
+                images = torch.cat((mask1.detach().clone(), m1.detach().clone(), mask2.detach().clone(), m2.detach().clone()), dim=0)
+                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
+                self.logger.log_image('Test_Mask_Feature', images, iterations, nrow=batch_size)
 
             iterations += 1
 
         # LOG EPOCH LOSS
-        epoch_loss = epoch_loss / (iterations * self.options.batch_size_test)
-        epoch_loss_real = epoch_loss_real / (iterations * self.options.batch_size_test / 2)
-        epoch_loss_fake = epoch_loss_fake / (iterations * self.options.batch_size_test / 2)
-        self.logger.log_info(f'Epoch {epoch + 1}: Loss (Contrastive): Total = {epoch_loss} Real = {epoch_loss_real} Fake = {epoch_loss_fake}')
-        self.logger.log_scalar('Test_Loss_Contrastive', epoch_loss, epoch)
-        self.logger.log_scalar('Test_Loss_Contrastive_Real', epoch_loss_real, epoch)
-        self.logger.log_scalar('Test_Loss_Contrastive_Fake', epoch_loss_fake, epoch)
+        epoch_loss = avg_losses(epoch_loss, iterations * batch_size)
+        self.logger.log_info(f'End of Epoch {epoch + 1}')
+        self.logger.log_infos(epoch_loss)
+        self.logger.log_scalars(epoch_loss, epoch, tag_prefix='Test')
         
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
@@ -128,11 +119,13 @@ class Tester():
         self.logger.log_info(f'Running on {self.options.device.upper()}.')
 
         self.data_loader_test = self._get_data_loader(batch_size=self.options.batch_size_test // 2)
+        batch_size = self.options.batch_size_test
         iterations = epoch * len(self.data_loader_test) if while_train else 0
 
-        epoch_loss, run_loss = 0.0, 0.0
+        run_loss = init_class_losses()
+        epoch_loss = init_class_losses()
         epoch_correct, run_correct = 0, 0
-        run_total = 0
+        run_total, epoch_total = 0, 0
 
         fpr = dict()
         tpr = dict()
@@ -143,18 +136,18 @@ class Tester():
 
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
-            x, target = get_pair_classification(batch)
             with torch.no_grad():
-                loss, output = self.network.forward_classification(x, target, backward=False)
+                loss, losses_dict, target, output, mask = self.network.forward_classification(batch, backward=False)
             batch_end = datetime.now()
 
             # LOSS
-            run_loss += loss
-            epoch_loss += x.shape[0] * loss
+            run_loss = add_losses(run_loss, losses_dict)
+            epoch_loss = add_losses(epoch_loss, losses_dict)
             # ACCURACY
             prediction, _ = torch.max(torch.round(output), 1)
             prediction_prob, _ = torch.max(output, 1)
-            run_total += x.shape[0]
+            run_total += batch_size
+            epoch_total += batch_size
             run_correct += (prediction == target.squeeze()).sum().item()
             epoch_correct += (prediction == target.squeeze()).sum().item()
             # ROC + AUC
@@ -177,19 +170,23 @@ class Tester():
                 message = f'[{progress}] | Time: {batch_end - batch_start}'
                 if while_train:
                     message = f'Epoch {epoch + 1}: {message}'
-                self.logger.log_info(
-                    f'{message} | '
-                    f'Loss (BCE) = {(run_loss / self.options.log_freq_test):.8f} | '
-                    f'Accuracy = {(run_correct / run_total):.8f}'
-                )
-                run_loss, run_total, run_correct = 0.0, 0, 0
+                self.logger.log_info(f'{message} | Auccuracy = {(run_correct / run_total):.4f}')
+                run_loss = avg_losses(run_loss, self.options.log_freq_test)
+                self.logger.log_infos(run_loss)
+                run_loss = init_class_losses()
+                run_total, run_correct = 0, 0
+                # LOG MASK
+                _, _, m, = get_pair_classification(batch)
+                images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
+                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
+                self.logger.log_image('Test_Mask_Class', images, iterations, nrow=batch_size)
 
             iterations += 1
         
         # LOG EPOCH LOSS
-        epoch_loss = epoch_loss / (iterations * self.options.batch_size_test)
-        epoch_accuracy = epoch_correct / (iterations * self.options.batch_size_test)
-        self.logger.log_scalar('Test_Loss_BCE', epoch_loss, epoch)
+        epoch_loss = avg_losses(epoch_loss, iterations * batch_size)
+        epoch_accuracy = epoch_correct / epoch_total
+        self.logger.log_scalars(epoch_loss, epoch, tag_prefix='Test')
         self.logger.log_scalar('Test_Accuracy', epoch_accuracy, epoch)
 
         # LOG AUC
@@ -199,21 +196,12 @@ class Tester():
         roc_auc = auc(fpr, tpr)
         self.logger.log_scalar('Test_AUC', roc_auc, epoch)
 
-        self.logger.log_info(f'Epoch {epoch + 1}: Loss (BCE) = {epoch_loss:.8f} | Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}')
+        self.logger.log_info(
+            f'End of Epoch {epoch + 1}: | '
+            f'Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}'
+        )
+        self.logger.log_infos(epoch_loss)
         self.save_cm_roc(epoch, confusion_matrix, fpr, tpr, roc_auc)
-
-        # TODO: save fpr, tpr, roc_auc # fpr = tpr = [int, int, int]; roc_auc = int
-        # plt.figure()
-        # lw = 2
-        # plt.plot(fpr, tpr, color='darkorange', lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
-        # plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-        # plt.xlim([0.0, 1.0])
-        # plt.ylim([0.0, 1.05])
-        # plt.xlabel('False Positive Rate')
-        # plt.ylabel('True Positive Rate')
-        # plt.title('Receiver operating characteristic example')
-        # plt.legend(loc="lower right")
-        # plt.show()
         
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
@@ -235,16 +223,3 @@ class Tester():
 
         path = os.path.join(path, f'cm_roc_e_{epoch}.json')
         json.dump(json_dict, codecs.open(path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=False, indent=4)
-
-
-    # TODO
-    def load_cm_roc(self, path: str):
-        txt = codecs.open(path, 'r', encoding='utf-8').read()
-        o = json.loads(txt)
-
-        cm = o['cm']
-        fpr = np.array(o['roc']['fpr'])
-        tpr = np.array(o['roc']['tpr'])
-        roc_auc = o['roc']['roc_auc']
-
-        return cm, fpr, tpr, roc_auc

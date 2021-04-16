@@ -11,13 +11,14 @@ from utils.models import init_weights
 from ..models.resnet import BasicBlock, ResNet
 
 class SiameseResNet(nn.Module):
-    def __init__(self, options: Options, len_feature: int):
+    def __init__(self, options: Options, len_feature: int, mask_loss: bool):
         super(SiameseResNet, self).__init__()
         self.options = options
         num_feature = self.options.hidden_layer_num_features
 
-        self.resnet = ResNet(BasicBlock, [2, 2, 2, 2], len_feature=len_feature)
+        self.resnet = ResNet(BasicBlock, [2, 2, 2, 2], len_feature=len_feature, mask_loss=mask_loss)
 
+        # TODO: add Dropout
         classifier = []
         classifier.append(Unsqueeze(1))
         classifier.append(nn.Conv1d(1, num_feature, kernel_size=3, stride=1, padding=1, bias=False))
@@ -35,17 +36,17 @@ class SiameseResNet(nn.Module):
 
     # Siamese mode: get 2 feature vecs
     def forward_feature(self, x1, x2):
-        x1, _ = self.resnet(x1)
-        x2, _ = self.resnet(x2)
-        return x1, x2
+        x1, mask1 = self.resnet(x1)
+        x2, mask2 = self.resnet(x2)
+        return x1, x2, mask1, mask2
 
 
     # Get prediction for single feature vec
     def forward_classification(self, x):
-        x, _ = self.resnet(x)
+        x, mask = self.resnet(x)
         x = self.classifier(x)
         x = torch.sigmoid(x)
-        return x
+        return x, mask
 
 
     def __str__(self):
@@ -76,7 +77,9 @@ class LossSiamese(nn.Module):
     def __init__(self, options: Options, type: str, margin: float):
         super(LossSiamese, self).__init__()
         self.options = options
+        self.w_mask = self.options.l_mask
         self.bce_loss = nn.BCELoss()
+        self.mask_loss = nn.MSELoss()
 
         if type == 'contrastive':
             self.loss = ContrastiveLoss(margin)
@@ -84,6 +87,40 @@ class LossSiamese(nn.Module):
             self.loss = TripletLoss(margin)
 
         self.to(self.options.device)
+
+
+    def forward_feature(self, x1, x2, target, m1, m2, mask1, mask2, real_pair: bool):
+        loss_contrastive = self.loss(x1, x2, target)
+        loss_mask = self.w_mask * (self.mask_loss(m1, mask1) + self.mask_loss(m2, mask2)) if self.w_mask > 0 else 0
+
+        loss = loss_contrastive + loss_mask
+
+        # LOSSES DICT
+        losses = dict({
+            'Loss_Contr': loss_contrastive.detach().item(),
+            'Loss_Contr_Real': loss_contrastive.detach().item() if real_pair else 0.0,
+            'Loss_Contr_Fake': loss_contrastive.detach().item() if not real_pair else 0.0,
+            'Loss_Mask': loss_mask.detach().item() if self.w_mask > 0 else 0.0,
+            'Loss_Feature': loss.detach().item()
+        })
+
+        return loss, losses
+
+
+    def forward_classification(self, prediction, target, m, mask):
+        loss_bce = self.bce_loss(prediction, target)
+        loss_mask = self.w_mask * self.mask_loss(m, mask) if self.w_mask > 0 else 0
+
+        loss = loss_bce + loss_mask
+
+        # LOSSES DICT
+        losses = dict({
+            'Loss_BCE': loss_bce.detach().item(),
+            'Loss_Mask': loss_mask.detach().item() if self.w_mask > 0 else 0.0,
+            'Loss_Class': loss.detach().item()
+        })
+
+        return loss, losses
 
 
 class ContrastiveLoss(nn.Module):

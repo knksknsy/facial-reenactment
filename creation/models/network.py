@@ -221,8 +221,8 @@ class Network():
 
     def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
         filename = f'{type(model).__name__}_{options.continue_id}'
-        load_model(model, optimizer, scheduler, options)
         self.logger.log_info(f'Model loaded: {filename}')
+        return load_model(model, optimizer, scheduler, options)
 
 
     def save_model(self, model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):

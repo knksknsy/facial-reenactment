@@ -80,7 +80,6 @@ def main(mode, method, description: str):
             logger = Logger(options)
             logger.init_writer()
 
-            raise NotImplementedError()
             LogsExtractor(logger, options, options.logs_dir, multiples=True, video_per_model=False, method=method).start()
 
         else:

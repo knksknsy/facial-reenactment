@@ -1,4 +1,5 @@
 import json
+from utils.utils import Method
 from configs import Options
 
 class LogsOptions(Options):
@@ -36,7 +37,8 @@ class LogsOptions(Options):
 
         self.parser.add_argument('--channels', default=self.config['dataset']['channels'], type=int, help='Image channels')
 
-        self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'], help='Facial landmark type: boundary | keypoint')
-        self.check_error(self.config['train'], 'landmark_type', ['boundary', 'keypoint'])
-
         self.parser.add_argument('--padding', type=int, default=self.config['preprocessing']['padding'], help='Padding size')
+
+        if self.method == Method.CREATION:
+            self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'], help='Facial landmark type: boundary | keypoint')
+            self.check_error(self.config['train'], 'landmark_type', ['boundary', 'keypoint'])

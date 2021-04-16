@@ -1,5 +1,8 @@
 import os
 import re
+import codecs
+import json
+import itertools
 import numpy as np
 import pandas as pd
 
@@ -43,9 +46,16 @@ class LogsExtractor():
             if self.overwrite_plot or not os.path.isdir(aggregation['plot_path']):
                 self.aggregate_plots(**aggregation)
 
+            # TODO: implement inference for detection
             # Create video
-            if self.overwrite_video:
-                self.save_video(**aggregation)
+            # if self.overwrite_video:
+            #     self.save_video(**aggregation)
+
+        # Create Confusion Matrix and ROC-AUC
+        if self.method == Method.DETECTION:
+            aggregations = self.get_meta_data_cm_roc(experiment_paths, experiment_names)
+            for aggregation in aggregations:
+                self.aggregate_cm_roc(**aggregation)
 
 
     def get_meta_data(self, experiment_paths, names):
@@ -60,6 +70,20 @@ class LogsExtractor():
                 'plot_path': os.path.join(ep, 'plots'),
                 'checkpoints_path': os.path.join(ep, 'checkpoints'),
                 'video_path': os.path.join(ep, 'outputs')
+            })
+        return aggregations
+
+
+    def get_meta_data_cm_roc(self, experiment_paths, names):
+        aggregations = []
+        for ep, name in zip(experiment_paths, names):
+            logs_dir = os.path.join(ep, 'logs')
+            cm_roc_path = os.path.join(logs_dir, 'cm_roc')
+            aggregations.append({
+                'name': name,
+                'experiment_path': ep,
+                'cm_roc_paths': sorted([os.path.join(cm_roc_path, cm_roc) for cm_roc in os.listdir(cm_roc_path) if '.json' in cm_roc]),
+                'cm_roc_path': cm_roc_path
             })
         return aggregations
 
@@ -259,3 +283,82 @@ class LogsExtractor():
         model_path = [os.path.join(checkpoints_path, f) for f in model_paths if f'_e{str(min_epoch).zfill(3)}' in f and 'Generator_' in f][0]
         infer = Infer(self.logger, self.options, self.options.v_img_source, self.options.v_vid_target, model_path)
         infer.from_video(filename=f'best_e{str(min_epoch).zfill(3)}', output_path=video_path)
+
+
+    def aggregate_cm_roc(self, name, cm_roc_paths, experiment_path, cm_roc_path):
+        self.logger.log_info(f'Creating Confusion Matrix and ROC-AUC for experiment "{name}"...')
+        
+        for f in cm_roc_paths:
+            # Read JSON
+            cm, fpr, tpr, roc_auc = self.load_cm_roc(f)
+
+            filename_cm = f.replace('_roc_', '_').replace('.json', '.pdf')
+            self.write_cm(filename_cm, cm)
+            self.logger.log_info(f'Confusion Matrix {filename_cm} created.')
+
+            filename_roc = f.replace('cm_roc_e', 'roc_e').replace('.json', '.pdf')
+            self.write_roc(filename_roc, fpr, tpr, roc_auc)
+            self.logger.log_info(f'ROC-AUC {filename_roc} created.')
+
+        self.logger.log_info(f'Confusion Matrix and ROC-AUC created for experiment "{name}" into: {cm_roc_path}')
+
+
+    def write_cm(self, filename, cm):
+        accuracy = np.trace(cm) / float(np.sum(cm))
+        misclass = 1 - accuracy
+
+        size = (500, 500)
+        cmap = plt.get_cmap('Greys')
+
+        dpi = 100
+        figsize = (size[0] / dpi, size[1] / dpi)
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        plt.imshow(cm, interpolation='nearest', cmap=cmap)
+        plt.title('Confusion Matrix')
+        plt.colorbar()
+
+        target_names = ['fake', 'real']
+        tick_marks = np.arange(len(target_names))
+        plt.xticks(tick_marks, target_names, rotation=45)
+        plt.yticks(tick_marks, target_names)
+
+        thresh = cm.max() / 2
+        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+            plt.text(j, i, '{:,}'.format(cm[i, j]), horizontalalignment='center', color='white' if cm[i, j] > thresh else 'black')
+
+        # plt.tight_layout()
+        plt.ylabel('True label')
+        plt.xlabel(f'predicted label\naccuracy={accuracy:.4f}; misclass={misclass:.4f}')
+        fig.savefig(filename, bbox_inches='tight')
+        plt.close(fig)
+
+
+    def write_roc(self, filename, fpr, tpr, roc_auc):
+        size = (500, 500)
+        dpi = 100
+        figsize = (size[0] / dpi, size[1] / dpi)
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+
+        lw = 2
+        plt.plot(fpr, tpr, color='red', lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
+        plt.plot([0, 1], [0, 1], color='grey', lw=lw, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic')
+        plt.legend(loc="lower right")
+        fig.savefig(filename, bbox_inches='tight')
+        plt.close(fig)
+
+
+    def load_cm_roc(self, path: str):
+        txt = codecs.open(path, 'r', encoding='utf-8').read()
+        o = json.loads(txt)
+
+        cm = np.array(o['cm'])
+        fpr = np.array(o['roc']['fpr'])
+        tpr = np.array(o['roc']['tpr'])
+        roc_auc = o['roc']['roc_auc']
+
+        return cm, fpr, tpr, roc_auc

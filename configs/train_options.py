@@ -174,6 +174,8 @@ class TrainOptions(Options):
 
             self.parser.add_argument('--hidden_layer_num_features', default=self.config['train']['hidden_layer_num_features'], type=int, help='Length of hidden layer of classifier.')
 
+            self.parser.add_argument('--l_mask', default=self.config['train']['loss_weights']['l_mask'], type=float, help='Mask loss.')
+
             self.parser.add_argument('--loss_type', type=str, default=self.config['train']['loss_type'], help='Loss type for feature extraction: contrastive | triplet')
             self.check_error(self.config['train'], 'loss_type', ['contrastive', 'triplet'])
 
