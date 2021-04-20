@@ -14,21 +14,73 @@ class SiameseResNet(nn.Module):
     def __init__(self, options: Options, len_feature: int, mask_loss: bool):
         super(SiameseResNet, self).__init__()
         self.options = options
-        num_feature = self.options.hidden_layer_num_features
+        self.num_feature = self.options.hidden_layer_num_features
+        self.len_feature = len_feature
 
-        self.resnet = ResNet(BasicBlock, [2, 2, 2, 2], len_feature=len_feature, mask_loss=mask_loss)
+        self.resnet = ResNet(BasicBlock, [2, 2, 2, 2], len_feature=len_feature, mask_loss=mask_loss)    # B x len_feature
 
-        # TODO: add Dropout
+        # Pre 7a_experiment
         classifier = []
-        classifier.append(Unsqueeze(1))
-        classifier.append(nn.Conv1d(1, num_feature, kernel_size=3, stride=1, padding=1, bias=False))
-        classifier.append(nn.BatchNorm1d(num_feature, affine=True, track_running_stats=True))
-        classifier.append(nn.ReLU(inplace=True))
-        classifier.append(Flatten())
-        classifier.append(nn.Linear(len_feature*num_feature, 1))
+        classifier.append(Unsqueeze(1))                                                                   # B x 1 x len_feature
+        classifier.append(nn.Conv1d(1, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False)) # B x num_feature x len_feature
+        classifier.append(nn.BatchNorm1d(self.num_feature, affine=True, track_running_stats=True))
+        # classifier.append(nn.ReLU(inplace=True))
+        # # 11a_experiment
+        # classifier.append(Swish())
+        # 11b_experiment
+        classifier.append(nn.LeakyReLU())
+        classifier.append(Flatten())                                                                      # B x num_feature*len_feature
+        # # 16a_experiment
+        # classifier.append(nn.Dropout(0.5))
+        classifier.append(nn.Linear(len_feature*self.num_feature, 1))                                     # B x 1
+        # # TODO: !Logits
+        # classifier.append(nn.Sigmoid())
         self.classifier = nn.Sequential(*classifier)
 
-        # self.classifier = nn.Linear(len_feature, 1)
+        # # 7b_experiment
+        # classifier = []
+        # classifier.append(Unsqueeze(1))                                                               # B x 1 x len_feature
+        # classifier.append(nn.Conv1d(1, num_feature, kernel_size=4, stride=2, padding=1, bias=False))  # B x num_feature x len_feature/2
+        # classifier.append(nn.BatchNorm1d(num_feature, affine=True, track_running_stats=True))
+        # classifier.append(nn.ReLU(inplace=True))
+        # classifier.append(Flatten())                                                                  # B x num_feature*len_feature/2
+        # classifier.append(nn.Linear((len_feature//2)*num_feature, 1))                                 # B x 1
+        # self.classifier = nn.Sequential(*classifier)
+
+        # # 8a_experiment
+        # classifier = []                                                                                 # B x 512 x 4 x 4
+        # classifier.append(nn.Conv2d(512, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False))  # B x num_feature x 4 x 4
+        # classifier.append(nn.BatchNorm2d(self.num_feature, affine=True, track_running_stats=True))
+        # classifier.append(nn.ReLU(inplace=True))
+        # classifier.append(Flatten())                                                                    # B x 32
+        # classifier.append(nn.Linear(32, 1))                                                             # B x 1 
+        # self.classifier = nn.Sequential(*classifier)
+        
+        # # 8b_experiment
+        # classifier = []                                                                                 # B x 512 x 4 x 4
+        # classifier.append(nn.Conv2d(512, num_feature, kernel_size=4, stride=2, padding=1, bias=False))  # B x num_feature x 2 x 2
+        # classifier.append(nn.BatchNorm2d(num_feature, affine=True, track_running_stats=True))
+        # classifier.append(nn.ReLU(inplace=True))
+        # classifier.append(Flatten())                                                                    # B x 128
+        # classifier.append(nn.Linear(128, 1))                                                            # B x 1 
+        # self.classifier = nn.Sequential(*classifier)
+
+        # # 9a_experiment
+        # classifier = []                                                                                     # B x 520 x 4 x 4
+        # classifier.append(nn.Conv2d(520, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False)) # B x num_feature x 4 x 4
+        # classifier.append(nn.BatchNorm2d(self.num_feature, affine=True, track_running_stats=True))
+        # # 9b_experiment
+        # # classifier.append(nn.LeakyReLU())
+        # classifier.append(nn.ReLU(inplace=True))
+        # classifier.append(Flatten())                                                                        # B x 32
+        # classifier.append(nn.Linear(32, 1))                                                                 # B x 1
+        # self.classifier = nn.Sequential(*classifier)
+
+        # # 13a_experiment
+        # classifier = []
+        # classifier.append(Flatten())
+        # classifier.append(nn.Linear(len_feature, 1))
+        # self.classifier = nn.Sequential(*classifier)
 
         self.apply(init_weights)
         self.to(self.options.device)
@@ -36,15 +88,28 @@ class SiameseResNet(nn.Module):
 
     # Siamese mode: get 2 feature vecs
     def forward_feature(self, x1, x2):
-        x1, mask1 = self.resnet(x1)
-        x2, mask2 = self.resnet(x2)
+        x1, _, _, mask1 = self.resnet(x1)
+        x2, _, _, mask2 = self.resnet(x2)
         return x1, x2, mask1, mask2
 
 
     # Get prediction for single feature vec
     def forward_classification(self, x):
-        x, mask = self.resnet(x)
+        x, l3_output, l4_output, mask = self.resnet(x)
+
+        # # 9a experiment
+        # x = x[:,:,None,None]
+        # x = x.view(x.shape[0], 8, 4, 4)
+        # x = torch.cat((l4_output, x), dim=1)
+        # x = self.classifier(x)
+
+        # # 8a and 8b experiment
+        # x = self.classifier(l4_output)
+
+        # Pre 7a and 7b experiment
         x = self.classifier(x)
+
+        # TODO: !Logits
         x = torch.sigmoid(x)
         return x, mask
 
@@ -72,6 +137,10 @@ class Unsqueeze(nn.Module):
     def forward(self, x):
         return x.unsqueeze(self.dim)
 
+class Swish(nn.Module):
+    def forward(self, x):
+        return x * torch.sigmoid(x)
+
 
 class LossSiamese(nn.Module):
     def __init__(self, options: Options, type: str, margin: float):
@@ -79,6 +148,8 @@ class LossSiamese(nn.Module):
         self.options = options
         self.w_mask = self.options.l_mask
         self.bce_loss = nn.BCELoss()
+        # # TODO: Logits
+        # self.bce_loss = nn.BCEWithLogitsLoss()
         self.mask_loss = nn.MSELoss()
 
         if type == 'contrastive':
@@ -92,7 +163,6 @@ class LossSiamese(nn.Module):
     def forward_feature(self, x1, x2, target, m1, m2, mask1, mask2, real_pair: bool):
         loss_contrastive = self.loss(x1, x2, target)
         loss_mask = self.w_mask * (self.mask_loss(m1, mask1) + self.mask_loss(m2, mask2)) if self.w_mask > 0 else 0
-
         loss = loss_contrastive + loss_mask
 
         # LOSSES DICT
@@ -110,7 +180,6 @@ class LossSiamese(nn.Module):
     def forward_classification(self, prediction, target, m, mask):
         loss_bce = self.bce_loss(prediction, target)
         loss_mask = self.w_mask * self.mask_loss(m, mask) if self.w_mask > 0 else 0
-
         loss = loss_bce + loss_mask
 
         # LOSSES DICT
@@ -119,6 +188,14 @@ class LossSiamese(nn.Module):
             'Loss_Mask': loss_mask.detach().item() if self.w_mask > 0 else 0.0,
             'Loss_Class': loss.detach().item()
         })
+
+        # # 15a_experiment
+        # loss_bce = self.bce_loss(prediction, target)
+        # loss = loss_bce
+        # losses = dict({
+        #     'Loss_BCE': loss_bce.detach().item(),
+        #     'Loss_Class': loss.detach().item()
+        # })
 
         return loss, losses
 

@@ -36,7 +36,7 @@ class Tester():
         transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_test = FaceForensicsDataset(
-            self.options.max_frames,
+            20, #self.options.max_frames, # TODO: 14b_experiment, 17a_experiment fix hard coding
             self.options.dataset_test,
             self.options.csv_test,
             self.options.image_size,
@@ -93,10 +93,11 @@ class Tester():
                 self.logger.log_infos(run_loss)
                 run_loss = init_feature_losses()
                 # LOG MASK
-                _, _, _, m1, m2, = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
-                images = torch.cat((mask1.detach().clone(), m1.detach().clone(), mask2.detach().clone(), m2.detach().clone()), dim=0)
-                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
-                self.logger.log_image('Test_Mask_Feature', images, iterations, nrow=batch_size)
+                if self.options.l_mask > 0:
+                    _, _, _, m1, m2, = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
+                    images = torch.cat((mask1.detach().clone(), m1.detach().clone(), mask2.detach().clone(), m2.detach().clone()), dim=0)
+                    self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
+                    self.logger.log_image('Test_Mask_Feature', images, iterations, nrow=batch_size)
 
             iterations += 1
 
@@ -146,6 +147,9 @@ class Tester():
             # ACCURACY
             prediction, _ = torch.max(torch.round(output), 1)
             prediction_prob, _ = torch.max(output, 1)
+            # # TODO: Logits
+            # prediction, _ = torch.max((output > 0).float() * 1, 1)
+            # prediction_prob, _ = torch.max(torch.sigmoid(output), 1)
             run_total += batch_size
             epoch_total += batch_size
             run_correct += (prediction == target.squeeze()).sum().item()
@@ -176,10 +180,11 @@ class Tester():
                 run_loss = init_class_losses()
                 run_total, run_correct = 0, 0
                 # LOG MASK
-                _, _, m, = get_pair_classification(batch)
-                images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
-                self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
-                self.logger.log_image('Test_Mask_Class', images, iterations, nrow=batch_size)
+                if self.options.l_mask > 0:
+                    _, _, m, = get_pair_classification(batch)
+                    images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
+                    self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
+                    self.logger.log_image('Test_Mask_Class', images, iterations, nrow=batch_size)
 
             iterations += 1
         

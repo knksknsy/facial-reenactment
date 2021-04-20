@@ -164,6 +164,8 @@ class TrainOptions(Options):
         ##### DETECTION #####
         if self.method == Method.DETECTION:
             # ARGUMENTS: HYPERPARAMETERS
+            self.parser.add_argument('--batch_size_class', default=self.config['train']['batch_size_class'], type=int, help='Batch size')
+
             self.parser.add_argument('--lr', default=self.config['train']['optimizer']['lr'], type=float, help='Learning rate')
 
             self.parser.add_argument('--margin', default=self.config['train']['margin'], type=float, help='Threshold m for contrastive loss.')

@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import ticker
+from pandas.plotting import table
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
@@ -50,6 +51,8 @@ class LogsExtractor():
             # Create video
             # if self.overwrite_video:
             #     self.save_video(**aggregation)
+
+            self.aggregate_table(**aggregation)
 
         # Create Confusion Matrix and ROC-AUC
         if self.method == Method.DETECTION:
@@ -362,3 +365,33 @@ class LogsExtractor():
         roc_auc = o['roc']['roc_auc']
 
         return cm, fpr, tpr, roc_auc
+
+
+    def aggregate_table(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path, video_path):
+        train_csvs = [os.path.join(csv_path, csv) for csv in os.listdir(csv_path) if 'lr.csv' not in csv and 'test_' not in csv]
+        test_csvs = [os.path.join(csv_path, csv) for csv in os.listdir(csv_path) if 'lr.csv' not in csv and 'test_' in csv]
+
+        data_train = dict()
+        for c in train_csvs:
+            df = pd.read_csv(c, sep=r',', header=0, index_col=None)
+            df = df.sort_values(by='step', ascending=True)
+            df = df.drop_duplicates(subset='step', keep='last')
+            value = df['value'].iloc[-1]
+            metric = c.split(os.path.sep)[-1].replace('.csv', '')
+            data_train[metric] = [value]
+
+        data_test = dict()
+        for c in test_csvs:
+            df = pd.read_csv(c, sep=r',', header=0, index_col=None)
+            df = df.sort_values(by='step', ascending=True)
+            df = df.drop_duplicates(subset='step', keep='last')
+            value = df['value'].iloc[-1]
+            metric = c.split(os.path.sep)[-1].replace('.csv', '')
+            data_test[metric] = [value]
+
+        df_train = pd.DataFrame(data_train, columns=sorted(data_train.keys()))
+        df_test = pd.DataFrame(data_test, columns=sorted(data_test.keys()))
+
+        df_cat = pd.concat([df_train, df_test], axis=0)
+        df_cat = df_cat.transpose()
+        df_cat.to_excel(os.path.join(experiment_path, 'table.xlsx'))

@@ -62,32 +62,32 @@ class ResNet(nn.Module):
 
 
     def _forward_impl(self, x):
-        # Input:                      B x   3 x 128 x 128
-        x = self.conv1(x)           # B x  64 x  64 x  64
+        # Input:                              B x   3 x 128 x 128
+        x = self.conv1(x)                   # B x  64 x  64 x  64
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)         # B x  64 x  32 x  32
+        x = self.maxpool(x)                 # B x  64 x  32 x  32
 
-        x = self.layer1(x)          # B x  64 x  32 x  32
+        x = self.layer1(x)                  # B x  64 x  32 x  32
 
         # Regress mask
         if self.mask_loss:
             mask = self.map(x)
-            x = x * mask            # B x  64 x  32 x  32
+            x = x * mask                    # B x  64 x  32 x  32
 
-        x = self.layer2(x)          # B x  64 x  16 x  16
-        x = self.layer3(x)          # B x 256 x   8 x   8
-        l4_output = self.layer4(x)  # B x 512 x   4 x   4
+        x = self.layer2(x)                  # B x  64 x  16 x  16
+        l3_output = self.layer3(x)          # B x 256 x   8 x   8
+        l4_output = self.layer4(l3_output)  # B x 512 x   4 x   4
 		
 
-        x = self.avgpool(l4_output) # B x 512 x   1 x   1
-        x = torch.flatten(x, 1)     # B x 512
-        x = self.fc(x)              # B x 128
+        x = self.avgpool(l4_output)         # B x 512 x   1 x   1
+        x = torch.flatten(x, 1)             # B x 512
+        x = self.fc(x)                      # B x 128
 
         if self.mask_loss:
-            return x, mask
+            return x, l3_output, l4_output, mask
 
-        return x
+        return x, l3_output, l4_output, torch.zeros(1)
 
 
     def forward(self, x):

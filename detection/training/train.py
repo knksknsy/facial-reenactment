@@ -28,7 +28,7 @@ class Trainer():
         self.network = Network(self.logger, self.options, model_path=None)
 
 
-    def _get_data_loader(self, batch_size: int = None):
+    def _get_data_loader(self, dataset_train=None, csv_train=None, max_frames=None, batch_size: int = None):
         transforms_list = [
             Resize(self.options.image_size, self.options.mask_size),
             GrayScale() if self.options.channels <= 1 else None,
@@ -40,9 +40,9 @@ class Trainer():
         transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_train = FaceForensicsDataset(
-            self.options.max_frames,
-            self.options.dataset_train,
-            self.options.csv_train,
+            self.options.max_frames if max_frames is None else max_frames, # TODO: fix hardcoding
+            self.options.dataset_train if dataset_train is None else dataset_train, # TODO: fix hardcoding
+            self.options.csv_train if csv_train is None else csv_train, # TODO: fix hardcoding
             self.options.image_size,
             self.options.channels,
             transforms.Compose(transforms_list)
@@ -81,9 +81,8 @@ class Trainer():
                 # Test feature extraction
                 if epoch < self.options.epochs_feature:
                     test.test_feature(epoch)
-
                 # Test classification
-                if epoch >= self.options.epochs_feature:
+                else:
                     accuracy = test.test_classification(epoch)
                     # Decrease LR if accuracy stagnates
                     if 'lr_plateau_decay' in self.options.config['train']['optimizer']:
@@ -115,8 +114,8 @@ class Trainer():
                 epoch,
                 epoch_start=self.options.epoch_range[0],
                 epoch_end=self.options.epoch_range[1],
-                lr_base=self.options.lr_g,
-                lr_end=self.options.lr_g_end
+                lr_base=self.options.lr,
+                lr_end=self.options.lr_end
             )
         elif 'lr_step_decay' in self.options.config['train']['optimizer']:
             self.network.scheduler.step()
@@ -136,6 +135,8 @@ class Trainer():
 
 
     def _train_feature(self, epoch: int):
+        # # 14b_experiment 17a_experiment
+        # self.data_loader_train = self._get_data_loader(dataset_train='/home/kaan/datasets/FaceForensics/Preprocessed/dev/', csv_train='./csv/faceforensics_dev.csv', max_frames=20)
         self.data_loader_train = self._get_data_loader()
         batch_size = self.options.batch_size
 
@@ -160,10 +161,11 @@ class Trainer():
                 self.logger.log_infos(run_loss)
                 run_loss = init_feature_losses()
                 # LOG MASK
-                _, _, _, m1, m2, = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
-                images = torch.cat((mask1.detach().clone(), m1.detach().clone(), mask2.detach().clone(), m2.detach().clone()), dim=0)
-                self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
-                self.logger.log_image('Train_Mask_Feature', images, self.iterations, nrow=batch_size)
+                if self.options.l_mask > 0:
+                    _, _, _, m1, m2, = get_pair_feature(batch, real_pair=real_pair, device=self.options.device)
+                    images = torch.cat((mask1.detach().clone(), m1.detach().clone(), mask2.detach().clone(), m2.detach().clone()), dim=0)
+                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
+                    self.logger.log_image('Train_Mask_Feature', images, self.iterations, nrow=batch_size)
 
             # Limit iterations per epoch
             self.iterations += 1
@@ -178,8 +180,8 @@ class Trainer():
 
 
     def _train_classification(self, epoch: int):
-        self.data_loader_train = self._get_data_loader(batch_size=self.options.batch_size // 2)
-        batch_size = self.options.batch_size
+        self.data_loader_train = self._get_data_loader(batch_size=self.options.batch_size_class // 2)
+        batch_size = self.options.batch_size_class
 
         run_loss = init_class_losses()
         epoch_loss = init_class_losses()
@@ -203,6 +205,9 @@ class Trainer():
             # ACCURACY
             prediction, _ = torch.max(torch.round(output), 1)
             prediction_prob, _ = torch.max(output, 1)
+            # # TODO: Logits
+            # prediction, _ = torch.max((output > 0).float() * 1, 1)
+            # prediction_prob, _ = torch.max(torch.sigmoid(output), 1)
             run_total += batch_size
             epoch_total += batch_size
             run_correct += (prediction == target.squeeze()).sum().item()
@@ -227,10 +232,11 @@ class Trainer():
                 run_loss = init_class_losses()
                 run_total, run_correct = 0, 0
                 # LOG MASK
-                _, _, m, = get_pair_classification(batch)
-                images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
-                self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
-                self.logger.log_image('Train_Mask_Class', images, self.iterations, nrow=batch_size)
+                if self.options.l_mask > 0:
+                    _, _, m, = get_pair_classification(batch)
+                    images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
+                    self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
+                    self.logger.log_image('Train_Mask_Class', images, self.iterations, nrow=batch_size)
 
             # Limit iterations per epoch
             self.iterations += 1

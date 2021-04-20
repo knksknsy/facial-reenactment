@@ -46,19 +46,17 @@ def main(mode, method, description: str):
             logger.init_writer()
             if options.num_workers_test > 0: torch.multiprocessing.set_start_method('spawn')
 
-
-            raise NotImplementedError()
             # Test single model
             if options.model is not None:
                 network = Network(logger, options, model_path=options.model)
-                Tester(logger, options, network).test(network.continue_epoch)
+                Tester(logger, options, network).test_classification(network.continue_epoch)
 
             # Test multiple models
             else:
                 models = sorted([f for f in os.listdir(options.checkpoint_dir) if 'SiameseResNet' in f])
                 for model in models:
                     network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
-                    Tester(logger, options, network).test(network.continue_epoch)
+                    Tester(logger, options, network).test_classification(network.continue_epoch)
 
 
         ##### INFERENCE #####

@@ -25,7 +25,8 @@ class Network():
 
         # Testing mode
         if self.model_path is not None:
-            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature, mask_loss=self.options.l_mask > 0)
+            # TODO: undo
+            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature, mask_loss=True)#self.options.l_mask > 0)
             state_dict = torch.load(self.model_path)
             self.siamese_net.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
@@ -34,7 +35,8 @@ class Network():
 
         # Training mode
         else:
-            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature, mask_loss=self.options.l_mask > 0)
+            # TODO: undo
+            self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature, mask_loss=True)#self.options.l_mask > 0)
 
             # Print model summaries
             self.logger.log_info('===== SIAMESE NETWORK ARCHITECTURE =====')
@@ -117,7 +119,7 @@ class Network():
         loss.backward()
 
         if self.options.grad_clip:
-            torch.nn.utils.clip_grad_norm_(self.parameters(), self.options.grad_clip, norm_type=2)
+            torch.nn.utils.clip_grad_norm_(self.siamese_net.parameters(), self.options.grad_clip, norm_type=2)
 
         self.optimizer.step()
         return loss.detach().item()
