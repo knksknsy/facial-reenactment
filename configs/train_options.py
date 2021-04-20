@@ -163,6 +163,7 @@ class TrainOptions(Options):
 
         ##### DETECTION #####
         if self.method == Method.DETECTION:
+            self.parser.add_argument('--threshold', default=self.config['train']['threshold'], type=float, help='Threshold for binary classification.')
             # ARGUMENTS: HYPERPARAMETERS
             self.parser.add_argument('--batch_size_class', default=self.config['train']['batch_size_class'], type=int, help='Batch size')
 

@@ -1,17 +1,15 @@
+import os
 import torch
+import numpy as np
 
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from datetime import date, datetime
+from datetime import datetime
 from sklearn.metrics import roc_curve, auc
-import matplotlib.pyplot as plt
-import os
-import codecs
-import json
-import numpy as np
 
 from configs.options import Options
 from loggings.logger import Logger
+from loggings.utils import plot_confusion_matrix, plot_roc_curve, save_cm_roc
 from utils.utils import add_losses, avg_losses, get_progress, init_class_losses, init_feature_losses
 from ..dataset.dataset import FaceForensicsDataset, get_pair_classification, get_pair_feature
 from ..dataset.transforms import Resize, GrayScale, ToTensor, Normalize
@@ -22,6 +20,7 @@ class Tester():
         self.logger = logger
         self.options = options
         self.network = network
+        self.tag_prefix = self.options.tag_prefix
 
         self.network.eval()
 
@@ -145,10 +144,9 @@ class Tester():
             run_loss = add_losses(run_loss, losses_dict)
             epoch_loss = add_losses(epoch_loss, losses_dict)
             # ACCURACY
-            prediction, _ = torch.max(torch.round(output), 1)
+            prediction, _ = torch.max((output > self.options.threshold).float()*1, 1)
             prediction_prob, _ = torch.max(output, 1)
             # # TODO: Logits
-            # prediction, _ = torch.max((output > 0).float() * 1, 1)
             # prediction_prob, _ = torch.max(torch.sigmoid(output), 1)
             run_total += batch_size
             epoch_total += batch_size
@@ -191,40 +189,29 @@ class Tester():
         # LOG EPOCH LOSS
         epoch_loss = avg_losses(epoch_loss, iterations * batch_size)
         epoch_accuracy = epoch_correct / epoch_total
-        self.logger.log_scalars(epoch_loss, epoch, tag_prefix='Test')
-        self.logger.log_scalar('Test_Accuracy', epoch_accuracy, epoch)
+        self.logger.log_scalars(epoch_loss, epoch, tag_prefix=self.tag_prefix)
+        self.logger.log_scalar('Accuracy', epoch_accuracy, epoch, tag_prefix=self.tag_prefix)
 
         # LOG AUC
         total_target = total_target.detach().cpu().numpy()
         total_prediction = total_prediction.detach().cpu().numpy()
-        fpr, tpr, _ = roc_curve(total_target, total_prediction)
+        fpr, tpr, threshold = roc_curve(total_target, total_prediction)
+        # Find optimal threshold
+        optimal_idx = np.argmax(tpr - fpr)
+        threshold = threshold[optimal_idx].item()
         roc_auc = auc(fpr, tpr)
-        self.logger.log_scalar('Test_AUC', roc_auc, epoch)
+        self.logger.log_scalar('AUC', roc_auc, epoch, tag_prefix=self.tag_prefix)
 
         self.logger.log_info(
             f'End of Epoch {epoch + 1}: | '
             f'Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}'
         )
         self.logger.log_infos(epoch_loss)
-        self.save_cm_roc(epoch, confusion_matrix, fpr, tpr, roc_auc)
-        
+        save_cm_roc(self.options.log_dir, epoch, confusion_matrix, fpr, tpr, threshold, roc_auc)
+        plot_confusion_matrix(os.path.join(self.options.log_dir, 'cm_roc', f'cm_e_{epoch}.pdf'), confusion_matrix.detach().cpu().numpy())
+        plot_roc_curve(os.path.join(self.options.log_dir, 'cm_roc', f'roc_e_{epoch}.pdf'), fpr, tpr, threshold, roc_auc)
+
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
 
         return epoch_accuracy
-
-
-    def save_cm_roc(self, epoch: int, cm, fpr, tpr, roc_auc):
-        path = os.path.join(self.options.log_dir, 'cm_roc')
-        if not os.path.isdir(path):
-            os.makedirs(path)
-
-        json_dict = dict()
-        json_dict['cm'] = cm.tolist()
-        json_dict['roc'] = dict()
-        json_dict['roc']['fpr'] = fpr.tolist()
-        json_dict['roc']['tpr'] = tpr.tolist()
-        json_dict['roc']['roc_auc'] = roc_auc
-
-        path = os.path.join(path, f'cm_roc_e_{epoch}.json')
-        json.dump(json_dict, codecs.open(path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=False, indent=4)

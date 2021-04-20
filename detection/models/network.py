@@ -1,3 +1,4 @@
+import os
 from typing import Tuple
 
 import torch
@@ -9,7 +10,7 @@ from torch.optim.optimizer import Optimizer
 
 from configs import Options
 from loggings.logger import Logger
-from utils.models import load_model, save_model
+from utils.models import save_model
 from detection.dataset import get_pair_feature, get_pair_classification
 from ..models.siamese_resnet import LossSiamese, SiameseResNet
 
@@ -31,7 +32,7 @@ class Network():
             self.siamese_net.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
 
-            self.criterion = LossSiamese(self.logger, type=self.options.loss_type, margin=self.options.margin)
+            self.criterion = LossSiamese(self.options, type=self.options.loss_type, margin=self.options.margin)
 
         # Training mode
         else:
@@ -135,8 +136,22 @@ class Network():
 
     def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
         filename = f'{type(model).__name__}_{options.continue_id}'
+        state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
+        model.load_state_dict(state_dict['model'])
+        optimizer.load_state_dict(state_dict['optimizer'])
+        if 'scheduler' in state_dict and state_dict['scheduler'] is not None and scheduler is not None:
+            scheduler.load_state_dict(state_dict['scheduler'])
+        epoch = state_dict['epoch'] + 1
+        iteration = state_dict['iteration']
+
+        if options.overwrite_optim:
+            optimizer.param_groups[0]['lr'] = options.lr
+            optimizer.param_groups[0]['betas'] = (options.beta1, options.beta2)
+            optimizer.param_groups[0]['weight_decay'] = options.weight_decay
+
         self.logger.log_info(f'Model loaded: {filename}')
-        return load_model(model, optimizer, scheduler, options)
+
+        return model, optimizer, scheduler, epoch, iteration
 
 
     def save_model(self, model: Module, optimizer: Optimizer, scheduler: object, epoch: str, iteration: str, options: Options, ext='.pth', time_for_name=None):

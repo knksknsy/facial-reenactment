@@ -26,6 +26,7 @@ dataset:
     rotation_angle: 15                            # >0: randomly rotate data
 
 train:
+  threshold: 0.5                                  # threshold for binary classification
   test: true                                      # test model after each epoch
   metrics: false                                  # calculate evaluation metrics during training
   continue_id: null
@@ -45,7 +46,7 @@ train:
     l_mask: 0
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
-    lr: 1.0e-3
+    lr: 1.0e-6
     beta1: 0.9
     beta2: 0.999
     weight_decay: 0
@@ -66,9 +67,10 @@ test:
   shuffle_test: false                             # shuffle DataLoader during testing
   log_freq_test: 100
   num_workers_test: 2
+  tag_prefix: 'Test'
 
 logs:
-  overwrite_csv: false
+  overwrite_csv: true
   overwrite_plot: true
   overwrite_video: true
 

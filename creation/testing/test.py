@@ -18,6 +18,7 @@ class Tester():
         self.logger = logger
         self.options = options
         self.network = network
+        self.tag_prefix = self.options.tag_prefix
 
         self.data_loader_test = self._get_data_loader(train_format=True)
         self.network.eval()
@@ -91,8 +92,8 @@ class Tester():
                     f'Loss_G = {loss_G:.4f} Loss_D = {loss_D:.4f}'
                 )
                 self.logger.log_scalar('SSIM Validation', ssim_val.mean().item(), iterations)
-                self.logger.log_scalars(losses_G_dict, iterations, tag_prefix='Test')
-                self.logger.log_scalars(losses_D_dict, iterations, tag_prefix='Test')
+                self.logger.log_scalars(losses_G_dict, iterations, tag_prefix=self.tag_prefix)
+                self.logger.log_scalars(losses_D_dict, iterations, tag_prefix=self.tag_prefix)
                 del ssim_val, loss_G, losses_G_dict, loss_D, losses_D_dict
 
             # LOG GENERATED IMAGES

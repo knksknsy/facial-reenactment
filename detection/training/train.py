@@ -203,10 +203,9 @@ class Trainer():
             run_loss = add_losses(run_loss, losses_dict)
             epoch_loss = add_losses(epoch_loss, losses_dict)
             # ACCURACY
-            prediction, _ = torch.max(torch.round(output), 1)
+            prediction, _ = torch.max((output > self.options.threshold).float()*1, 1)
             prediction_prob, _ = torch.max(output, 1)
             # # TODO: Logits
-            # prediction, _ = torch.max((output > 0).float() * 1, 1)
             # prediction_prob, _ = torch.max(torch.sigmoid(output), 1)
             run_total += batch_size
             epoch_total += batch_size

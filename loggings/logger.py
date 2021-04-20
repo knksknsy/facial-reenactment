@@ -54,7 +54,9 @@ class Logger():
         logging.error(message)
 
 
-    def log_scalar(self, tag: str, y_value, x_value):
+    def log_scalar(self, tag: str, y_value, x_value, tag_prefix=None):
+        if tag_prefix is not None:
+            tag = f'{tag_prefix}_{tag}'
         self.writer.add_scalar(tag, y_value, x_value)
         self.writer.flush()
 
