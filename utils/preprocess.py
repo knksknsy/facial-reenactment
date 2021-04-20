@@ -148,6 +148,24 @@ def crop_frame(frame, landmarks, dimension, padding, method='pyplot'):
         return frame
 
 
+def get_bounding_box(frame, landmarks, dimension, padding, method='cv2'):
+    heatmap = plot_landmarks(landmarks=landmarks, landmark_type='boundary', channels=3, output_res=(frame.shape[0], frame.shape[1]), input_res=(frame.shape[0], frame.shape[1]), method=method)
+
+    rows = np.any(heatmap, axis=1)
+    cols = np.any(heatmap, axis=0)
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+
+    frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
+    
+    try:
+        frame = cv2.resize(frame, dimension)
+    except Exception as e:
+        return None
+
+    return frame, rmin, rmax, cmin, cmax
+
+
 def plot_landmarks(landmarks, landmark_type, channels, output_res, input_res, method='pyplot'):
     if method == 'pyplot':
         return pyplot_landmarks(landmarks, landmark_type, channels, output_res, input_res)

@@ -63,10 +63,9 @@ def main(mode, method, description: str):
         elif mode == Mode.INFER:
             options = TestOptions(description=f'{description} Inference', method=method)
             logger = Logger(options)
-            infer = Infer(logger, options, options.source, options.target, options.model)
+            infer = Infer(logger, options, options.source,  options.model)
 
-            raise NotImplementedError()
-            if options.target.endswith('.mp4'):
+            if options.source.endswith('.mp4'):
                 infer.from_video()
             else:
                 infer.from_image()

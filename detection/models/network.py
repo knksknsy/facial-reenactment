@@ -78,16 +78,9 @@ class Network():
                 self.siamese_net, self.optimizer, self.scheduler, self.continue_epoch, self.continue_iteration = self.load_model(self.siamese_net, self.optimizer, self.scheduler, self.options)
 
 
-    def __call__(self, images, labels=None):
-        # During inference
-        if labels is not None:
-            with torch.no_grad():
-                return self.siamese_net.forward_classification(images)
-        # During testing
-        else:
-            preds = self.siamese_net.forward_classification(images)
-            loss = self.criterion.bce_loss(preds, labels)
-            preds, loss
+    def __call__(self, images):
+        with torch.no_grad():
+            return self.siamese_net.forward_classification(images)
 
 
     def forward_feature(self, batch, real_pair: bool = None, backward: bool = True):

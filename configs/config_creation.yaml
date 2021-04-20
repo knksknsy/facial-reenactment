@@ -78,6 +78,7 @@ test:
   shuffle_test: false                             # shuffle DataLoader during testing
   log_freq_test: 10
   num_workers_test: 2
+  tag_prefix: 'Test'
 
 logs:
   overwrite_csv: false
