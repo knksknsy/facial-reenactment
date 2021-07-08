@@ -31,22 +31,23 @@ train:
   metrics: false                                  # calculate evaluation metrics during training
   continue_id: null
   seed: 57
-  epochs: 35
-  epochs_feature: 5                           # Two-step pairwise learning strategy: Number of epochs to learn features first then learn classification
+  epochs: 20
+  epochs_feature: 5                               # Two-step pairwise learning strategy: Number of epochs to learn features first then learn classification
   loss_type: 'contrastive'                        # Loss type for feature extraction: contrastive | triplet
   batch_size: 128
   batch_size_class: 128
   len_feature: 128                                # Length of feature vector of feature extractor
-  hidden_layer_num_features: 128                  # Length of feature vector of classifier
+  hidden_layer_num_features: 128                   # Length of feature vector of classifier
   iterations: 0                                   # limit iterations per epoch; 0: no limit, >0: limit; 5,000/batch_size 
   log_freq: 10                                    # frequency [iterations] to log generated images
   margin: 0.5
   grad_clip: 0                                    # use gradient clipping
   loss_weights:
     l_mask: 0
+    l_mask_sv: 2                                  # Mask regression type: supervised=1, unsupervised=2
   optimizer:
     overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
-    lr: 1.0e-6
+    lr: 1.0e-3
     beta1: 0.9
     beta2: 0.999
     weight_decay: 0

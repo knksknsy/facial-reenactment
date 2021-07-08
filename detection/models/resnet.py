@@ -1,12 +1,15 @@
-# Source: https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
+# ResNet18 Source: https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 
 import torch
 import torch.nn as nn
+from configs.options import Options
 
+# ResNet18
 class ResNet(nn.Module):
-    def __init__(self, block, layers, mask_loss: bool, len_feature=1000, groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
+    def __init__(self, options: Options, block, layers, len_feature=1000, groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
         super(ResNet, self).__init__()
-        self.mask_loss = mask_loss
+        self.options = options
+
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -32,7 +35,8 @@ class ResNet(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, len_feature)
 
-        if self.mask_loss:
+        self.regress_map = self.options.l_mask > 0 or self.options.l_mask_sv > 0
+        if self.regress_map:
             self.map = RegressionMap(64)
 
 
@@ -71,7 +75,7 @@ class ResNet(nn.Module):
         x = self.layer1(x)                  # B x  64 x  32 x  32
 
         # Regress mask
-        if self.mask_loss:
+        if self.regress_map:
             mask = self.map(x)
             x = x * mask                    # B x  64 x  32 x  32
 
@@ -84,7 +88,7 @@ class ResNet(nn.Module):
         x = torch.flatten(x, 1)             # B x 512
         x = self.fc(x)                      # B x 128
 
-        if self.mask_loss:
+        if self.regress_map:
             return x, l3_output, l4_output, mask
 
         return x, l3_output, l4_output, torch.zeros(1)

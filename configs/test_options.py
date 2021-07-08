@@ -84,6 +84,8 @@ class TestOptions(Options):
 
             self.parser.add_argument('--l_mask', default=self.config['train']['loss_weights']['l_mask'], type=float, help='Mask loss.')
 
+            self.parser.add_argument('--l_mask_sv', default=self.config['train']['loss_weights']['l_mask_sv'], type=float, help='Mask loss regression type: 1=supervised | 2=unsupervised')
+
             self.parser.add_argument('--loss_type', type=str, default=self.config['train']['loss_type'], help='Loss type for feature extraction: contrastive | triplet')
             self.check_error(self.config['train'], 'loss_type', ['contrastive', 'triplet'])
 

@@ -11,13 +11,13 @@ from utils.models import init_weights
 from ..models.resnet import BasicBlock, ResNet
 
 class SiameseResNet(nn.Module):
-    def __init__(self, options: Options, len_feature: int, mask_loss: bool):
+    def __init__(self, options: Options, len_feature: int):
         super(SiameseResNet, self).__init__()
         self.options = options
         self.num_feature = self.options.hidden_layer_num_features
         self.len_feature = len_feature
 
-        self.resnet = ResNet(BasicBlock, [2, 2, 2, 2], len_feature=len_feature, mask_loss=mask_loss)    # B x len_feature
+        self.resnet = ResNet(options, BasicBlock, [2, 2, 2, 2], len_feature=len_feature)                    # B x len_feature
 
         # Pre 7a_experiment
         classifier = []
@@ -37,6 +37,16 @@ class SiameseResNet(nn.Module):
         # classifier.append(nn.Sigmoid())
         self.classifier = nn.Sequential(*classifier)
 
+        # # 7a2_experiment
+        # classifier = []
+        # classifier.append(Unsqueeze(1))                                                                     # B x 1 x len_feature
+        # classifier.append(nn.Conv1d(1, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False))   # B x num_feature x len_feature/2
+        # classifier.append(nn.BatchNorm1d(self.num_feature, affine=True, track_running_stats=True))
+        # classifier.append(nn.LeakyReLU(inplace=True))
+        # classifier.append(Flatten())                                                                        # B x num_feature*len_feature/2
+        # classifier.append(nn.Linear((len_feature)*self.num_feature, 1))                                     # B x 1
+        # self.classifier = nn.Sequential(*classifier)
+        
         # # 7b_experiment
         # classifier = []
         # classifier.append(Unsqueeze(1))                                                               # B x 1 x len_feature
@@ -48,12 +58,12 @@ class SiameseResNet(nn.Module):
         # self.classifier = nn.Sequential(*classifier)
 
         # # 8a_experiment
-        # classifier = []                                                                                 # B x 512 x 4 x 4
-        # classifier.append(nn.Conv2d(512, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False))  # B x num_feature x 4 x 4
+        # classifier = []                                                                                     # B x 512 x 4 x 4
+        # classifier.append(nn.Conv2d(512, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False)) # B x num_feature x 4 x 4
         # classifier.append(nn.BatchNorm2d(self.num_feature, affine=True, track_running_stats=True))
         # classifier.append(nn.ReLU(inplace=True))
-        # classifier.append(Flatten())                                                                    # B x 32
-        # classifier.append(nn.Linear(32, 1))                                                             # B x 1 
+        # classifier.append(Flatten())                                                                        # B x num_feature
+        # classifier.append(nn.Linear(self.num_feature*4*4, 1))                                               # B x 1
         # self.classifier = nn.Sequential(*classifier)
         
         # # 8b_experiment
@@ -114,10 +124,17 @@ class SiameseResNet(nn.Module):
         return x, mask
 
 
+    def forward(self, x):
+        x, l3, l4, m = self.resnet(x)
+        x = self.classifier(x)
+        x = torch.sigmoid(x)
+        return x, m
+
+
     def __str__(self):
         old_stdout = sys.stdout
         sys.stdout = new_stdout = StringIO()
-        summary(self, input_size=(self.options.channels, self.options.image_size, self.options.image_size), batch_size=self.options.batch_size, device=self.options.device)
+        summary(self.resnet, input_size=(self.options.channels, self.options.image_size, self.options.image_size), batch_size=self.options.batch_size, device=self.options.device)
         sys.stdout = old_stdout
         return new_stdout.getvalue()
 
