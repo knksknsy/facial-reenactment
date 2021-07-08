@@ -32,7 +32,7 @@ class ResNet(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, len_feature)
 
-        if mask_loss:
+        if self.mask_loss:
             self.map = RegressionMap(64)
 
 

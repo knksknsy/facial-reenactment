@@ -63,6 +63,9 @@ def main(mode, method, description: str):
             if options.model is not None:
                 network = Network(logger, options, model_path=options.model)
                 Tester(logger, options, network).test(network.continue_epoch)
+                # TODO:
+                # # Tester(logger, options, network).generate(options.gen_test_dir, network.continue_epoch)
+                # # Tester(logger, options, network).test_batch()
 
             # Test multiple models
             else:

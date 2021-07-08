@@ -6,6 +6,7 @@ from datetime import datetime
 
 from configs.options import Options
 from utils.utils import get_progress
+from utils.models import init_seed_state
 from loggings.logger import Logger
 from ..testing.fid import FrechetInceptionDistance
 from ..testing.ssim import calculate_ssim
@@ -13,12 +14,20 @@ from ..dataset.dataset import VoxCelebDataset
 from ..dataset.transforms import Resize, GrayScale, ToTensor, Normalize
 from ..models.network import Network
 
+from utils.transforms import denormalize
+import numpy as np
+import cv2
+
 class Tester():
     def __init__(self, logger: Logger, options: Options, network: Network):
         self.logger = logger
         self.options = options
         self.network = network
         self.tag_prefix = self.options.tag_prefix
+
+        # TODO: maybe remove
+        torch.backends.cudnn.benchmark = True
+        init_seed_state(self.options)
 
         self.data_loader_test = self._get_data_loader(train_format=True)
         self.network.eval()
@@ -152,7 +161,7 @@ class Tester():
             landmarks_target = batch['landmark2'].detach().clone()
             images = torch.cat((images_source, landmarks_target, images_real, images_fake), dim=0)
 
-            if not while_train or (batch_num + 1) % (self.options.log_freq // 10) == 0:
+            if not while_train or (batch_num + 1) % self.options.log_freq_test == 0:
                 self.logger.save_image(gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=self.options.batch_size_test)
                 del images_real, images_fake, images, images_source, landmarks_target
             else:
@@ -162,3 +171,54 @@ class Tester():
 
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
+
+
+    def test_batch(self):
+        blank = torch.ones((self.options.channels, self.options.image_size, self.options.image_size)).to(self.options.device)
+        for batch_num, batch in enumerate(self.data_loader_test):
+
+            img_source = batch['image2'][self.options.batch_size_test // 2 : self.options.batch_size_test]
+            lm_source = batch['landmark2'][self.options.batch_size_test // 2 : self.options.batch_size_test]
+            img_target = batch['image1'][0:self.options.batch_size_test // 2]
+
+            targets = img_target[0:self.options.batch_size_test // 2]
+            for i in range(self.options.batch_size_test // 2):
+                t = img_target[i]
+                if i == 0:
+                    targets = t
+                else:
+                    targets = torch.cat((targets, t), dim=2)
+            targets = torch.cat((blank, targets), dim=2)
+
+            sources = img_source[self.options.batch_size_test // 2 : self.options.batch_size_test]
+            for i in range(self.options.batch_size_test // 2):
+                s = img_source[i]
+                if i == 0:
+                    sources = s
+                else:
+                    sources = torch.cat((sources, s), dim=1)
+
+            gen_total = None
+            for r in range(self.options.batch_size_test // 2):
+                gen_row = None
+                for c in range(self.options.batch_size_test // 2):
+                    lm_src = lm_source[r].unsqueeze(0)
+                    trg = img_target[c].unsqueeze(0)
+                    gen = self.network(trg, lm_src).squeeze(0)
+                    if c == 0:
+                        gen_row = gen
+                    else:
+                        gen_row = torch.cat((gen_row, gen), dim=2)
+                if r==0:
+                    gen_total = gen_row
+                else:
+                    gen_total = torch.cat((gen_total, gen_row), dim=1)
+
+            src_gen_cat = torch.cat((sources, gen_total), dim=2)
+            output = torch.cat((targets, src_gen_cat), dim=1)
+
+            output = denormalize(output, self.options.normalize[0], self.options.normalize[1])
+            output = output.cpu().numpy().transpose(1, 2, 0) * 255.0
+            output = output.clip(0.0, 255.0).astype(np.uint8)
+
+            cv2.imwrite(f'./results_testing/{batch_num}_output.png', output)

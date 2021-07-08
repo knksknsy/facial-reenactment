@@ -11,7 +11,8 @@
         "smooth": {
             "rolling": 15,
             "alpha": 0.33
-        }
+        },
+        "font_size": 16
     },
     "plots": [
         {
@@ -50,7 +51,7 @@
             ],
             "smoothing": true,
             "xlabel": "Iteration",
-            "ylabel": "Gradient Penalty",
+            "ylabel": "Gradient Penalty Loss",
             "filename": "loss_gp"
         },
         {
@@ -112,7 +113,7 @@
             "smoothing": true,
             "concat": true,
             "xlabel": "Iteration",
-            "ylabel": "Consistency Loss",
+            "ylabel": "Self-Consistency Loss",
             "filename": "loss_self"
         },
         {
@@ -131,7 +132,7 @@
             "smoothing": true,
             "concat": true,
             "xlabel": "Iteration",
-            "ylabel": "Triple Consistency Loss",
+            "ylabel": "Triple-Consistency Loss",
             "filename": "loss_triple"
         },
         {
@@ -169,7 +170,7 @@
             "smoothing": true,
             "concat": true,
             "xlabel": "Iteration",
-            "ylabel": "Identity Preserving Loss",
+            "ylabel": "Identity-Preservation Loss",
             "filename": "loss_id"
         },
         {
@@ -224,8 +225,9 @@
                 "#0000FF"
             ],
             "concat": true,
-            "xlabel": "Iteration",
-            "ylabel": "Learning Rates Schedules",
+            "sci_format": true,
+            "xlabel": "Epoch",
+            "ylabel": "Learning Rate",
             "filename": "learning_rates"
         },
         {
@@ -239,7 +241,7 @@
                 "#0000FF"
             ],
             "sci_format": false,
-            "xlabel": "Iteration",
+            "xlabel": "Epoch",
             "ylabel": "FID",
             "filename": "fid_validation"
         },

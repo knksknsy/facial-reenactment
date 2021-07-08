@@ -29,6 +29,8 @@ class TestOptions(Options):
 
         self.parser.add_argument('--tag_prefix', type=str, default=self.config['test']['tag_prefix'], help='Prefix for Tensorboard loggings.')
 
+        self.parser.add_argument('--seed', type=int, default=self.config['train']['seed'])
+
         # ARGUMENTS: DIRECTORIES
         self.parser.add_argument('--log_dir', type=str, default=self.config['paths']['log_dir'], help='Path where logs will be saved.')
 
@@ -51,7 +53,7 @@ class TestOptions(Options):
         # ARGUMENTS: DATASET
         self.parser.add_argument('--batch_size_test', type=int, default=self.config['test']['batch_size_test'])
 
-        self.parser.add_argument('--shuffle_test', action='store_false' if self.config['test']['shuffle_test'] else 'store_true')
+        self.parser.add_argument('--shuffle_test', action='store_true' if self.config['test']['shuffle_test'] else 'store_false')
 
         self.parser.add_argument('--log_freq_test', type=int, default=self.config['test']['log_freq_test'])
 
@@ -68,6 +70,8 @@ class TestOptions(Options):
         if self.method == Method.CREATION:
             self.parser.add_argument('--landmark_type', type=str, default=self.config['train']['landmark_type'], help='Facial landmark type: boundary | keypoint')
             self.check_error(self.config['train'], 'landmark_type', ['boundary', 'keypoint'])
+
+            self.parser.add_argument('--conv_blocks_d', default=self.config['train']['conv_blocks_d'], type=int, help='Number of convolutional layers in discriminator: 4 | 6')
 
         if self.method == Method.DETECTION:
             self.parser.add_argument('--threshold', default=self.config['train']['threshold'], type=float, help='Threshold for binary classification.')

@@ -75,7 +75,7 @@ train:
 
 test:
   batch_size_test: 32
-  shuffle_test: false                             # shuffle DataLoader during testing
+  shuffle_test: true                             # shuffle DataLoader during testing
   log_freq_test: 10
   num_workers_test: 2
   tag_prefix: 'Test'

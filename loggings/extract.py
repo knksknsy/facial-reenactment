@@ -152,7 +152,7 @@ class LogsExtractor():
         self.logger.log_info(f'Plots created for experiment "{name}" into: {experiment_path}')
 
 
-    def write_plot(self, csv_path, plot_path, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, sci_format=None, ignore_outliers=True, smooth={'rolling':15, 'alpha':0.33}, filename=None, format='.png'):
+    def write_plot(self, csv_path, plot_path, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, sci_format=None, ignore_outliers=True, smooth={'rolling':15, 'alpha':0.33}, font_size=24, filename=None, format='.png'):
         legend_handles, ylower, yupper = [], [], []
         dpi = 100
         figsize = (size[0] / dpi, size[1] / dpi)
@@ -203,8 +203,8 @@ class LogsExtractor():
             else:
                 data.plot(color=color, ax=ax)
 
-            ax.set_ylabel(ylabel)
-            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel, fontsize=font_size)
+            ax.set_xlabel(xlabel, fontsize=font_size)
             ax.grid(grid)
             
             # Format scientific notation
@@ -213,9 +213,14 @@ class LogsExtractor():
                 formatter.set_scientific(sci_ticks)
             else:
                 formatter.set_scientific(sci_format)
+
             formatter.set_powerlimits((-1,1))
             ax.yaxis.set_major_formatter(formatter)
             ax.xaxis.set_major_formatter(formatter)
+            ax.yaxis.offsetText.set_fontsize(font_size)
+            ax.xaxis.offsetText.set_fontsize(font_size)
+            ax.tick_params(axis='x', labelsize=font_size)
+            ax.tick_params(axis='y', labelsize=font_size)
 
             # Add legend
             legend_handles.append(mpatches.Patch(color=color, label=legend))

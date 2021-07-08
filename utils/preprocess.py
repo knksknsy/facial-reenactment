@@ -131,21 +131,21 @@ def extract_frames(video):
 
 
 def crop_frame(frame, landmarks, dimension, padding, method='pyplot'):
-        heatmap = plot_landmarks(landmarks=landmarks, landmark_type='boundary', channels=3, output_res=(frame.shape[0], frame.shape[1]), input_res=(frame.shape[0], frame.shape[1]), method=method)
+    heatmap = plot_landmarks(landmarks=landmarks, landmark_type='boundary', channels=3, output_res=(frame.shape[0], frame.shape[1]), input_res=(frame.shape[0], frame.shape[1]), method=method)
 
-        rows = np.any(heatmap, axis=1)
-        cols = np.any(heatmap, axis=0)
-        rmin, rmax = np.where(rows)[0][[0, -1]]
-        cmin, cmax = np.where(cols)[0][[0, -1]]
+    rows = np.any(heatmap, axis=1)
+    cols = np.any(heatmap, axis=0)
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
 
-        frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
-        
-        try:
-            frame = cv2.resize(frame, dimension)
-        except Exception as e:
-            return None
+    frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
+    
+    try:
+        frame = cv2.resize(frame, dimension)
+    except Exception as e:
+        return None
 
-        return frame
+    return frame
 
 
 def get_bounding_box(frame, landmarks, dimension, padding, method='cv2'):
@@ -208,10 +208,19 @@ def cv2_landmarks(landmarks, landmark_type, channels, output_res, input_res):
         [list(np.arange(60,68,1))+[60], white if channels == 1 else blue]
     ]
 
+    # black background
     if isinstance(output_res, int):
         image = np.zeros((output_res, output_res, channels), dtype=np.float32)
     elif isinstance(output_res, tuple):
         image = np.zeros((output_res[0], output_res[1], channels), dtype=np.float32)
+    
+    # # white background
+    # if isinstance(output_res, int):
+    #     image = np.ones((output_res, output_res, channels), dtype=np.float32)
+    #     image = image * 255.0
+    # elif isinstance(output_res, tuple):
+    #     image = np.ones((output_res[0], output_res[1], channels), dtype=np.float32)
+    #     image = image * 255.0
 
     for g in groups:
         for i in range(len(g[0]) - 1):

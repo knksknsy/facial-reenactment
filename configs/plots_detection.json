@@ -11,7 +11,8 @@
         "smooth": {
             "rolling": 15,
             "alpha": 0.33
-        }
+        },
+        "font_size": 16
     },
     "plots": [
         {
