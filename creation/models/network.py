@@ -99,6 +99,8 @@ class Network():
                     cooldown=2*self.options.plateau_patience,
                     min_lr=self.options.plateau_min_lr_d
                 )
+            else:#elif 'lr_linear_decay' in self.options.config['train']['optimizer']:
+                self.scheduler_G, self.scheduler_D = None, None
 
             if self.options.continue_id is not None:
                 self.G, self.optimizer_G, self.scheduler_G, self.continue_epoch, self.continue_iteration = self.load_model(self.G, self.optimizer_G, self.scheduler_G, self.options)

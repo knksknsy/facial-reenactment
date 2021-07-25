@@ -1,3 +1,4 @@
+from utils.utils import Mode
 from configs import Options
 from utils import Method
 
@@ -22,7 +23,8 @@ class DatasetOptions(Options):
         self.parser.add_argument('--output', type=str, required=True, help='Path to the folder where the pre-processed dataset will be stored.')
 
         # ARGUMENTS: INPUTS
-        self.parser.add_argument('--csv', type=str, required=True, help='Path to where the CSV file will be saved.')
+        if self.method != Mode.DATASET_CREATION:
+            self.parser.add_argument('--csv', type=str, required=True, help='Path to where the CSV file will be saved.')
 
         self.parser.add_argument('--max_frames', type=int, default=self.config['preprocessing']['max_frames'], help='Number of max frames to extract from a video.')
 
@@ -46,3 +48,6 @@ class DatasetOptions(Options):
         if self.method == Method.DETECTION:
             self.parser.add_argument('--methods', type=str, default=self.config['preprocessing']['methods'], help='Datasets in FaceForensics++ to be processed: Face2Face | NeuralTextures | Deepfakes | FaceShifter | FaceSwap')
             self.check_error(self.config['preprocessing'], 'methods', ['Face2Face', 'NeuralTextures', 'Deepfakes', 'FaceShifter', 'FaceSwap'])
+
+        if self.method == Mode.DATASET_CREATION:
+            self.parser.add_argument('--conversion', type=str, required=True, help='Path to conversion JSON.')

@@ -43,10 +43,10 @@ train:
   margin: 0.5
   grad_clip: 0                                    # use gradient clipping
   loss_weights:
-    l_mask: 0
+    l_mask: 0 #1.0e-3
     l_mask_sv: 2                                  # Mask regression type: supervised=1, unsupervised=2
   optimizer:
-    overwrite_optim: false                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
+    overwrite_optim: true                        # false: settings from checkpoints optimizer will be used; true: overwrite settings
     lr: 1.0e-3
     beta1: 0.9
     beta2: 0.999
@@ -58,14 +58,16 @@ train:
     #   step_size: 10                               # decay learning rate every epoch = step_size
     #   gamma: 0.1                                  # decay learning rate by: lr = lr * gamma
     lr_plateau_decay:                             # plateau based learning rate schedule: see torch.optim.lr_scheduler.ReduceLROnPlateau
-      plateau_mode: 'max'
+      plateau_mode: 'min'
       plateau_factor: 0.1
       plateau_patience: 10
       plateau_min_lr: 1.0e-6
+    #lr_cyclic_decay:
+    #  lr_max: 1.0e-3
 
 test:
   batch_size_test: 2
-  shuffle_test: false                             # shuffle DataLoader during testing
+  shuffle_test: true                             # shuffle DataLoader during testing
   log_freq_test: 100
   num_workers_test: 2
   tag_prefix: 'Test'
@@ -83,4 +85,4 @@ preprocessing:
   image_size_db: 224
   overwrite_videos: false
   prune_videos: false
-  methods: ['Face2Face', 'NeuralTextures']        # datasets in faceforensics++ to be processed
+  methods: ['Face2Face', 'NeuralTextures'] #['FaceSwap']         # datasets in faceforensics++ to be processed

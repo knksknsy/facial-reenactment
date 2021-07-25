@@ -111,10 +111,12 @@ def detect_face(frame, frames_total, fa, padding, padding_color, output_res, met
                 return frame, landmarks[0]
 
 
-def extract_frames(video):
+def extract_frames(video, n_frames=None):
     cap = cv2.VideoCapture(video)
 
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if n_frames is None:    
+        n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 

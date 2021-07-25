@@ -53,6 +53,7 @@
                 "#000000"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "Contrastive Loss",
             "filename": "test_loss_contrastive"
@@ -89,6 +90,7 @@
                 "#0000FF"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "Binary Cross Entropy Loss",
             "filename": "loss_bce"
@@ -107,6 +109,7 @@
                 "#0000FF"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "Total Loss Classification",
             "filename": "loss_class"
@@ -125,6 +128,7 @@
                 "#0000FF"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "Mask Loss",
             "filename": "loss_mask"
@@ -143,6 +147,7 @@
                 "#0000FF"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "Accuracy",
             "filename": "accuracy"
@@ -161,6 +166,7 @@
                 "#0000FF"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "AUC",
             "filename": "auc"
@@ -176,9 +182,51 @@
                 "#FF0000"
             ],
             "smoothing": false,
+            "ylog": true,
             "xlabel": "Epoch",
             "ylabel": "Learning Rate Schedules",
             "filename": "learning_rate"
+        },
+        {
+            "keys": [
+                "f_beta",
+                "test_f_beta"
+            ],
+            "legends": [
+                "f_beta",
+                "f_beta (val)"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF"
+            ],
+            "smoothing": false,
+            "ylog": true,
+            "xlabel": "Epoch",
+            "ylabel": "F Beta Score",
+            "filename": "f_beta"
+        },
+        {
+            "keys": [
+                "test_precision",
+                "test_recall",
+                "test_f_beta"
+            ],
+            "legends": [
+                "precision",
+                "recall",
+                "f_beta"
+            ],
+            "colors": [
+                "#FF0000",
+                "#0000FF",
+                "#00FF00"
+            ],
+            "smoothing": false,
+            "ylog": true,
+            "xlabel": "Epoch",
+            "ylabel": "Score",
+            "filename": "p_r_f_beta"
         }
     ]
 }

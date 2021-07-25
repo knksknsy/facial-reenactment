@@ -4,6 +4,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from datetime import datetime
 from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import average_precision_score
 
 from configs.train_options import TrainOptions
 from utils.models import lr_linear_schedule, init_seed_state
@@ -40,9 +41,9 @@ class Trainer():
         transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_train = FaceForensicsDataset(
-            self.options.max_frames if max_frames is None else max_frames, # TODO: fix hardcoding
-            self.options.dataset_train if dataset_train is None else dataset_train, # TODO: fix hardcoding
-            self.options.csv_train if csv_train is None else csv_train, # TODO: fix hardcoding
+            self.options.max_frames if max_frames is None else max_frames,
+            self.options.dataset_train if dataset_train is None else dataset_train,
+            self.options.csv_train if csv_train is None else csv_train,
             self.options.image_size,
             self.options.channels,
             transforms.Compose(transforms_list)
@@ -83,10 +84,10 @@ class Trainer():
                     test.test_feature(epoch)
                 # Test classification
                 else:
-                    accuracy = test.test_classification(epoch)
-                    # Decrease LR if accuracy stagnates
+                    metric = test.test_classification(epoch)
+                    # Decrease LR if metric stagnates
                     if 'lr_plateau_decay' in self.options.config['train']['optimizer']:
-                        self.network.scheduler.step(accuracy)
+                        self.network.scheduler.step(metric)
 
             # Create new tensorboard event for each epoch
             self.logger.init_writer(filename_suffix=f'.{str(epoch+1)}')
@@ -167,6 +168,9 @@ class Trainer():
                     self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
                     self.logger.log_image('Train_Mask_Feature', images, self.iterations, nrow=batch_size)
 
+            if 'lr_cyclic_decay' in self.options.config['train']['optimizer']:
+                self.network.scheduler.step()
+
             # Limit iterations per epoch
             self.iterations += 1
             if self.options.iterations > 0 and (batch_num + 1) % self.options.iterations == 0:
@@ -193,7 +197,9 @@ class Trainer():
         roc_auc = dict()
         total_target = None
         total_prediction = None
+        confusion_matrix = torch.zeros(2, 2).to(self.options.device)
 
+        # batch_size=128/2=64
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
             loss, losses_dict, target, output, mask = self.network.forward_classification(batch)
@@ -219,6 +225,12 @@ class Trainer():
                 total_target = torch.cat((total_target, target.view(-1)))
                 total_prediction = torch.cat((total_prediction, prediction_prob.view(-1)))
 
+            # CONFUSION MATRIX
+            for t, p in zip(target.view(-1), prediction.view(-1)):
+                confusion_matrix[t.long(), p.long()] += 1
+            # Get Per-class accuracy
+            # confusion_matrix.diag()/confusion_matrix.sum(1)
+
             # LOG RUN LOSS
             if (batch_num + 1) % self.options.log_freq == 0:
                 progress = get_progress(batch_num, len(self.data_loader_train), limit=self.options.iterations if self.options.iterations > 0 else None)
@@ -232,15 +244,48 @@ class Trainer():
                 run_total, run_correct = 0, 0
                 # LOG MASK
                 if self.options.l_mask > 0:
-                    _, _, m, = get_pair_classification(batch)
+                    _, _, m, _ = get_pair_classification(batch)
                     images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
                     self.logger.save_image(self.options.gen_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=self.iterations, nrow=batch_size)
                     self.logger.log_image('Train_Mask_Class', images, self.iterations, nrow=batch_size)
+
+            if 'lr_cyclic_decay' in self.options.config['train']['optimizer']:
+                self.network.scheduler.step()
 
             # Limit iterations per epoch
             self.iterations += 1
             if self.options.iterations > 0 and (batch_num + 1) % self.options.iterations == 0:
                 break
+
+        # F1-Score
+        tp = confusion_matrix[0,0].item()
+        fn = confusion_matrix[0,1].item()
+        fp = confusion_matrix[1,0].item()
+        tn = confusion_matrix[1,1].item()
+
+        beta = 2 # weigh recall more than precision 
+        try:
+            f_beta = ((1 + beta**2) * tp) / ((1 + beta**2) * tp + beta**2 * fn + fp)
+        except ZeroDivisionError:
+            f_beta = 0.0
+
+        self.logger.log_scalar('F_Beta', f_beta, epoch)
+
+        # Precision
+        try:
+            precision = tp / (tp + fp)
+        except ZeroDivisionError:
+            precision = 0.0 
+        # precision = tp / (tp + fp) if tp > 0 and fp > 0 else 0.0
+        self.logger.log_scalar('Precision', precision, epoch)
+
+        # Recall
+        try:
+            recall = tp / (tp + fn)
+        except ZeroDivisionError:
+            recall = 0.0
+        # recall = tp / (tp + fn) if tp > 0 and fn > 0 else 0.0
+        self.logger.log_scalar('Recall', recall, epoch)
 
         # LOG EPOCH LOSS
         epoch_loss = avg_losses(epoch_loss, self.iterations * batch_size)
@@ -248,9 +293,13 @@ class Trainer():
         self.logger.log_scalars(epoch_loss, epoch)
         self.logger.log_scalar('Accuracy', epoch_accuracy, epoch)
 
-        # LOG AUC
+        # LOG PRC
         total_target = total_target.detach().cpu().numpy()
         total_prediction = total_prediction.detach().cpu().numpy()
+        prc_auc = average_precision_score(total_target, total_prediction)
+        self.logger.log_scalar('PRC_AUC', prc_auc, epoch)
+
+        # LOG AUC
         fpr, tpr, _ = roc_curve(total_target, total_prediction)
         roc_auc = auc(fpr, tpr)
         self.logger.log_scalar('AUC', roc_auc, epoch)
@@ -259,4 +308,5 @@ class Trainer():
             f'End of Epoch {epoch + 1}: | '
             f'Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}'
         )
+        self.logger.log_info(f'Precision = {precision:.4f} | Recall = {recall:.4f} | F_Beta = {f_beta:.4f} | PRC_AUC = {prc_auc:.4f}')
         self.logger.log_infos(epoch_loss)

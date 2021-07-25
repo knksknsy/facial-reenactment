@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 import sys
 from io import StringIO
-from torchsummary import summary
+from torchinfo import summary
 
 from configs.options import Options
 from utils.models import init_weights
@@ -24,18 +24,25 @@ class SiameseResNet(nn.Module):
         classifier.append(Unsqueeze(1))                                                                   # B x 1 x len_feature
         classifier.append(nn.Conv1d(1, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False)) # B x num_feature x len_feature
         classifier.append(nn.BatchNorm1d(self.num_feature, affine=True, track_running_stats=True))
-        # classifier.append(nn.ReLU(inplace=True))
+        classifier.append(nn.ReLU(inplace=True))
         # # 11a_experiment
         # classifier.append(Swish())
-        # 11b_experiment
-        classifier.append(nn.LeakyReLU())
+        # # 11b_experiment
+        # classifier.append(nn.LeakyReLU())
         classifier.append(Flatten())                                                                      # B x num_feature*len_feature
         # # 16a_experiment
         # classifier.append(nn.Dropout(0.5))
+        # # final_experiment_extended_regularized
+        # classifier.append(nn.Dropout(0.2))
         classifier.append(nn.Linear(len_feature*self.num_feature, 1))                                     # B x 1
         # # TODO: !Logits
         # classifier.append(nn.Sigmoid())
         self.classifier = nn.Sequential(*classifier)
+        ################################################################
+        # self.c1 = nn.Conv1d(1, self.num_feature, kernel_size=3, stride=1, padding=1, bias=False)
+        # self.c2 = nn.BatchNorm1d(self.num_feature, affine=True, track_running_stats=True)
+        # self.c3 = nn.LeakyReLU()
+        # self.c4 = nn.Linear(len_feature*self.num_feature, 1)
 
         # # 7a2_experiment
         # classifier = []
@@ -118,6 +125,12 @@ class SiameseResNet(nn.Module):
 
         # Pre 7a and 7b experiment
         x = self.classifier(x)
+        # x = x.unsqueeze(1)
+        # x = self.c1(x)
+        # x = self.c2(x)
+        # x = self.c3(x)
+        # x = x.view(x.shape[0], -1)
+        # x = self.c4(x)
 
         # TODO: !Logits
         x = torch.sigmoid(x)
@@ -134,7 +147,8 @@ class SiameseResNet(nn.Module):
     def __str__(self):
         old_stdout = sys.stdout
         sys.stdout = new_stdout = StringIO()
-        summary(self.resnet, input_size=(self.options.channels, self.options.image_size, self.options.image_size), batch_size=self.options.batch_size, device=self.options.device)
+        #summary(self.resnet, input_size=(self.options.channels, self.options.image_size, self.options.image_size), batch_size=self.options.batch_size, device=self.options.device)
+        summary(self.resnet, input_size=(self.options.batch_size, self.options.channels, self.options.image_size, self.options.image_size), device=self.options.device, col_names=["input_size","output_size","num_params","kernel_size","mult_adds",], depth=5)
         sys.stdout = old_stdout
         return new_stdout.getvalue()
 
@@ -194,7 +208,9 @@ class LossSiamese(nn.Module):
         return loss, losses
 
 
-    def forward_classification(self, prediction, target, m, mask):
+    def forward_classification(self, prediction, target, m, mask, weights):
+        # 11b_classweights_f1_r08
+        self.bce_loss = nn.BCELoss(weight=weights)
         loss_bce = self.bce_loss(prediction, target)
         loss_mask = self.w_mask * self.mask_loss(m, mask) if self.w_mask > 0 else 0
         loss = loss_bce + loss_mask

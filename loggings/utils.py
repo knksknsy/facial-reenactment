@@ -36,7 +36,7 @@ def plot_confusion_matrix(filename, cm):
     plt.close(fig)
 
 
-def plot_roc_curve(filename, fpr, tpr, threshold, roc_auc):
+def plot_roc_curve(filename, fpr, tpr, threshold, roc_auc, optimal_idx):
     size = (500, 500)
     dpi = 100
     figsize = (size[0] / dpi, size[1] / dpi)
@@ -48,6 +48,7 @@ def plot_roc_curve(filename, fpr, tpr, threshold, roc_auc):
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     threshold = f'\nOptimal Threshold={threshold:.2f}' if threshold is not None else ''
+    plt.scatter(fpr[optimal_idx], tpr[optimal_idx], marker='o', color='black', label='Optimal Threshold')
     plt.xlabel(f'False Positive Rate{threshold}')
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic')
@@ -56,7 +57,7 @@ def plot_roc_curve(filename, fpr, tpr, threshold, roc_auc):
     plt.close(fig)
 
 
-def save_cm_roc(path:str, epoch: int, cm, fpr, tpr, threshold, roc_auc):
+def save_cm_roc(path:str, epoch: int, cm, fpr, tpr, thresholds, threshold, roc_auc):
     path = os.path.join(path, 'cm_roc')
     if not os.path.isdir(path):
         os.makedirs(path)
@@ -66,6 +67,7 @@ def save_cm_roc(path:str, epoch: int, cm, fpr, tpr, threshold, roc_auc):
     json_dict['roc'] = dict()
     json_dict['roc']['fpr'] = fpr.tolist()
     json_dict['roc']['tpr'] = tpr.tolist()
+    json_dict['roc']['thresholds'] = thresholds.tolist()
     json_dict['roc']['threshold'] = threshold
     json_dict['roc']['roc_auc'] = roc_auc
 
@@ -80,9 +82,66 @@ def load_cm_roc(path: str):
     cm = np.array(o['cm'])
     fpr = np.array(o['roc']['fpr'])
     tpr = np.array(o['roc']['tpr'])
+    thresholds = None
     threshold = None
     if 'threshold' in o['roc']:
         threshold = o['roc']['threshold']
+    if 'thresholds' in o['roc']:
+        thresholds = np.array(o['roc']['thresholds'])
     roc_auc = o['roc']['roc_auc']
 
-    return cm, fpr, tpr, threshold, roc_auc
+    return cm, fpr, tpr, thresholds, threshold, roc_auc
+
+
+def plot_prc_curve(filename, precision, recall, threshold, prc_auc, optimal_idx):
+    size = (500, 500)
+    dpi = 100
+    figsize = (size[0] / dpi, size[1] / dpi)
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+
+    lw = 2
+    plt.plot(recall, precision, color='red', lw=lw, label='PR curve (area = %0.2f)' % prc_auc)
+    plt.plot([0, 1], [0, 0], color='grey', lw=lw, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([-0.05, 1.05])
+    threshold = f'\nOptimal Threshold={threshold:.2f}' if threshold is not None else ''
+    plt.scatter(recall[optimal_idx], precision[optimal_idx], marker='o', color='black', label='Optimal Threshold')
+    plt.xlabel(f'Recall{threshold}')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall-Curve')
+    plt.legend(loc="best")
+    fig.savefig(filename, bbox_inches='tight')
+    plt.close(fig)
+
+def save_prc(path:str, epoch: int, precision, recall, thresholds, threshold, prc_auc):
+    path = os.path.join(path, 'prc_curve')
+    if not os.path.isdir(path):
+        os.makedirs(path)
+
+    json_dict = dict()
+    json_dict['prc'] = dict()
+    json_dict['prc']['precision'] = precision.tolist()
+    json_dict['prc']['recall'] = recall.tolist()
+    json_dict['prc']['thresholds'] = thresholds.astype(np.float64).tolist()
+    json_dict['prc']['threshold'] = threshold.astype(np.float64)
+    json_dict['prc']['prc_auc'] = prc_auc
+
+    path = os.path.join(path, f'prc_e_{epoch}.json')
+    json.dump(json_dict, codecs.open(path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=False, indent=4)
+
+
+def load_prc(path: str):
+    txt = codecs.open(path, 'r', encoding='utf-8').read()
+    o = json.loads(txt)
+
+    precision = np.array(o['prc']['precision'])
+    recall = np.array(o['prc']['recall'])
+    thresholds = None
+    threshold = None
+    if 'threshold' in o['prc']:
+        threshold = o['prc']['threshold']
+    if 'thresholds' in o['prc']:
+        thresholds = np.array(o['prc']['thresholds'])
+    prc_auc = o['prc']['prc_auc']
+
+    return precision, recall, thresholds, threshold, prc_auc

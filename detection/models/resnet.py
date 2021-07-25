@@ -33,6 +33,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        # self.dropout = nn.Dropout(0.2)
         self.fc = nn.Linear(512 * block.expansion, len_feature)
 
         self.regress_map = self.options.l_mask > 0 or self.options.l_mask_sv > 0
@@ -79,13 +80,15 @@ class ResNet(nn.Module):
             mask = self.map(x)
             x = x * mask                    # B x  64 x  32 x  32
 
-        x = self.layer2(x)                  # B x  64 x  16 x  16
+        x = self.layer2(x)                  # B x 128 x  16 x  16
         l3_output = self.layer3(x)          # B x 256 x   8 x   8
         l4_output = self.layer4(l3_output)  # B x 512 x   4 x   4
 		
 
         x = self.avgpool(l4_output)         # B x 512 x   1 x   1
         x = torch.flatten(x, 1)             # B x 512
+        # # dropout resnet
+        # x = self.dropout(x)
         x = self.fc(x)                      # B x 128
 
         if self.regress_map:

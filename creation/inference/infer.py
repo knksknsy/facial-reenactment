@@ -25,7 +25,6 @@ class Infer():
 
         self.fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
 
-
     def from_image(self, filename: str = None):
         self.logger.log_info(f'Source image: {self.source}')
         self.logger.log_info(f'Target image: {self.target}')
@@ -38,8 +37,8 @@ class Infer():
             target = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
 
         self.logger.log_info('Cropping, resizing, and extracting landmarks from source and target images...')
-        source, source_landmark = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
-        target, target_landmark = self.detect_crop_face(target, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+        source, source_landmark, _ = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+        target, target_landmark, _ = self.detect_crop_face(target, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
 
         if (source is None and source_landmark is None) or (target is None and target_landmark is None):
             self.logger.log_info('Could not find any faces!')
@@ -82,7 +81,7 @@ class Infer():
 
         if self.options.channels == 1:
             source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
-        source, source_landmark = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+        source, source_landmark, _ = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
         if self.options.channels == 1:
             source, source_landmark = source[:,:,None], source_landmark[:,:,None]
 
@@ -102,7 +101,7 @@ class Infer():
         for i, target_frame in enumerate(target_frames):
             if self.options.channels == 1:
                 target_frame = cv2.cvtColor(target_frame, cv2.COLOR_BGR2GRAY)
-            f, l = self.detect_crop_face(target_frame, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+            f, l, _ = self.detect_crop_face(target_frame, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
             if self.options.channels == 1:
                 f, l = f[:,:,None], l[:,:,None]
 
@@ -171,19 +170,19 @@ class Infer():
         landmarks = face_alignment.get_landmarks_from_image(frame)
         face_detected = landmarks is not None
         if not face_detected:
-            return None, None
+            return None, None, None
         else:
             landmarks = landmarks[0]
             frame = crop_frame(frame, landmarks, (224,224), padding, method='cv2')
             if frame is None:
-                return None, None
+                return None, None, None
             else:
                 landmarks = face_alignment.get_landmarks_from_image(frame)
                 face_detected = landmarks is not None
                 if not face_detected:
-                    return None, None
+                    return None, None, None
                 else:
-                    landmarks = plot_landmarks(landmarks[0], landmark_type=landmark_type, channels=channels, output_res=(frame.shape[0], frame.shape[1]), input_res=frame.shape[:2])
-                    landmarks = cv2.resize(landmarks, output_res)
+                    landmarks_plt = plot_landmarks(landmarks[0], landmark_type=landmark_type, channels=channels, output_res=(frame.shape[0], frame.shape[1]), input_res=frame.shape[:2])
+                    landmarks_plt = cv2.resize(landmarks_plt, output_res)
                     frame = cv2.resize(frame, output_res)
-                    return frame, landmarks
+                    return frame, landmarks_plt, landmarks[0]

@@ -47,16 +47,18 @@ def main(mode, method, description: str):
             if options.num_workers_test > 0: torch.multiprocessing.set_start_method('spawn')
 
             # Test single model
-            if options.model is not None:
+            if '.pth' in options.model.split(os.path.sep)[-1]:
                 network = Network(logger, options, model_path=options.model)
-                Tester(logger, options, network).test_classification(network.continue_epoch)
+                Tester(logger, options, network).test_classification(network.continue_epoch, inf=True)
 
             # Test multiple models
             else:
-                models = sorted([f for f in os.listdir(options.checkpoint_dir) if 'SiameseResNet' in f])
-                for model in models:
-                    network = Network(logger, options, model_path=os.path.join(options.checkpoint_dir, model))
-                    Tester(logger, options, network).test_classification(network.continue_epoch)
+                models = sorted([f for f in os.listdir(options.model) if 'SiameseResNet' in f])
+                for i in range(options.epochs_feature, len(models)):
+                    network = Network(logger, options, model_path=os.path.join(options.model, models[i]))
+                    Tester(logger, options, network).test_classification(network.continue_epoch, inf=True)
+
+            LogsExtractor(logger, options, options.log_dir, multiples=False, video_per_model=False, method=method).start()
 
 
         ##### INFERENCE #####

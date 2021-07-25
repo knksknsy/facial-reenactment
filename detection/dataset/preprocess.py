@@ -58,9 +58,12 @@ class PreprocessFaceForensics():
         )
         self.logger.log_info(f'Preprocessing {len(self.video_list)} videos...')
 
+        # id_list = ["id953","id974","id012","id026","id078","id955","id623","id630","id919","id015","id367","id371","id847","id906","id529","id633","id418","id507","id227","id169","id389","id480","id821","id812","id670","id661","id158","id379","id423","id421","id352","id319","id579","id701","id488","id399","id695","id422","id288","id321","id705","id707","id306","id278","id865","id739","id995","id233","id755","id759","id467","id462","id314","id347","id741","id731","id970","id973","id634","id660","id494","id445","id706","id479","id186","id170","id176","id190","id380","id358","id214","id255","id454","id527","id425","id485","id388","id308","id384","id932","id035","id036","id257","id420","id924","id917","id114","id102","id732","id691","id550","id452","id280","id249","id842","id714","id625","id650","id024","id073","id044","id945","id896","id128","id862","id047","id607","id683","id517","id521","id682","id669","id138","id142","id552","id851","id376","id381","id000","id003","id048","id029","id724","id725","id608","id675","id386","id154","id220","id219","id801","id855","id161","id141","id949","id868","id880","id135","id429","id404"]
+
         # Start preprocessing
         self.counter = 1
         for v in self.video_list:
+            # if v['id_real'] in id_list:
             start_time = datetime.now()
             self.process_video_folder(v, self.options.csv, self.options.output, num_frames=self.max_frames)
             self.logger.log_info(f"{self.counter}/{len(self.video_list)}: {v['output_fake_path']} saved | Time: {datetime.now() - start_time}")

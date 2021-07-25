@@ -118,6 +118,10 @@ class TrainOptions(Options):
             elif self.method == Method.DETECTION:
                 self.parser.add_argument('--plateau_min_lr', default=self.config['train']['optimizer']['lr_plateau_decay']['plateau_min_lr'], type=float)
 
+        if 'lr_cyclic_decay' in self.config['train']['optimizer']:
+            if self.method == Method.DETECTION:
+                self.parser.add_argument('--lr_max', default=self.config['train']['optimizer']['lr_cyclic_decay']['lr_max'], type=float)
+
         ##### CREATION #####
         if self.method == Method.CREATION:
             # ARGUMENTS: DATASET

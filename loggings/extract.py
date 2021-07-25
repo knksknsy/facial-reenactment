@@ -12,7 +12,7 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 from configs import LogsOptions
 from utils.utils import Method
 from loggings.logger import Logger
-from loggings.utils import load_cm_roc, plot_confusion_matrix, plot_roc_curve
+from loggings.utils import load_cm_roc, plot_confusion_matrix, plot_roc_curve, load_prc, plot_prc_curve
 
 class LogsExtractor():
     def __init__(self, logger: Logger, options: LogsOptions, experiments_path:str, multiples: bool, video_per_model: bool, method: Method):
@@ -57,6 +57,10 @@ class LogsExtractor():
             for aggregation in aggregations:
                 self.aggregate_cm_roc(**aggregation)
 
+            aggregations = self.get_meta_data_prc_curve(experiment_paths, experiment_names)
+            for aggregation in aggregations:
+                self.aggregate_prc_curve(**aggregation)
+
 
     def get_meta_data(self, experiment_paths, names):
         aggregations = []
@@ -84,6 +88,20 @@ class LogsExtractor():
                 'experiment_path': ep,
                 'cm_roc_paths': sorted([os.path.join(cm_roc_path, cm_roc) for cm_roc in os.listdir(cm_roc_path) if '.json' in cm_roc]),
                 'cm_roc_path': cm_roc_path
+            })
+        return aggregations
+
+
+    def get_meta_data_prc_curve(self, experiment_paths, names):
+        aggregations = []
+        for ep, name in zip(experiment_paths, names):
+            logs_dir = os.path.join(ep, 'logs')
+            prc_curve_path = os.path.join(logs_dir, 'prc_curve')
+            aggregations.append({
+                'name': name,
+                'experiment_path': ep,
+                'prc_curve_paths': sorted([os.path.join(prc_curve_path, prc_curve) for prc_curve in os.listdir(prc_curve_path) if '.json' in prc_curve]),
+                'prc_curve_path': prc_curve_path
             })
         return aggregations
 
@@ -152,7 +170,7 @@ class LogsExtractor():
         self.logger.log_info(f'Plots created for experiment "{name}" into: {experiment_path}')
 
 
-    def write_plot(self, csv_path, plot_path, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, sci_format=None, ignore_outliers=True, smooth={'rolling':15, 'alpha':0.33}, font_size=24, filename=None, format='.png'):
+    def write_plot(self, csv_path, plot_path, keys, legends, colors, xlabel, ylabel, concat=False, smoothing=False, size=(500,500), grid=True, sci_ticks=True, sci_format=None, ignore_outliers=True, ylog=False, smooth={'rolling':15, 'alpha':0.33}, font_size=24, filename=None, format='.png'):
         legend_handles, ylower, yupper = [], [], []
         dpi = 100
         figsize = (size[0] / dpi, size[1] / dpi)
@@ -203,6 +221,8 @@ class LogsExtractor():
             else:
                 data.plot(color=color, ax=ax)
 
+            if ylog:
+                ax.set_yscale('log')
             ax.set_ylabel(ylabel, fontsize=font_size)
             ax.set_xlabel(xlabel, fontsize=font_size)
             ax.grid(grid)
@@ -295,17 +315,41 @@ class LogsExtractor():
         
         for f in cm_roc_paths:
             # Read JSON
-            cm, fpr, tpr, threshold, roc_auc = load_cm_roc(f)
+            cm, fpr, tpr, thresholds, threshold, roc_auc = load_cm_roc(f)
+
+            optimal_idx = np.argmax(np.sqrt(tpr * (1 - fpr)))
+            if thresholds is not None:
+                threshold = thresholds[optimal_idx].item()
 
             filename_cm = f.replace('_roc_', '_').replace('.json', '.pdf')
             plot_confusion_matrix(filename_cm, cm)
             self.logger.log_info(f'Confusion Matrix {filename_cm} created.')
 
             filename_roc = f.replace('cm_roc_e', 'roc_e').replace('.json', '.pdf')
-            plot_roc_curve(filename_roc, fpr, tpr, threshold, roc_auc)
+            plot_roc_curve(filename_roc, fpr, tpr, threshold, roc_auc, optimal_idx)
             self.logger.log_info(f'ROC-AUC {filename_roc} created.')
 
         self.logger.log_info(f'Confusion Matrix and ROC-AUC created for experiment "{name}" into: {cm_roc_path}')
+
+
+    def aggregate_prc_curve(self, name, prc_curve_paths, experiment_path, prc_curve_path):
+        self.logger.log_info(f'Creating Precision-Recall-Curve for experiment "{name}"...')
+        
+        for f in prc_curve_paths:
+            # Read JSON
+            precision, recall, thresholds, threshold, prc_auc = load_prc(f)
+
+            beta = 2
+            f_beta = (1+beta**2) * ((precision * recall) / ((beta**2 * precision) + recall))
+            optimal_idx = np.argmax(f_beta)
+            if thresholds is not None:
+                threshold = thresholds[optimal_idx].item()
+
+            filename_prc = f.replace('.json', '.pdf')
+            plot_prc_curve(filename_prc, precision, recall, threshold, prc_auc, optimal_idx)
+            self.logger.log_info(f'prc-AUC {filename_prc} created.')
+
+        self.logger.log_info(f'PRC created for experiment "{name}" into: {prc_curve_path}')
 
 
     def aggregate_table(self, name, event_paths, experiment_path, csv_path, plot_path, checkpoints_path, video_path):

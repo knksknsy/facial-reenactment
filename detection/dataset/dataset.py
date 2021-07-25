@@ -111,21 +111,25 @@ def get_pair_feature(sample, real_pair: bool, device: str):
     return pair1, pair2, labels, mask1, mask2
 
 
+# batch_size=128/2=64 => fake64 + real64 -> batch_size=128
 def get_pair_classification(sample):
     image_real, image_fake = sample['image_real1'], sample['image_fake']
     mask_real, mask_fake = sample['mask_real1'], sample['mask_fake']
     label_real, label_fake = sample['label_real1'], sample['label_fake']
+    weights_real, weights_fake = (torch.ones((label_real.shape[0], 1)) * 0.8).to(device='cuda'), torch.ones((label_real.shape[0], 1)).to(device='cuda')
 
     images = torch.cat((image_real, image_fake), dim=0)
     masks = torch.cat((mask_real, mask_fake), dim=0)
     labels = torch.cat((label_real, label_fake), dim=0)
+    weights = torch.cat((weights_real, weights_fake), dim=0)
 
     indexes = torch.randperm(images.shape[0])
     images = images[indexes]
     masks = masks[indexes]
     labels = labels[indexes]
+    weights = weights[indexes]
 
-    return images, labels, masks
+    return images, labels, masks, weights
 
 
 # def get_triplet_feature(sample, real_pair: bool):

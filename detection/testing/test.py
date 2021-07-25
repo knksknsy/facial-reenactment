@@ -6,10 +6,11 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from datetime import datetime
 from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import precision_recall_curve, average_precision_score
 
 from configs.options import Options
 from loggings.logger import Logger
-from loggings.utils import plot_confusion_matrix, plot_roc_curve, save_cm_roc
+from loggings.utils import plot_confusion_matrix, plot_roc_curve, save_cm_roc, plot_prc_curve, save_prc
 from utils.utils import add_losses, avg_losses, get_progress, init_class_losses, init_feature_losses
 from ..dataset.dataset import FaceForensicsDataset, get_pair_classification, get_pair_feature
 from ..dataset.transforms import Resize, GrayScale, ToTensor, Normalize
@@ -35,7 +36,7 @@ class Tester():
         transforms_list = [t for t in transforms_list if t is not None]
 
         dataset_test = FaceForensicsDataset(
-            20, #self.options.max_frames, # TODO: 14b_experiment, 17a_experiment fix hard coding
+            20, # self.options.max_frames, # TODO: 14b_experiment, 14a_experiment 17a_experiment fix hard coding
             self.options.dataset_test,
             self.options.csv_test,
             self.options.image_size,
@@ -110,7 +111,7 @@ class Tester():
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
 
 
-    def test_classification(self, epoch=None):
+    def test_classification(self, epoch=None, inf=False):
         run_start = datetime.now()
 
         while_train = epoch is not None
@@ -179,12 +180,40 @@ class Tester():
                 run_total, run_correct = 0, 0
                 # LOG MASK
                 if self.options.l_mask > 0:
-                    _, _, m, = get_pair_classification(batch)
+                    _, _, m, _ = get_pair_classification(batch)
                     images = torch.cat((mask.detach().clone(), m.detach().clone()), dim=0)
                     self.logger.save_image(self.options.gen_test_dir, f't_{datetime.now():%Y%m%d_%H%M%S}', images, epoch=epoch, iteration=iterations, nrow=batch_size)
                     self.logger.log_image('Test_Mask_Class', images, iterations, nrow=batch_size)
 
             iterations += 1
+
+        # F1-Score
+        tp = confusion_matrix[0,0].item()
+        fn = confusion_matrix[0,1].item()
+        fp = confusion_matrix[1,0].item()
+        tn = confusion_matrix[1,1].item()
+
+        beta = 2 # weigh recall more than precision 
+        try:
+            f_beta = ((1 + beta**2) * tp) / ((1 + beta**2) * tp + beta**2 * fn + fp)
+        except ZeroDivisionError:
+            f_beta = 0.0
+
+        self.logger.log_scalar('F_Beta', f_beta, epoch, tag_prefix=self.tag_prefix)
+
+        # Precision
+        try:
+            precision = tp / (tp + fp)
+        except ZeroDivisionError:
+            precision = 0.0 
+        self.logger.log_scalar('Precision', precision, epoch, tag_prefix=self.tag_prefix)
+
+        # Recall
+        try:
+            recall = tp / (tp + fn)
+        except ZeroDivisionError:
+            recall = 0.0
+        self.logger.log_scalar('Recall', recall, epoch, tag_prefix=self.tag_prefix)
         
         # LOG EPOCH LOSS
         epoch_loss = avg_losses(epoch_loss, iterations * batch_size)
@@ -192,13 +221,29 @@ class Tester():
         self.logger.log_scalars(epoch_loss, epoch, tag_prefix=self.tag_prefix)
         self.logger.log_scalar('Accuracy', epoch_accuracy, epoch, tag_prefix=self.tag_prefix)
 
-        # LOG AUC
+        # LOG PRC
         total_target = total_target.detach().cpu().numpy()
         total_prediction = total_prediction.detach().cpu().numpy()
-        fpr, tpr, threshold = roc_curve(total_target, total_prediction)
+        precision_, recall_, prc_thresholds = precision_recall_curve(total_target, total_prediction)
+
+        f_beta_ = (1+beta**2) * ((precision_ * recall_) / ((beta**2 * precision_) + recall_))
+        prc_optimal_idx = np.argmax(f_beta_)
+        prc_threshold = prc_thresholds[prc_optimal_idx]
+        prc_auc = average_precision_score(total_target, total_prediction)
+        save_prc(self.options.log_dir, epoch, precision_, recall_, prc_thresholds, prc_threshold, prc_auc)
+        prc_curve_path = 'inf_prc_curve' if inf is True else 'prc_curve'
+        if not os.path.isdir(os.path.join(self.options.log_dir, prc_curve_path)):
+            os.makedirs(os.path.join(self.options.log_dir, prc_curve_path))
+        plot_prc_curve(os.path.join(self.options.log_dir, prc_curve_path, f'prc_e_{epoch}.pdf'), precision_, recall_, prc_threshold, prc_auc, prc_optimal_idx)
+        self.logger.log_scalar('PRC_AUC', prc_auc, epoch, tag_prefix=self.tag_prefix)
+
+
+        # LOG AUC
+        fpr, tpr, thresholds = roc_curve(total_target, total_prediction)
         # Find optimal threshold
-        optimal_idx = np.argmax(tpr - fpr)
-        threshold = threshold[optimal_idx].item()
+        #optimal_idx = np.argmax(tpr - fpr)
+        optimal_idx = np.argmax(np.sqrt(tpr * (1 - fpr)))
+        threshold = thresholds[optimal_idx].item()
         roc_auc = auc(fpr, tpr)
         self.logger.log_scalar('AUC', roc_auc, epoch, tag_prefix=self.tag_prefix)
 
@@ -207,11 +252,19 @@ class Tester():
             f'Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}'
         )
         self.logger.log_infos(epoch_loss)
-        save_cm_roc(self.options.log_dir, epoch, confusion_matrix, fpr, tpr, threshold, roc_auc)
-        plot_confusion_matrix(os.path.join(self.options.log_dir, 'cm_roc', f'cm_e_{epoch}.pdf'), confusion_matrix.detach().cpu().numpy())
-        plot_roc_curve(os.path.join(self.options.log_dir, 'cm_roc', f'roc_e_{epoch}.pdf'), fpr, tpr, threshold, roc_auc)
+        save_cm_roc(self.options.log_dir, epoch, confusion_matrix, fpr, tpr, thresholds, threshold, roc_auc)
+        cm_roc_path = 'inf_cm_roc' if inf is True else 'cm_roc'
+        if not os.path.isdir(os.path.join(self.options.log_dir, cm_roc_path)):
+            os.makedirs(os.path.join(self.options.log_dir, cm_roc_path))
+        plot_confusion_matrix(os.path.join(self.options.log_dir, cm_roc_path, f'cm_e_{epoch}.pdf'), confusion_matrix.detach().cpu().numpy())
+        plot_roc_curve(os.path.join(self.options.log_dir, cm_roc_path, f'roc_e_{epoch}.pdf'), fpr, tpr, threshold, roc_auc, optimal_idx)
+
+        self.logger.log_info(f'Precision = {precision:.4f} | Recall = {recall:.4f} | F_Beta = {f_beta:.4f} | PRC_AUC = {prc_auc:.4f}')
 
         run_end = datetime.now()
         self.logger.log_info(f'Testing finished in {run_end - run_start}.')
 
-        return epoch_accuracy
+        # return epoch_accuracy
+        # # return roc_auc
+        # # return f_beta
+        return loss

@@ -4,7 +4,7 @@ from typing import Tuple
 import torch
 from torch.nn import DataParallel
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
+from torch.optim.lr_scheduler import CyclicLR, ReduceLROnPlateau, StepLR
 from torch.nn.modules.module import Module
 from torch.optim.optimizer import Optimizer
 
@@ -72,6 +72,10 @@ class Network():
                     min_lr=self.options.plateau_min_lr
                 )
 
+            # Cycle based LR decay schedule
+            elif 'lr_cyclic_decay' in self.options.config['train']['optimizer']:
+                self.scheduler = CyclicLR(optimizer=self.optimizer, base_lr=self.options.lr, max_lr=self.options.lr_max, cycle_momentum=False)
+
             if self.options.continue_id is not None:
                 self.siamese_net, self.optimizer, self.scheduler, self.continue_epoch, self.continue_iteration = self.load_model(self.siamese_net, self.optimizer, self.scheduler, self.options)
 
@@ -95,11 +99,15 @@ class Network():
 
 
     def forward_classification(self, batch, backward: bool = True):
-        x, target, mask = get_pair_classification(batch)
+        # TODO: Freeze Feature Extractor Network
+        # for p in self.siamese_net.resnet.parameters():
+        #     p.requires_grad = False
+
+        x, target, mask, weights = get_pair_classification(batch)
 
         self.siamese_net.zero_grad()
         prediction, msk = self.siamese_net.forward_classification(x)
-        loss, losses = self.criterion.forward_classification(prediction, target, msk, mask)
+        loss, losses = self.criterion.forward_classification(prediction, target, msk, mask, weights)
 
         if not backward:
             return loss.detach().item(), losses, target, prediction, msk
@@ -128,6 +136,11 @@ class Network():
     def load_model(self, model: Module, optimizer: Optimizer, scheduler: object, options: Options) -> Tuple[Module, Optimizer, object, str, str]:
         filename = f'{type(model).__name__}_{options.continue_id}'
         state_dict = torch.load(os.path.join(options.checkpoint_dir, filename), map_location=torch.device('cpu') if options.device == 'cpu' else None)
+
+        # TODO: final_experiment_extended_regularized
+        #state_dict['model']['classifier.6.bias'] = state_dict['model'].pop('classifier.5.bias')
+        #state_dict['model']['classifier.6.weight'] = state_dict['model'].pop('classifier.5.weight')
+
         model.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
         if 'scheduler' in state_dict and state_dict['scheduler'] is not None and scheduler is not None:
