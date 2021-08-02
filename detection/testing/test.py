@@ -1,7 +1,12 @@
 import os
+from utils.transforms import denormalize, normalize
+from utils.models import init_seed_state
+from utils.preprocess import detect_crop_face
 import torch
+import cv2
 import numpy as np
 
+from face_alignment import FaceAlignment, LandmarksType
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from datetime import datetime
@@ -22,6 +27,10 @@ class Tester():
         self.options = options
         self.network = network
         self.tag_prefix = self.options.tag_prefix
+        self.pos_label = 0
+
+        torch.backends.cudnn.benchmark = True
+        init_seed_state(self.options, model_name='SiameseResNet')
 
         self.network.eval()
 
@@ -138,7 +147,7 @@ class Tester():
         for batch_num, batch in enumerate(self.data_loader_test):
             batch_start = datetime.now()
             with torch.no_grad():
-                loss, losses_dict, target, output, mask = self.network.forward_classification(batch, backward=False)
+                loss, losses_dict, target, output, mask, image = self.network.forward_classification(batch, backward=False)
             batch_end = datetime.now()
 
             # LOSS
@@ -224,12 +233,12 @@ class Tester():
         # LOG PRC
         total_target = total_target.detach().cpu().numpy()
         total_prediction = total_prediction.detach().cpu().numpy()
-        precision_, recall_, prc_thresholds = precision_recall_curve(total_target, total_prediction)
+        precision_, recall_, prc_thresholds = precision_recall_curve(total_target, total_prediction, pos_label=self.pos_label)
 
         f_beta_ = (1+beta**2) * ((precision_ * recall_) / ((beta**2 * precision_) + recall_))
         prc_optimal_idx = np.argmax(f_beta_)
         prc_threshold = prc_thresholds[prc_optimal_idx]
-        prc_auc = average_precision_score(total_target, total_prediction)
+        prc_auc = average_precision_score(total_target, total_prediction, pos_label=self.pos_label)
         save_prc(self.options.log_dir, epoch, precision_, recall_, prc_thresholds, prc_threshold, prc_auc)
         prc_curve_path = 'inf_prc_curve' if inf is True else 'prc_curve'
         if not os.path.isdir(os.path.join(self.options.log_dir, prc_curve_path)):
@@ -239,11 +248,7 @@ class Tester():
 
 
         # LOG AUC
-        fpr, tpr, thresholds = roc_curve(total_target, total_prediction)
-        # Find optimal threshold
-        #optimal_idx = np.argmax(tpr - fpr)
-        optimal_idx = np.argmax(np.sqrt(tpr * (1 - fpr)))
-        threshold = thresholds[optimal_idx].item()
+        fpr, tpr, thresholds = roc_curve(total_target, total_prediction, pos_label=self.pos_label)
         roc_auc = auc(fpr, tpr)
         self.logger.log_scalar('AUC', roc_auc, epoch, tag_prefix=self.tag_prefix)
 
@@ -252,12 +257,12 @@ class Tester():
             f'Accuracy = {epoch_accuracy:.4f} | AUC = {roc_auc:.4f}'
         )
         self.logger.log_infos(epoch_loss)
-        save_cm_roc(self.options.log_dir, epoch, confusion_matrix, fpr, tpr, thresholds, threshold, roc_auc)
+        save_cm_roc(self.options.log_dir, epoch, confusion_matrix, fpr, tpr, thresholds, pos_label=self.pos_label)
         cm_roc_path = 'inf_cm_roc' if inf is True else 'cm_roc'
         if not os.path.isdir(os.path.join(self.options.log_dir, cm_roc_path)):
             os.makedirs(os.path.join(self.options.log_dir, cm_roc_path))
         plot_confusion_matrix(os.path.join(self.options.log_dir, cm_roc_path, f'cm_e_{epoch}.pdf'), confusion_matrix.detach().cpu().numpy())
-        plot_roc_curve(os.path.join(self.options.log_dir, cm_roc_path, f'roc_e_{epoch}.pdf'), fpr, tpr, threshold, roc_auc, optimal_idx)
+        plot_roc_curve(os.path.join(self.options.log_dir, cm_roc_path, f'roc_e_{epoch}.pdf'), fpr, tpr, thresholds, pos_label=self.pos_label)
 
         self.logger.log_info(f'Precision = {precision:.4f} | Recall = {recall:.4f} | F_Beta = {f_beta:.4f} | PRC_AUC = {prc_auc:.4f}')
 
@@ -268,3 +273,107 @@ class Tester():
         # # return roc_auc
         # # return f_beta
         return loss
+
+
+    def test_batch(self):
+        self.data_loader_test = self._get_data_loader(batch_size=self.options.batch_size_test // 2)
+        tp = [] # 0,0
+        fn = [] # 0,1
+        fp = [] # 1,0
+        tn = [] # 1,1
+        tp_tp = []
+        fn_tp = []
+        fp_tp = []
+        tn_tp = []
+
+        for batch_num, batch in enumerate(self.data_loader_test):
+            with torch.no_grad():
+                _, _, target, output, _, image = self.network.forward_classification(batch, backward=False)
+
+            prediction, _ = torch.max((output > self.options.threshold).float()*1, 1)
+            prediction_prob, _ = torch.max(output, 1)
+
+            if batch_num <= 0:
+                total_target = target.view(-1)
+                total_prediction = prediction_prob.view(-1)
+            else:
+                total_target = torch.cat((total_target, target.view(-1)))
+                total_prediction = torch.cat((total_prediction, prediction_prob.view(-1)))#
+
+            for i, (t, p) in enumerate(zip(target.view(-1), prediction.view(-1))):
+                t = t.cpu().numpy()
+                p = p.cpu().numpy()
+
+                if t == 0 and p == 0:
+                    tp.append(image[i])
+                    tp_tp.append([t, p])
+                if t == 0 and p == 1:
+                    fn.append(image[i])
+                    fn_tp.append([t, p])
+                if t == 1 and p == 0:
+                    fp.append(image[i])
+                    fp_tp.append([t, p])
+                if t == 1 and p == 1:
+                    tn.append(image[i])
+                    tn_tp.append([t, p])
+
+        # Save images
+        cols = 8
+        self.save_image_rows(np.array(tp), trg_pred=np.array(tp_tp), n_cols=cols, path='./detection_results/tp')
+        self.save_image_rows(np.array(fn), trg_pred=np.array(fn_tp), n_cols=cols, path='./detection_results/fn')
+        self.save_image_rows(np.array(fp), trg_pred=np.array(fp_tp), n_cols=cols, path='./detection_results/fp')
+        self.save_image_rows(np.array(tn), trg_pred=np.array(tn_tp), n_cols=cols, path='./detection_results/tn')
+
+
+    def save_image_rows(self, images, trg_pred, n_cols, path):
+        if not os.path.isdir(path):
+            os.makedirs(path)
+
+        len_images = len(images)
+        color_fake = (0, 0, 255)
+        color_real = (0, 255, 0)
+        fa = FaceAlignment(LandmarksType._2D, device=self.options.device)
+
+        # Shuffle
+        idx = torch.randperm(images.shape[0])
+        images = images[idx]
+        trg_pred = trg_pred[idx]
+
+        for i in range(0, len_images, n_cols):
+            image_row = None
+
+            for j in range(i, i+n_cols):
+                st = datetime.now()
+                if i+n_cols >= len_images:
+                    break
+
+                img_tmp = images[j]
+                img_tmp = img_tmp.cpu().numpy().transpose(1, 2, 0) * 255.0
+                img_tmp = img_tmp.clip(0.0, 255.0).astype(np.uint8)
+                img_tmp, rmin, rmax, cmin, cmax = detect_crop_face(self.options.image_size, img_tmp, padding=self.options.padding, face_alignment=fa, crop=False)
+                rmin = np.clip(rmin, 0, img_tmp.shape[0])
+                rmax = np.clip(rmax, 0, img_tmp.shape[0])
+                cmin = np.clip(cmin, 0, img_tmp.shape[1])
+                cmax = np.clip(cmax, 0, img_tmp.shape[1])
+
+                # cv2.rectangle(img_tmp, (0, 0), (img_tmp.shape[1], img_tmp.shape[0]), color=color_fake if not trg_pred[j, 0] else color_real, thickness=2)
+                cv2.rectangle(img_tmp, (cmin, rmin), (cmax, rmax), color=color_fake if not trg_pred[j, 1] else color_real, thickness=2)
+
+                img_tmp = img_tmp.transpose(2, 0, 1)
+                images[j] = torch.from_numpy(img_tmp).to(self.options.device)
+
+                # Init row image
+                if j == i:
+                    image_row = images[j]
+                else:
+                    image_row = torch.cat((images[j], image_row), dim=2)
+
+            if image_row is None:
+                break
+
+            image_row = image_row.cpu().numpy().transpose(1, 2, 0)
+            image_row = image_row.clip(0.0, 255.0).astype(np.uint8)
+
+            cv2.imwrite(os.path.join(path, f'{i}.png'), image_row)
+            et = datetime.now()
+            self.logger.log_info(f'{et - st}')

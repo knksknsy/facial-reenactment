@@ -22,6 +22,7 @@ class Trainer():
         self.logger = logger
         self.options = options
         self.training = True
+        self.pos_label = 0
 
         torch.backends.cudnn.benchmark = True
         init_seed_state(self.options, model_name='SiameseResNet')
@@ -202,7 +203,7 @@ class Trainer():
         # batch_size=128/2=64
         for batch_num, batch in enumerate(self.data_loader_train):
             batch_start = datetime.now()
-            loss, losses_dict, target, output, mask = self.network.forward_classification(batch)
+            loss, losses_dict, target, output, mask, _ = self.network.forward_classification(batch)
             batch_end = datetime.now()
 
             # LOSS
@@ -296,11 +297,11 @@ class Trainer():
         # LOG PRC
         total_target = total_target.detach().cpu().numpy()
         total_prediction = total_prediction.detach().cpu().numpy()
-        prc_auc = average_precision_score(total_target, total_prediction)
+        prc_auc = average_precision_score(total_target, total_prediction, pos_label=self.pos_label)
         self.logger.log_scalar('PRC_AUC', prc_auc, epoch)
 
         # LOG AUC
-        fpr, tpr, _ = roc_curve(total_target, total_prediction)
+        fpr, tpr, _ = roc_curve(total_target, total_prediction, pos_label=self.pos_label)
         roc_auc = auc(fpr, tpr)
         self.logger.log_scalar('AUC', roc_auc, epoch)
 

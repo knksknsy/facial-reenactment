@@ -1,5 +1,4 @@
 import os
-from numpy.core.fromnumeric import std
 import torch
 import cv2
 import numpy as np
@@ -7,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from face_alignment import FaceAlignment, LandmarksType
 
-from utils.preprocess import crop_frame, extract_frames, get_bounding_box, plot_landmarks
+from utils.preprocess import detect_crop_face, extract_frames, get_bounding_box, plot_landmarks
 from utils.transforms import normalize
 
 from loggings.logger import Logger
@@ -38,7 +37,7 @@ class Infer():
         source_raw = cv2.imread(self.source, cv2.IMREAD_COLOR)
 
         self.logger.log_info('Cropping and resizing image...')
-        source, rmin, rmax, cmin, cmax = self.detect_crop_face(source_raw, padding=self.padding, face_alignment=self.fa)
+        source, rmin, rmax, cmin, cmax = detect_crop_face(self.options.image_size, source_raw, padding=self.padding, face_alignment=self.fa)
 
         # Pad bounding box
         rmin = np.clip(rmin - 2 * self.padding, 0, source_raw.shape[0])
@@ -79,7 +78,7 @@ class Infer():
         source_frames_filtered = []
         bounding_boxes = []
         for i, source_frame in enumerate(source_frames_raw):
-            f, rmin, rmax, cmin, cmax = self.detect_crop_face(source_frame, self.padding, face_alignment=self.fa)
+            f, rmin, rmax, cmin, cmax = detect_crop_face(self.options.image_size, source_frame, self.padding, face_alignment=self.fa)
             if f is not None:
                 f = cv2.cvtColor(f, cv2.COLOR_RGB2BGR)
                 source_frames_filtered.append(f)
@@ -134,19 +133,3 @@ class Infer():
         video_writer.release()
 
         self.logger.log_info(f'Detecting facial reenactment done. Video saved in {filename}.')
-
-
-    def detect_crop_face(self, frame, padding, face_alignment):
-        frame = cv2.copyMakeBorder(frame, padding, padding, padding, padding, cv2.BORDER_REPLICATE)
-        landmarks = face_alignment.get_landmarks_from_image(frame)
-        face_detected = landmarks is not None
-        if not face_detected:
-            return None, None
-        else:
-            landmarks = landmarks[0]
-            frame, rmin, rmax, cmin, cmax = get_bounding_box(frame, landmarks, (self.options.image_size,self.options.image_size), padding, method='cv2')
-
-            if frame is None:
-                return None, None
-                    
-            return frame, rmin, rmax, cmin, cmax

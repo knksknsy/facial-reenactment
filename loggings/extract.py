@@ -44,7 +44,6 @@ class LogsExtractor():
             if self.overwrite_plot or not os.path.isdir(aggregation['plot_path']):
                 self.aggregate_plots(**aggregation)
 
-            # TODO: implement inference for detection
             # Create video
             # if self.overwrite_video:
             #     self.save_video(**aggregation)
@@ -315,18 +314,14 @@ class LogsExtractor():
         
         for f in cm_roc_paths:
             # Read JSON
-            cm, fpr, tpr, thresholds, threshold, roc_auc = load_cm_roc(f)
-
-            optimal_idx = np.argmax(np.sqrt(tpr * (1 - fpr)))
-            if thresholds is not None:
-                threshold = thresholds[optimal_idx].item()
+            cm, fpr, tpr, thresholds, pos_label = load_cm_roc(f)
 
             filename_cm = f.replace('_roc_', '_').replace('.json', '.pdf')
             plot_confusion_matrix(filename_cm, cm)
             self.logger.log_info(f'Confusion Matrix {filename_cm} created.')
 
             filename_roc = f.replace('cm_roc_e', 'roc_e').replace('.json', '.pdf')
-            plot_roc_curve(filename_roc, fpr, tpr, threshold, roc_auc, optimal_idx)
+            plot_roc_curve(filename_roc, fpr, tpr, thresholds, pos_label=pos_label)
             self.logger.log_info(f'ROC-AUC {filename_roc} created.')
 
         self.logger.log_info(f'Confusion Matrix and ROC-AUC created for experiment "{name}" into: {cm_roc_path}')

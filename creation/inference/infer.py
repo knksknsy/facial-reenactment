@@ -29,40 +29,40 @@ class Infer():
         self.logger.log_info(f'Source image: {self.source}')
         self.logger.log_info(f'Target image: {self.target}')
 
-        source = cv2.imread(self.source, cv2.IMREAD_COLOR)
         target = cv2.imread(self.target, cv2.IMREAD_COLOR)
+        source = cv2.imread(self.source, cv2.IMREAD_COLOR)
         
         if self.options.channels == 1:
-            source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
             target = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
+            source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
 
         self.logger.log_info('Cropping, resizing, and extracting landmarks from source and target images...')
-        source, source_landmark, _ = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
         target, target_landmark, _ = self.detect_crop_face(target, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+        source, source_landmark, _ = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
 
-        if (source is None and source_landmark is None) or (target is None and target_landmark is None):
+        if (target is None and target_landmark is None) or (source is None and source_landmark is None):
             self.logger.log_info('Could not find any faces!')
             return
 
         if self.options.channels == 1:
-            source, source_landmark = source[:,:,None], source_landmark[:,:,None]
             target, target_landmark = target[:,:,None], target_landmark[:,:,None]
-
-        source = np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
-        source = torch.from_numpy(source * (1.0 / 255.0)).to(self.options.device)
-        source = normalize(source, mean=self.options.normalize[0], std=self.options.normalize[1])
+            source, source_landmark = source[:,:,None], source_landmark[:,:,None]
 
         target = np.ascontiguousarray(target.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
         target = torch.from_numpy(target * (1.0 / 255.0)).to(self.options.device)
         target = normalize(target, mean=self.options.normalize[0], std=self.options.normalize[1])
 
-        target_landmark = np.ascontiguousarray(target_landmark.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
-        target_landmark = torch.from_numpy(target_landmark * (1.0 / 255.0)).to(self.options.device)
-        target_landmark = normalize(target_landmark, mean=self.options.normalize[0], std=self.options.normalize[1])
+        source = np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        source = torch.from_numpy(source * (1.0 / 255.0)).to(self.options.device)
+        source = normalize(source, mean=self.options.normalize[0], std=self.options.normalize[1])
+
+        source_landmark = np.ascontiguousarray(source_landmark.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        source_landmark = torch.from_numpy(source_landmark * (1.0 / 255.0)).to(self.options.device)
+        source_landmark = normalize(source_landmark, mean=self.options.normalize[0], std=self.options.normalize[1])
 
         self.logger.log_info('Applying facial reenactment...')
-        output =  self.network(source, target_landmark)
-        image = torch.cat((source, target, target_landmark, output), dim=0)
+        output =  self.network(target, source_landmark)
+        image = torch.cat((target, source, source_landmark, output), dim=0)
         if filename is None:
             filename = f't_{datetime.now():%Y%m%d_%H%M%S}'
         else:
@@ -77,31 +77,31 @@ class Infer():
 
         # SOURCE IMAGE PREPROCESSING
         self.logger.log_info('Cropping, resizing, and extracting landmarks from source image...')
-        source = cv2.imread(self.source, cv2.IMREAD_COLOR)
+        target = cv2.imread(self.source, cv2.IMREAD_COLOR)
 
         if self.options.channels == 1:
-            source = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
-        source, source_landmark, _ = self.detect_crop_face(source, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+            target = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
+        target, target_landmark, _ = self.detect_crop_face(target, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
         if self.options.channels == 1:
-            source, source_landmark = source[:,:,None], source_landmark[:,:,None]
+            target, target_landmark = target[:,:,None], target_landmark[:,:,None]
 
-        if source is None and source_landmark is None:
+        if target is None and target_landmark is None:
             self.logger.log_info('Could not find any faces in source image!')
             return
 
-        source = np.ascontiguousarray(source.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
-        source = torch.from_numpy(source * (1.0 / 255.0)).to(self.options.device)
-        source = normalize(source, mean=self.options.normalize[0], std=self.options.normalize[1])
+        target = np.ascontiguousarray(target.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+        target = torch.from_numpy(target * (1.0 / 255.0)).to(self.options.device)
+        target = normalize(target, mean=self.options.normalize[0], std=self.options.normalize[1])
 
         # TARGET VIDEO PREPROCESSING
         self.logger.log_info('Cropping, resizing, and extracting landmarks from target video...')
-        target_frames = np.concatenate([extract_frames(self.target)])
-        target_frames_filtered = []
-        target_landmarks = []
-        for i, target_frame in enumerate(target_frames):
+        source_frames = np.concatenate([extract_frames(self.target)])
+        source_frames_filtered = []
+        source_landmarks = []
+        for i, source_frame in enumerate(source_frames):
             if self.options.channels == 1:
-                target_frame = cv2.cvtColor(target_frame, cv2.COLOR_BGR2GRAY)
-            f, l, _ = self.detect_crop_face(target_frame, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
+                source_frame = cv2.cvtColor(source_frame, cv2.COLOR_BGR2GRAY)
+            f, l, _ = self.detect_crop_face(source_frame, channels=self.options.channels, landmark_type=self.options.landmark_type, padding=self.options.padding, output_res=(self.options.image_size, self.options.image_size), face_alignment=self.fa)
             if self.options.channels == 1:
                 f, l = f[:,:,None], l[:,:,None]
 
@@ -110,33 +110,33 @@ class Infer():
                     f = cv2.cvtColor(f, cv2.COLOR_RGB2BGR)
                 f = f.transpose(2, 0 ,1) * (1.0 / 255.0)
                 f = normalize(f, mean=self.options.normalize[0], std=self.options.normalize[1])
-                target_frames_filtered.append(f)
-                target_landmarks.append(l)
-                print(f'[{i + 1}/{len(target_frames)}] done', end='\r')
+                source_frames_filtered.append(f)
+                source_landmarks.append(l)
+                print(f'[{i + 1}/{len(source_frames)}] done', end='\r')
 
-        if len(target_landmarks) == 0:
+        if len(source_landmarks) == 0:
             self.logger.log_info('Could not find any faces in target video!')
             return
 
         self.logger.log_info('Applying facial reenactment...')
         outputs = []
-        for i, target_landmark in enumerate(target_landmarks):
-            target_landmark = np.ascontiguousarray(target_landmark.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
-            target_landmark = torch.from_numpy(target_landmark * (1.0 / 255.0)).to(self.options.device)
-            target_landmark = normalize(target_landmark, mean=self.options.normalize[0], std=self.options.normalize[1])
+        for i, source_landmark in enumerate(source_landmarks):
+            source_landmark = np.ascontiguousarray(source_landmark.transpose(2, 0, 1)[None, :, :, :].astype(np.float32))
+            source_landmark = torch.from_numpy(source_landmark * (1.0 / 255.0)).to(self.options.device)
+            source_landmark = normalize(source_landmark, mean=self.options.normalize[0], std=self.options.normalize[1])
 
-            target_landmarks[i] = target_landmark.detach().cpu().numpy()[0, :, :, :]
+            source_landmarks[i] = source_landmark.detach().cpu().numpy()[0, :, :, :]
 
-            output = self.network(source, target_landmark).detach().cpu().numpy()[0, :, :, :]
+            output = self.network(target, source_landmark).detach().cpu().numpy()[0, :, :, :]
             outputs.append(output)
-            print(f'[{i + 1}/{len(target_landmarks)}] done', end='\r')
+            print(f'[{i + 1}/{len(source_landmarks)}] done', end='\r')
 
         # CONCAT IMAGES
         self.logger.log_info('Processing video...')
         outputs_cat = []
-        source = source.detach().cpu().numpy()[0, :, :, :]
-        for i, (t, l, o) in enumerate(zip(target_frames_filtered, target_landmarks, outputs)):
-            frame = torch.from_numpy(np.concatenate((source, t, l, o), axis=2)).to(self.options.device)
+        target = target.detach().cpu().numpy()[0, :, :, :]
+        for i, (s, l, o) in enumerate(zip(source_frames_filtered, source_landmarks, outputs)):
+            frame = torch.from_numpy(np.concatenate((target, s, l, o), axis=2)).to(self.options.device)
             o = self.logger.save_image(path=None, filename=None, image=frame, ret_image=True)
             outputs_cat.append(o)
 

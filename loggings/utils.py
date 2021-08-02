@@ -4,6 +4,7 @@ import codecs
 import json
 import numpy as np
 
+from sklearn.metrics import auc
 import matplotlib.pyplot as plt
 
 def plot_confusion_matrix(filename, cm):
@@ -36,18 +37,26 @@ def plot_confusion_matrix(filename, cm):
     plt.close(fig)
 
 
-def plot_roc_curve(filename, fpr, tpr, threshold, roc_auc, optimal_idx):
+def plot_roc_curve(filename, fpr, tpr, thresholds, pos_label=1):
+    if pos_label == 0:
+        tpr, fpr = fpr, tpr
+
+    # Find optimal threshold
+    optimal_idx = np.argmax(tpr-fpr)
+    threshold = thresholds[optimal_idx].item()
+    roc_auc = auc(tpr, fpr) if pos_label > 0 else auc(fpr, tpr)
+
     size = (500, 500)
     dpi = 100
     figsize = (size[0] / dpi, size[1] / dpi)
     fig = plt.figure(figsize=figsize, dpi=dpi)
-
     lw = 2
-    plt.plot(fpr, tpr, color='red', lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
+        
+    plt.plot(fpr, tpr, color='red', lw=lw, label=f'ROC curve (area = {roc_auc:.4f})')
     plt.plot([0, 1], [0, 1], color='grey', lw=lw, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
-    threshold = f'\nOptimal Threshold={threshold:.2f}' if threshold is not None else ''
+    threshold = f'\nOptimal Threshold={threshold:.4f}' if threshold is not None else ''
     plt.scatter(fpr[optimal_idx], tpr[optimal_idx], marker='o', color='black', label='Optimal Threshold')
     plt.xlabel(f'False Positive Rate{threshold}')
     plt.ylabel('True Positive Rate')
@@ -57,7 +66,7 @@ def plot_roc_curve(filename, fpr, tpr, threshold, roc_auc, optimal_idx):
     plt.close(fig)
 
 
-def save_cm_roc(path:str, epoch: int, cm, fpr, tpr, thresholds, threshold, roc_auc):
+def save_cm_roc(path:str, epoch: int, cm, fpr, tpr, thresholds, pos_label):
     path = os.path.join(path, 'cm_roc')
     if not os.path.isdir(path):
         os.makedirs(path)
@@ -68,8 +77,7 @@ def save_cm_roc(path:str, epoch: int, cm, fpr, tpr, thresholds, threshold, roc_a
     json_dict['roc']['fpr'] = fpr.tolist()
     json_dict['roc']['tpr'] = tpr.tolist()
     json_dict['roc']['thresholds'] = thresholds.tolist()
-    json_dict['roc']['threshold'] = threshold
-    json_dict['roc']['roc_auc'] = roc_auc
+    json_dict['roc']['pos_label'] = pos_label
 
     path = os.path.join(path, f'cm_roc_e_{epoch}.json')
     json.dump(json_dict, codecs.open(path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=False, indent=4)
@@ -83,14 +91,12 @@ def load_cm_roc(path: str):
     fpr = np.array(o['roc']['fpr'])
     tpr = np.array(o['roc']['tpr'])
     thresholds = None
-    threshold = None
-    if 'threshold' in o['roc']:
-        threshold = o['roc']['threshold']
     if 'thresholds' in o['roc']:
         thresholds = np.array(o['roc']['thresholds'])
-    roc_auc = o['roc']['roc_auc']
+    if 'pos_label' in o['roc']:
+        pos_label = o['roc']['pos_label']
 
-    return cm, fpr, tpr, thresholds, threshold, roc_auc
+    return cm, fpr, tpr, thresholds, pos_label
 
 
 def plot_prc_curve(filename, precision, recall, threshold, prc_auc, optimal_idx):

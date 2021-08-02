@@ -25,7 +25,6 @@ class Tester():
         self.network = network
         self.tag_prefix = self.options.tag_prefix
 
-        # TODO: maybe remove
         torch.backends.cudnn.benchmark = True
         init_seed_state(self.options)
 

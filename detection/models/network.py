@@ -99,7 +99,7 @@ class Network():
 
 
     def forward_classification(self, batch, backward: bool = True):
-        # TODO: Freeze Feature Extractor Network
+        # Freeze Feature Extractor Network
         # for p in self.siamese_net.resnet.parameters():
         #     p.requires_grad = False
 
@@ -110,9 +110,9 @@ class Network():
         loss, losses = self.criterion.forward_classification(prediction, target, msk, mask, weights)
 
         if not backward:
-            return loss.detach().item(), losses, target, prediction, msk
+            return loss.detach().item(), losses, target, prediction, msk, x
 
-        return self.backward(loss), losses, target, prediction, msk
+        return self.backward(loss), losses, target, prediction, msk, x
 
 
     def backward(self, loss):

@@ -209,8 +209,8 @@ class LossSiamese(nn.Module):
 
 
     def forward_classification(self, prediction, target, m, mask, weights):
-        # 11b_classweights_f1_r08
-        self.bce_loss = nn.BCELoss(weight=weights)
+        # # 11b_classweights_f1_r08
+        # self.bce_loss = nn.BCELoss(weight=weights)
         loss_bce = self.bce_loss(prediction, target)
         loss_mask = self.w_mask * self.mask_loss(m, mask) if self.w_mask > 0 else 0
         loss = loss_bce + loss_mask

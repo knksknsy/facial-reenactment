@@ -57,6 +57,7 @@ def main(mode, method, description: str):
                 for i in range(options.epochs_feature, len(models)):
                     network = Network(logger, options, model_path=os.path.join(options.model, models[i]))
                     Tester(logger, options, network).test_classification(network.continue_epoch, inf=True)
+                    # Tester(logger, options, network).test_batch()
 
             LogsExtractor(logger, options, options.log_dir, multiples=False, video_per_model=False, method=method).start()
 

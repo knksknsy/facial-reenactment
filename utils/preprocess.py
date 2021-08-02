@@ -111,6 +111,23 @@ def detect_face(frame, frames_total, fa, padding, padding_color, output_res, met
                 return frame, landmarks[0]
 
 
+def detect_crop_face(shape, frame, padding, face_alignment, crop=True):
+    if crop:
+        frame = cv2.copyMakeBorder(frame, padding, padding, padding, padding, cv2.BORDER_REPLICATE)
+    landmarks = face_alignment.get_landmarks_from_image(frame)
+    face_detected = landmarks is not None
+    if not face_detected:
+        return None, None
+    else:
+        landmarks = landmarks[0]
+        frame, rmin, rmax, cmin, cmax = get_bounding_box(frame, landmarks, (shape,shape), padding, method='cv2', crop=crop)
+
+        if frame is None:
+            return None, None
+                
+        return frame, rmin, rmax, cmin, cmax
+
+
 def extract_frames(video, n_frames=None):
     cap = cv2.VideoCapture(video)
 
@@ -150,7 +167,7 @@ def crop_frame(frame, landmarks, dimension, padding, method='pyplot'):
     return frame
 
 
-def get_bounding_box(frame, landmarks, dimension, padding, method='cv2'):
+def get_bounding_box(frame, landmarks, dimension, padding, method='cv2', crop=True):
     heatmap = plot_landmarks(landmarks=landmarks, landmark_type='boundary', channels=3, output_res=(frame.shape[0], frame.shape[1]), input_res=(frame.shape[0], frame.shape[1]), method=method)
 
     rows = np.any(heatmap, axis=1)
@@ -158,7 +175,8 @@ def get_bounding_box(frame, landmarks, dimension, padding, method='cv2'):
     rmin, rmax = np.where(rows)[0][[0, -1]]
     cmin, cmax = np.where(cols)[0][[0, -1]]
 
-    frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
+    if crop:
+        frame = frame[rmin-padding:rmax+padding, cmin-padding:cmax+padding]
     
     try:
         frame = cv2.resize(frame, dimension)
