@@ -21,6 +21,38 @@ $ conda install --file requirements.txt
 * [FaceForensics++](https://docs.google.com/forms/d/e/1FAIpQLSdRRR3L5zAv6tQ_CKxmK4W96tAab_pfBu2EKAgQbeDVhmXagg/viewform)
 * or facial dataset of choice
 
+### Pretrained Models
+[Download](https://drive.google.com/drive/folders/1529CFUjnNGYuloE16MwrYZwgLISGBv25?usp=sharing)
+
+### FR Creation Inference
+#### Grayscale Model 7
+```
+$ python run_creation.py infer  \
+                --device cuda   \
+                --source <PATH> \   # Path to source image or video
+                --target <PATH> \   # Path to target image
+                --model /media/models/creation/exp7/Generator_t20210311_2251_e029_i00037500.pth \
+                --config ./configs/config_creation_model7.yaml
+```
+#### RGB Model 11
+```
+$ python run_creation.py infer  \
+                --device cuda   \
+                --source <PATH> \   # Path to source image or video
+                --target <PATH> \   # Path to target image
+                --model /media/models/creation/exp11/Generator_t20210401_1236_e029_i00150000.pth \
+                --config ./configs/config_creation_model11.yaml
+```
+### FR Detection Inference
+#### Model 6
+```
+$ python run_detection.py infer \
+                --device cuda   \
+                --source <PATH> \   # Path to image or video
+                --model /media/models/detection/exp6/SiameseResNet_t20210416_2034_e019_i00010710.pth \
+                --config ./configs/config_detection_model6.yaml
+```
+
 ### Executing FR creation program
 
 * Create facial dataset with facial landmarks extraction:
@@ -97,6 +129,3 @@ $ python run_detection.py infer \
                 --model <PATH>          # Path to FR detection model
                 --config <PATH>         # Path to YAML config file for further settings (see ./configs/config.yaml)
 ```
-
-### Pretrained Models
-[Download](https://drive.google.com/drive/folders/1529CFUjnNGYuloE16MwrYZwgLISGBv25?usp=sharing)
