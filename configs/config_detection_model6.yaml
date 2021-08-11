@@ -5,17 +5,17 @@ pin_memory: false                                 # if true: 'device' must be se
 num_workers: 4                                    # >0: faster data loading, increased GPU usage
 
 paths:
-  log_dir: /home/kaan/facial-reenactment/logs
-  checkpoint_dir: /home/kaan/facial-reenactment/checkpoints
-  gen_dir: /home/kaan/facial-reenactment/generated_train
-  gen_test_dir: /home/kaan/facial-reenactment/generated_test
-  output_dir: /home/kaan/facial-reenactment/outputs
+  log_dir: /home/kaan/facial-reenactment/model6/logs
+  checkpoint_dir: /home/kaan/facial-reenactment/model6/checkpoints
+  gen_dir: /home/kaan/facial-reenactment/model6/generated_train
+  gen_test_dir: /home/kaan/facial-reenactment/model6/generated_test
+  output_dir: /home/kaan/facial-reenactment/model6/outputs
 
 dataset:
-  dataset_train: /home/kaan/datasets/FaceForensics/Preprocessed/dev/
-  dataset_test: /home/kaan/datasets/FaceForensics/Preprocessed/test/
-  csv_train: ./csv/faceforensics_dev.csv
-  csv_test: ./csv/faceforensics_test.csv
+  dataset_train: "/media/Beta/facial-reenactment/datasets/FaceForensics/Preprocessed/dev/"
+  dataset_test: "/media/Beta/facial-reenactment/datasets/FaceForensics/Preprocessed/test/"
+  csv_train: "/media/Beta/facial-reenactment/datasets/FaceForensics/csv/faceforensics_dev.csv"
+  csv_test: "/media/Beta/facial-reenactment/datasets/FaceForensics/csv/faceforensics_test.csv"
   image_size: 128
   mask_size: 32
   channels: 3
