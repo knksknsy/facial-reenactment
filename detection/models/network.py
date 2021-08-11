@@ -27,7 +27,7 @@ class Network():
         # Testing mode
         if self.model_path is not None:
             self.siamese_net = SiameseResNet(self.options, len_feature=self.options.len_feature)
-            state_dict = torch.load(self.model_path)
+            state_dict = torch.load(self.model_path, map_location=torch.device('cpu') if self.options.device == 'cpu' else None)
             self.siamese_net.load_state_dict(state_dict['model'])
             self.continue_epoch = state_dict['epoch']
 

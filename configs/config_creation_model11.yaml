@@ -1,21 +1,21 @@
 # Default settings
 
-device: cuda
+device: cpu
 pin_memory: false                                 # if true: 'device' must be set to 'cpu'
-num_workers: 4                                    # >0: faster data loading, increased GPU usage
+num_workers: 0                                    # >0: faster data loading, increased GPU usage
 
 paths:
-  log_dir: /home/kaan/facial-reenactment/logs
-  checkpoint_dir: /home/kaan/facial-reenactment/checkpoints
-  gen_dir: /home/kaan/facial-reenactment/generated_train
-  gen_test_dir: /home/kaan/facial-reenactment/generated_test
-  output_dir: /home/kaan/facial-reenactment/outputs
+  log_dir: /Users/Dschengis/facial-reenactment/model11/logs
+  checkpoint_dir: /Users/Dschengis/facial-reenactment/model11/checkpoints
+  gen_dir: /Users/Dschengis/facial-reenactment/model11/generated_train
+  gen_test_dir: /Users/Dschengis/facial-reenactment/model11/generated_test
+  output_dir: /Users/Dschengis/facial-reenactment/model11/outputs
 
 dataset:
-  dataset_train: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/dev/
-  dataset_test: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/
-  csv_train: ./csv/voxceleb_crop_ids_dev.csv
-  csv_test: ./csv/voxceleb_crop_test.csv
+  dataset_train: "/Volumes/1\ TB\ Data/facial-reenactment/datasets/VoxCeleb2/CropPreprocessed/dev/"
+  dataset_test: "/Volumes/1\ TB\ Data/facial-reenactment/datasets/VoxCeleb2/CropPreprocessed/test/"
+  csv_train: "/Volumes/1\ TB\ Data/facial-reenactment/datasets/VoxCeleb2/csv/CropPreprocessed/voxceleb2_crop_dev.csv"
+  csv_test: "/Volumes/1\ TB\ Data/facial-reenactment/datasets/VoxCeleb2/csv/CropPreprocessed/voxceleb2_crop_test.csv"
   image_size: 128
   channels: 3
   normalize: [0.5,0.5]                            # input normalization: [mean:0.5,std:0.5] -> min:-1;max:1
@@ -84,8 +84,8 @@ logs:
   overwrite_csv: false
   overwrite_plot: true
   overwrite_video: true
-  v_img_source: /home/kaan/datasets/VoxCeleb2/CropIdsPreprocessed/test/id00017/5MkXgwdrmJw/1.png
-  v_vid_target: /home/kaan/datasets/VoxCeleb2/Videos/test/id01567/1Lx_ZqrK1bM/00001.mp4
+  v_img_source: "/Volumes/1\ TB\ Data/facial-reenactment/datasets/VoxCeleb2/CropPreprocessed/test/id00017/5MkXgwdrmJw/1.png"
+  v_vid_target: "/Volumes/1\ TB\ Data/facial-reenactment/datasets/VoxCeleb2/Videos/test/id01567/1Lx_ZqrK1bM/00001.mp4"
 
 preprocessing:
   num_pairs: 3                                    # number of training pairs (frames) to extract from a video

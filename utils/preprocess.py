@@ -274,9 +274,15 @@ def pyplot_landmarks(landmarks, landmark_type, channels, output_res, input_res):
     ax.axis('off')
 
     if isinstance(output_res, int):
-        plt.imshow(np.zeros((output_res, output_res, channels)))
+        if channels >= 3:    
+            plt.imshow(np.zeros((output_res, output_res, channels)))
+        else:
+            plt.imshow(np.zeros((output_res, output_res)))
     elif isinstance(output_res, tuple):
-        plt.imshow(np.zeros((output_res[0], output_res[1], channels)))
+        if channels >= 3:
+            plt.imshow(np.zeros((output_res[0], output_res[1], channels)))
+        else:
+            plt.imshow(np.zeros((output_res[0], output_res[1])))
         
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 

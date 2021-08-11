@@ -25,12 +25,12 @@ class Network():
         if self.model_path is not None:
             # Load Generator
             self.G = Generator(self.options)
-            state_dict_G = torch.load(self.model_path)
+            state_dict_G = torch.load(self.model_path, map_location=torch.device('cpu') if self.options.device == 'cpu' else None)
             self.G.load_state_dict(state_dict_G['model'])
             self.continue_epoch = state_dict_G['epoch']
             # Load Discriminator
             self.D = Discriminator(self.options)
-            state_dict_D = torch.load(self.model_path.replace('Generator', 'Discriminator'))
+            state_dict_D = torch.load(self.model_path.replace('Generator', 'Discriminator'), map_location=torch.device('cpu') if self.options.device == 'cpu' else None)
             self.D.load_state_dict(state_dict_D['model'])
 
             self.criterion_G = LossG(self.logger, self.options, vgg_device=self.options.device, lightcnn_device=self.options.device)
